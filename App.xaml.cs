@@ -3,6 +3,7 @@ using BF_STT.ViewModels;
 using Microsoft.Extensions.Configuration;
 using System.IO;
 using System.Net.Http;
+using System.Reflection;
 using System.Windows;
 
 namespace BF_STT
@@ -16,8 +17,24 @@ namespace BF_STT
         {
             // Load configuration
             var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                .SetBasePath(Directory.GetCurrentDirectory());
+
+            // 1. Read from Embedded Resource (Internal default)
+            var assembly = Assembly.GetExecutingAssembly();
+            var resourceName = "BF_STT.appsettings.json";
+            var resourceStream = assembly.GetManifestResourceStream(resourceName);
+            if (resourceStream != null)
+            {
+                // We must copy to a MemoryStream because AddJsonStream might read it later during Build(),
+                // and the original stream would be disposed if we used a 'using' block here.
+                var ms = new MemoryStream();
+                resourceStream.CopyTo(ms);
+                ms.Position = 0;
+                builder.AddJsonStream(ms);
+            }
+
+            // 2. Read from External File (Optional override)
+            builder.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
 
             Configuration = builder.Build();
 

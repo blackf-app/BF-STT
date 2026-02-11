@@ -40,12 +40,19 @@ Trước khi chạy ứng dụng, bạn cần có API Key từ Deepgram.
 }
 ```
 
-### 3. Build dự án
+### 3. Build và Chạy dự án
 Bạn có thể sử dụng Visual Studio 2022 hoặc .NET CLI:
 ```bash
 dotnet build
 dotnet run
 ```
+
+### 4. Xuất bản thành file duy nhất (Single EXE)
+Để tạo ra một file `.exe` duy nhất bao gồm tất cả thư viện và file cấu hình, hãy chạy lệnh sau trong PowerShell:
+```powershell
+dotnet publish -c Release -o ./publish
+```
+Sau khi chạy xong, file `BF-STT.exe` sẽ nằm trong thư mục `publish`. Bạn có thể mang file này đi sử dụng ở bất kỳ máy Windows x64 nào mà không cần cài đặt thêm.
 
 ## ⌨️ Cách sử dụng
 

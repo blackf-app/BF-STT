@@ -69,6 +69,12 @@ Sau khi chạy xong, file `BF-STT.exe` sẽ nằm trong thư mục `publish`. B�
 - `Models/`: Các định dạng dữ liệu.
 - `MainWindow.xaml`: Giao diện chính của ứng dụng.
 
+## 🤖 Workflows
+
+Dự án này hỗ trợ các workflow tự động thông qua agent:
+
+- **publish**: Thực thi lệnh `dotnet publish -c Release -o ./publish` để đóng gói ứng dụng. Để chạy, hãy nhập `/publish` trong khung chat với agent.
+
 ## 📄 Giấy phép
 
 Dự án này được phát triển cho mục đích cá nhân và cộng đồng. Bạn có thể tự do chỉnh sửa và sử dụng.

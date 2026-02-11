@@ -61,9 +61,9 @@ namespace BF_STT.Services
             // Give it a moment to gain focus
             Thread.Sleep(100);
 
-            // Send keys
-            // Using SendKeys from System.Windows.Forms
-            System.Windows.Forms.SendKeys.SendWait(text);
+            // Copy text to clipboard and paste (Ctrl+V) to fill all at once
+            System.Windows.Clipboard.SetText(text);
+            System.Windows.Forms.SendKeys.SendWait("^v");
         }
     }
 }

@@ -1,0 +1,130 @@
+﻿<Window x:Class="BF_STT.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:BF_STT"
+        xmlns:vm="clr-namespace:BF_STT.ViewModels"
+        xmlns:tb="http://www.hardcodet.net/taskbar"
+        mc:Ignorable="d"
+        Title="BF-STT"
+        Background="#1E1E1E" Foreground="White"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        Topmost="True"
+        ShowInTaskbar="False"
+        Loaded="Window_Loaded"
+        MouseLeftButtonDown="Window_MouseLeftButtonDown"
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel, IsDesignTimeCreatable=False}" WindowStartupLocation="CenterScreen">
+
+    <Window.Resources>
+        <ContextMenu x:Key="TrayMenu">
+            <MenuItem Header="Exit" Command="{Binding CloseCommand}" />
+        </ContextMenu>
+
+        <Style TargetType="Button">
+            <Setter Property="Background" Value="#333333"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#444444"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#2A2A2A"/>
+                                <Setter Property="Foreground" Value="#666666"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="5">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/> <!-- Buttons -->
+            <RowDefinition Height="Auto"/> <!-- Transcript (Hidden) -->
+            <RowDefinition Height="Auto"/> <!-- Status -->
+        </Grid.RowDefinitions>
+
+        <!-- Controls Row -->
+        <Grid Grid.Row="0" Margin="0,0,0,5">
+            <!-- Buttons -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <!-- Start Recording / Cancel Recording -->
+                <Button Command="{Binding StartRecordingCommand}" ToolTip="Start / Cancel Recording">
+                    <Button.Content>
+                        <TextBlock Text="&#xE720;" FontFamily="Segoe MDL2 Assets"/> <!-- Microphone -->
+                    </Button.Content>
+                    <Button.Style>
+                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                    <Setter Property="Background" Value="#CC3300"/>
+                                    <Setter Property="ToolTip" Value="Cancel Recording (Discard)"/>
+                                    <Setter Property="Content">
+                                        <Setter.Value>
+                                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"/> <!-- X Icon for Cancel -->
+                                        </Setter.Value> 
+                                    </Setter>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+                
+                <!-- Stop & Send (Stop Icon) -->
+                <Button Command="{Binding StopRecordingCommand}" ToolTip="Stop &amp; Send" Background="#CC3300">
+                    <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets"/> 
+                </Button>
+                
+                <!-- Resend (Refresh/Upload Icon) -->
+                <Button Command="{Binding SendToDeepgramCommand}" ToolTip="Re-Send to Deepgram" Background="#007ACC">
+                    <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets"/> 
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- Transcript Area (Hidden) -->
+        <Border Grid.Row="1" Background="#252526" CornerRadius="5" Padding="5" Visibility="Collapsed">
+            <Grid>
+                <TextBox Text="{Binding TranscriptText}" 
+                         Background="Transparent" 
+                         Foreground="White" 
+                         BorderThickness="0" 
+                         FontSize="14" 
+                         TextWrapping="Wrap" 
+                         IsReadOnly="True"
+                         VerticalScrollBarVisibility="Auto"/>
+                
+                <!-- Loading Overlay -->
+                <Grid Background="#AA000000" Visibility="{Binding IsSending, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <ProgressBar IsIndeterminate="True" Width="100" Height="4" Foreground="#007ACC" Background="#333333" BorderThickness="0"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- Status (Very small) -->
+        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Foreground="#AAAAAA" FontSize="10" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" MaxWidth="150" ToolTip="{Binding StatusText}"/>
+        
+        <tb:TaskbarIcon x:Name="MyNotifyIcon"
+                        ToolTipText="BF-STT"
+                        ContextMenu="{StaticResource TrayMenu}"/>
+    </Grid>
+</Window>

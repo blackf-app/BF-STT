@@ -9,9 +9,9 @@ namespace BF_STT.Services
     public class DeepgramService
     {
         private readonly HttpClient _httpClient;
-        private readonly string _apiKey;
+        private string _apiKey;
         private readonly string _baseUrl;
-        private readonly string _model;
+        private string _model;
 
         public DeepgramService(HttpClient httpClient, string apiKey, string baseUrl, string model)
         {
@@ -21,6 +21,12 @@ namespace BF_STT.Services
             // Allow override but default to these if not provided in config
             _baseUrl = string.IsNullOrWhiteSpace(baseUrl) ? "https://api.deepgram.com/v1/listen" : baseUrl;
             _model = string.IsNullOrWhiteSpace(model) ? "nova-3" : model;
+        }
+
+        public void UpdateSettings(string apiKey, string model)
+        {
+            _apiKey = apiKey;
+            if (!string.IsNullOrWhiteSpace(model)) _model = model;
         }
 
         public async Task<string> TranscribeAsync(string audioFilePath, string language)

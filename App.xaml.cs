@@ -4,63 +4,67 @@ using Microsoft.Extensions.Configuration;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Threading;
 using System.Windows;
 
 namespace BF_STT
 {
     public partial class App : System.Windows.Application
     {
-        public IConfiguration? Configuration { get; private set; }
+        // Public configuration not strictly needed anymore as we use SettingsService
         
         // Track all disposable services for proper cleanup
         private HotkeyService? _hotkeyService;
         private HttpClient? _httpClient;
         private AudioRecordingService? _audioService;
+        private DeepgramStreamingService? _streamingService;
         private InputInjector? _inputInjector;
+        private static Mutex? _mutex;
 
         private void Application_Startup(object sender, StartupEventArgs e)
         {
-            // Load configuration
-            var builder = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory());
+            // Ensure single instance
+            const string appName = "BF-STT-Unique-Mutex-Name";
+            _mutex = new Mutex(true, appName, out bool createdNew);
 
-            // 1. Read from Embedded Resource (Internal default)
-            var assembly = Assembly.GetExecutingAssembly();
-            var resourceName = "BF_STT.appsettings.json";
-            var resourceStream = assembly.GetManifestResourceStream(resourceName);
-            if (resourceStream != null)
+            if (!createdNew)
             {
-                // We must copy to a MemoryStream because AddJsonStream might read it later during Build(),
-                // and the original stream would be disposed if we used a 'using' block here.
-                var ms = new MemoryStream();
-                resourceStream.CopyTo(ms);
-                ms.Position = 0;
-                builder.AddJsonStream(ms);
+                // App is already running
+                System.Windows.MessageBox.Show("Ứng dụng hiện đang chạy.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                Shutdown();
+                return;
             }
 
-            // 2. Read from External File (Optional override)
-            builder.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+            // Prevent implicit shutdown when SettingsWindow closes
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-            Configuration = builder.Build();
+            // Initialize Settings Service
+            var settingsService = new SettingsService();
+            var settings = settingsService.CurrentSettings;
 
-            var apiKey = Configuration["Deepgram:ApiKey"];
-            if (string.IsNullOrEmpty(apiKey))
+            // Check API Key on startup
+            if (string.IsNullOrEmpty(settings.ApiKey))
             {
-                apiKey = Environment.GetEnvironmentVariable("DEEPGRAM_API_KEY");
+                var settingsWindow = new SettingsWindow(settingsService);
+                if (settingsWindow.ShowDialog() != true)
+                {
+                    Shutdown(); // Exit if user cancels without saving
+                    return;
+                }
+                // Reload settings after save
+                settings = settingsService.CurrentSettings;
             }
 
-            var baseUrl = Configuration["Deepgram:BaseUrl"];
-            var model = Configuration["Deepgram:Model"];
-
-            // Dependency Injection (Manual for simplicity)
-            // All disposable services are stored as fields for proper cleanup in OnExit
+            // Dependency Injection
             _httpClient = new HttpClient();
-            var deepgramService = new DeepgramService(_httpClient, apiKey ?? "", baseUrl ?? "", model ?? "");
+            var deepgramService = new DeepgramService(_httpClient, settings.ApiKey, settings.BaseUrl, settings.Model);
             _audioService = new AudioRecordingService();
+            _streamingService = new DeepgramStreamingService(settings.ApiKey, settings.StreamingUrl, settings.Model); // Updated to use settings
             _inputInjector = new InputInjector();
             var soundService = new SoundService();
 
-            var mainViewModel = new MainViewModel(_audioService, deepgramService, _inputInjector, soundService);
+            var mainViewModel = new MainViewModel(_audioService, deepgramService, _streamingService, _inputInjector, soundService, settingsService);
+
 
             // Set up Global Hotkey
             _hotkeyService = new HotkeyService(
@@ -74,6 +78,10 @@ namespace BF_STT
             };
 
             mainWindow.Show();
+            
+            // Restore normal shutdown behavior
+            MainWindow = mainWindow;
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
         }
 
         protected override void OnExit(ExitEventArgs e)
@@ -81,8 +89,10 @@ namespace BF_STT
             // Dispose all services in reverse order of creation
             _hotkeyService?.Dispose();
             _inputInjector?.Dispose();
+            _streamingService?.Dispose();
             _audioService?.Dispose();
             _httpClient?.Dispose();
+            _mutex?.Dispose();
             
             base.OnExit(e);
         }

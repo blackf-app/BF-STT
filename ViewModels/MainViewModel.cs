@@ -1,5 +1,9 @@
+using BF_STT.Models;
 using BF_STT.Services;
+using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.Threading;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using System.IO;
@@ -10,8 +14,10 @@ namespace BF_STT.ViewModels
     {
         private readonly AudioRecordingService _audioService;
         private readonly DeepgramService _deepgramService;
+        private readonly DeepgramStreamingService _streamingService;
         private readonly InputInjector _inputInjector;
         private readonly SoundService _soundService;
+        private readonly SettingsService _settingsService;
         
         private DispatcherTimer _recordingTimer;
         private TimeSpan _recordingDuration;
@@ -19,18 +25,32 @@ namespace BF_STT.ViewModels
         private string _transcriptText = string.Empty;
         private string _statusText = "Ready";
         private bool _isRecording;
-        private bool _isSending;
-        private string? _lastRecordedFilePath;
+        private bool _isStreaming;
+        private bool _isBatchProcessing;
         private float _audioLevel;
         private DateTime _f3DownTime;
         private bool _isToggleMode;
 
-        public MainViewModel(AudioRecordingService audioService, DeepgramService deepgramService, InputInjector inputInjector, SoundService soundService)
+        // Hybrid mode state
+        private DispatcherTimer _hybridTimer;
+        private bool _isHybridDecisionMade;
+        private ConcurrentQueue<AudioDataEventArgs> _audioBuffer = new();
+        private const int HybridThresholdMs = 300;
+
+        public MainViewModel(
+            AudioRecordingService audioService, 
+            DeepgramService deepgramService,
+            DeepgramStreamingService streamingService, 
+            InputInjector inputInjector, 
+            SoundService soundService,
+            SettingsService settingsService)
         {
             _audioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
             _deepgramService = deepgramService ?? throw new ArgumentNullException(nameof(deepgramService));
+            _streamingService = streamingService ?? throw new ArgumentNullException(nameof(streamingService));
             _inputInjector = inputInjector ?? throw new ArgumentNullException(nameof(inputInjector));
             _soundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
+            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
 
             _audioService.AudioLevelUpdated += (s, level) =>
             {
@@ -41,22 +61,33 @@ namespace BF_STT.ViewModels
                 });
             };
 
+            // Wire audio data to hybrid buffer / streaming
+            _audioService.AudioDataAvailable += OnAudioDataAvailable;
+
+            // Wire streaming transcript results
+            _streamingService.TranscriptReceived += OnTranscriptReceived;
+            _streamingService.Error += OnStreamingError;
+
             _recordingTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(1)
             };
             _recordingTimer.Tick += RecordingTimer_Tick;
 
-            // Allow Start command to execute even if recording (to serve as Cancel)
-            StartRecordingCommand = new RelayCommand(StartRecording, _ => !IsSending);
+            _hybridTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromMilliseconds(HybridThresholdMs)
+            };
+            _hybridTimer.Tick += HybridTimer_Tick;
+
+            // Allow Start command to execute even while streaming/recording (for cancel)
+            StartRecordingCommand = new RelayCommand(StartRecording, _ => true);
             StopRecordingCommand = new RelayCommand(StopRecording, _ => IsRecording);
-            SendToDeepgramCommand = new RelayCommand(async _ => await SendToDeepgramAsync(), _ => !IsRecording && !IsSending && !string.IsNullOrEmpty(_lastRecordedFilePath));
+            SendToDeepgramCommand = new RelayCommand(async _ => await Task.CompletedTask, _ => false); // Disabled
             CloseCommand = new RelayCommand(_ => {
-                CleanupLastRecording();
                 System.Windows.Application.Current.Shutdown();
             });
-
-
+            OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
         }
 
         public string TranscriptText
@@ -85,14 +116,7 @@ namespace BF_STT.ViewModels
 
         public bool IsSending
         {
-            get => _isSending;
-            set
-            {
-                if (SetProperty(ref _isSending, value))
-                {
-                    CommandManager.InvalidateRequerySuggested();
-                }
-            }
+            get => _isStreaming || _isBatchProcessing;
         }
 
         public float AudioLevel
@@ -105,7 +129,21 @@ namespace BF_STT.ViewModels
         public ICommand StopRecordingCommand { get; }
         public ICommand SendToDeepgramCommand { get; }
         public ICommand CloseCommand { get; }
+        public ICommand OpenSettingsCommand { get; }
 
+        private void OpenSettings()
+        {
+            var settingsWindow = new SettingsWindow(_settingsService);
+            if (settingsWindow.ShowDialog() == true)
+            {
+                // Reload settings
+                var settings = _settingsService.CurrentSettings;
+                _deepgramService.UpdateSettings(settings.ApiKey, settings.Model);
+                _streamingService.UpdateSettings(settings.ApiKey, settings.Model);
+                
+                StatusText = "Settings updated.";
+            }
+        }
 
         public void OnF3KeyDown()
         {
@@ -113,34 +151,34 @@ namespace BF_STT.ViewModels
 
             if (IsRecording)
             {
-                // If we are already recording, check if we are in toggle mode.
-                // If we are in Toggle Mode, this press means "Stop".
-                if (_isToggleMode)
+                // If recording is already active
+                if (_isStreaming)
                 {
-                    if (StopRecordingCommand.CanExecute(null))
-                    {
-                        StopRecordingCommand.Execute(null);
-                    }
-                    _isToggleMode = false;
+                    // If running in Streaming Mode (Hold), ignore repeated KeyDown
+                    return;
                 }
                 else
                 {
-                    // Fallback: If we are not in Toggle Mode but recording is on, stop it.
-                    if (StopRecordingCommand.CanExecute(null))
+                    // If running in Batch Mode (Toggle), check if this is the "Stop" press
+                    // Note: In toggle mode, user presses F3 to start, then waits, then presses F3 again to stop.
+                    // This second press triggers KeyDown.
+                    if (_isToggleMode)
                     {
-                        StopRecordingCommand.Execute(null);
+                        if (StopRecordingCommand.CanExecute(null))
+                        {
+                            StopRecordingCommand.Execute(null);
+                        }
+                        _isToggleMode = false;
                     }
                 }
             }
             else
             {
-                // Start Recording
-                if (StartRecordingCommand.CanExecute(null))
+                // Start new recording session
+                if (StartRecordingCommand.CanExecute("Key"))
                 {
-                    StartRecordingCommand.Execute(null);
+                    StartRecordingCommand.Execute("Key");
                 }
-                // We don't know the mode yet (Toggle or Hold). 
-                // Logic is decided on KeyUp.
             }
         }
 
@@ -149,29 +187,50 @@ namespace BF_STT.ViewModels
             if (IsRecording)
             {
                 var duration = DateTime.Now - _f3DownTime;
-                if (duration.TotalMilliseconds < 300)
+                
+                if (_isStreaming)
                 {
-                    // Short press -> Toggle Mode!
-                    // Keep recording.
-                    _isToggleMode = true;
-                }
-                else
-                {
-                    // Long press -> Hold Mode!
-                    // Stop recording (and send).
+                    // In streaming mode, releasing F3 stops recording immediately
                     if (StopRecordingCommand.CanExecute(null))
                     {
                         StopRecordingCommand.Execute(null);
                     }
-                    _isToggleMode = false;
+                }
+                else
+                {
+                    // Not in streaming mode yet
+                    if (!_isHybridDecisionMade && duration.TotalMilliseconds < HybridThresholdMs)
+                    {
+                        // Short press (< 300ms) confirmed -> Batch Mode (Toggle)
+                        _isToggleMode = true;
+                        _isHybridDecisionMade = true;
+                        _hybridTimer.Stop();
+                        
+                        // Clear buffer as we won't need it for streaming
+                         while (_audioBuffer.TryDequeue(out _)) { }
+
+                        // Play sound NOW (Batch started)
+                        _soundService.PlayStartSound();
+
+                        StatusText = "Recording (Batch)...";
+                    }
                 }
             }
         }
 
-        private void RecordingTimer_Tick(object? sender, EventArgs e)
+        private void HybridTimer_Tick(object? sender, EventArgs e)
         {
-            _recordingDuration = _recordingDuration.Add(TimeSpan.FromSeconds(1));
-            StatusText = $"Recording... {_recordingDuration:mm\\:ss} (Click Start to Cancel)";
+            _hybridTimer.Stop();
+
+            // Timer fired means 300ms elapsed and key is still down (or logic hasn't solidified batch mode)
+            // But we need to be careful: key might have been released just before timer tick
+            // In F3KeyUp, we stop the timer. So if we are here, key is likely still down or released very close to threshold.
+            // However, F3KeyUp logic handles the "Short press" case accurately.
+            // If we are here, it means F3KeyUp hasn't fired yet OR fired > 300ms (impossible if timer stopped).
+            // Actually, F3KeyUp stops the timer. So if this Tick fires, it implies User is HOLDING F3.
+            
+            // Switch to Streaming Mode
+            StartStreamingMode();
         }
 
         private IntPtr _targetWindowHandle;
@@ -182,43 +241,94 @@ namespace BF_STT.ViewModels
             {
                 if (IsRecording)
                 {
-                    // Cancel logic: Stop and discard
+                    // Cancel logic
                     _recordingTimer.Stop();
+                    _hybridTimer.Stop();
                     await _audioService.StopRecordingAsync(discard: true);
+                    await _streamingService.CancelAsync();
                     _soundService.PlayStopSound();
                     
-                    IsRecording = false;
-                    StatusText = "Recording cancelled.";
-                    _lastRecordedFilePath = null;
-                    AudioLevel = 0;
+                    ResetState();
+                    StatusText = "Cancelled.";
                 }
                 else
                 {
-                    // Capture the target window BEFORE we start recording
-                    // This ensures we return text to the app the user was using when they started
+                    // Start new session
                     _targetWindowHandle = _inputInjector.LastExternalWindowHandle;
-
-                    // Clean up previous file before starting new
-                    CleanupLastRecording();
-
-                    // Start logic
-                    _audioService.StartRecording();
-                    _soundService.PlayStartSound();
+                    _inputInjector.ResetStreamingState();
                     
+                    // Reset buffer
+                    while (_audioBuffer.TryDequeue(out _)) { }
+                    
+                    _isHybridDecisionMade = false;
+                    _isStreaming = false;
+                    _isToggleMode = false;
+                    _isBatchProcessing = false;
+
+                    // Start Audio (Dual Output: File + Event)
+                    _audioService.StartRecording();
+                    
+                    bool isKeyTrigger = parameter is string s && s == "Key";
+
                     IsRecording = true;
                     _recordingDuration = TimeSpan.Zero;
-                    StatusText = "Recording... 00:00 (Click Start to Cancel)";
+                    
+                    if (isKeyTrigger)
+                    {
+                        // Delayed decision logic
+                        _isHybridDecisionMade = false;
+                        StatusText = "..."; // Pending decision
+                        _hybridTimer.Start(); // Start decision timer
+                        
+                        // DO NOT play sound yet
+                    }
+                    else
+                    {
+                        // Button click (or direct command) -> Assume Batch/Toggle immediately
+                        _isHybridDecisionMade = true;
+                        _isToggleMode = true;
+                        StatusText = "Recording (Batch)...";
+                        _soundService.PlayStartSound();
+                    }
+
                     _recordingTimer.Start();
                     
-                    TranscriptText = string.Empty; // Clear previous
-                    _lastRecordedFilePath = null;
+                    TranscriptText = string.Empty;
                     AudioLevel = 0;
                 }
             }
             catch (Exception ex)
             {
                 StatusText = $"Error: {ex.Message}";
-                IsRecording = false;
+                ResetState();
+            }
+        }
+
+        private async void StartStreamingMode()
+        {
+            _isStreaming = true;
+            _isHybridDecisionMade = true;
+            OnPropertyChanged(nameof(IsSending));
+            
+            // Play sound NOW (Streaming confirmed)
+            _soundService.PlayStartSound();
+            
+            StatusText = "Streaming... 00:00";
+
+            // Connect WebSocket
+            try 
+            {
+                await _streamingService.StartAsync("vi");
+                
+                // Flush buffer to WebSocket
+                while (_audioBuffer.TryDequeue(out var args))
+                {
+                   await _streamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
+                }
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"Stream Error: {ex.Message}";
             }
         }
 
@@ -227,76 +337,178 @@ namespace BF_STT.ViewModels
             try
             {
                 _recordingTimer.Stop();
-                _lastRecordedFilePath = await _audioService.StopRecordingAsync(discard: false);
+                _hybridTimer.Stop();
+
+                // Stop Mic
+                // If Streaming -> Discard File
+                // If Batch -> Keep File
+                bool discardFile = _isStreaming;
+                var filePath = await _audioService.StopRecordingAsync(discard: discardFile);
+
                 _soundService.PlayStopSound();
-                
-                IsRecording = false;
-                StatusText = "Recording stopped. Sending to Deepgram...";
-                AudioLevel = 0;
-                
-                // Auto-send
-                if (!string.IsNullOrEmpty(_lastRecordedFilePath))
+
+                if (_isStreaming)
                 {
-                    if (SendToDeepgramCommand.CanExecute(null))
+                    // Finish Streaming
+                    StatusText = "Finalizing Stream...";
+                    _inputInjector.CommitCurrentText(); // Lock in displayed text
+                    await _streamingService.StopAsync();
+                    StatusText = "Done.";
+                }
+                else
+                {
+                    // Finish Batch
+                    if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
                     {
-                        SendToDeepgramCommand.Execute(null);
+                        if (_audioService.HasMeaningfulAudio())
+                        {
+                            StatusText = "Processing Batch...";
+                            _isBatchProcessing = true;
+                            OnPropertyChanged(nameof(IsSending));
+                            
+                            // Fire-and-forget batch processing
+                            _ = ProcessBatchRecordingAsync(filePath, _targetWindowHandle);
+                        }
+                        else
+                        {
+                            StatusText = "Silent — skipped.";
+                            TryDeleteFile(filePath);
+                        }
+                    }
+                    else
+                    {
+                        StatusText = "No recording.";
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                StatusText = $"Error stopping recording: {ex.Message}";
+
                 IsRecording = false;
-            }
-        }
-
-        private async Task SendToDeepgramAsync()
-        {
-            if (string.IsNullOrEmpty(_lastRecordedFilePath)) return;
-
-            try
-            {
-                IsSending = true;
-                StatusText = "Sending to Deepgram...";
-
-                // Hardcoded language 'vi' as requested implicitly by removing selection (or keep default 'vi')
-                var transcript = await _deepgramService.TranscribeAsync(_lastRecordedFilePath, "vi");
-                
-                TranscriptText = transcript;
-                StatusText = "Done.";
-                
-                // Inject text into the window that was active when recording started
-                await _inputInjector.InjectTextAsync(transcript, _targetWindowHandle);
+                _isStreaming = false;
+                OnPropertyChanged(nameof(IsSending));
+                AudioLevel = 0;
             }
             catch (Exception ex)
             {
                 StatusText = $"Error: {ex.Message}";
-                TranscriptText = "Failed to get transcript.";
-            }
-            finally
-            {
-                IsSending = false;
+                ResetState();
             }
         }
 
-        private void CleanupLastRecording()
+        private async Task ProcessBatchRecordingAsync(string filePath, IntPtr targetWindow)
         {
-            if (!string.IsNullOrEmpty(_lastRecordedFilePath))
+            try
+            {
+                var transcript = await _deepgramService.TranscribeAsync(filePath, "vi");
+
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+                {
+                    var finalTranscript = transcript;
+                    if (!string.IsNullOrWhiteSpace(transcript))
+                    {
+                        finalTranscript = transcript.TrimEnd() + ". ";
+                    }
+
+                    TranscriptText = finalTranscript;
+                    StatusText = "Done.";
+
+                    if (!string.IsNullOrWhiteSpace(finalTranscript))
+                    {
+                        // Use original clipboard injection for batch mode
+                        await _inputInjector.InjectTextAsync(finalTranscript, targetWindow);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    StatusText = $"Error: {ex.Message}";
+                    TranscriptText = "Failed to get transcript.";
+                });
+            }
+            finally
+            {
+                TryDeleteFile(filePath);
+                _isBatchProcessing = false;
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    OnPropertyChanged(nameof(IsSending));
+                });
+            }
+        }
+
+        private void RecordingTimer_Tick(object? sender, EventArgs e)
+        {
+            _recordingDuration = _recordingDuration.Add(TimeSpan.FromSeconds(1));
+            string mode = _isStreaming ? "Streaming" : (_isToggleMode ? "Recording" : "Listening");
+            StatusText = $"{mode}... {_recordingDuration:mm\\:ss}";
+        }
+
+        private async void OnAudioDataAvailable(object? sender, AudioDataEventArgs e)
+        {
+            if (_isStreaming)
+            {
+                // Push directly to WebSocket
+                try
+                {
+                    await _streamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainVM] Audio send error: {ex.Message}");
+                }
+            }
+            else if (!_isHybridDecisionMade)
+            {
+                // Buffer audio while waiting for decision
+                _audioBuffer.Enqueue(e);
+            }
+            // If Batch Mode decision made (_isToggleMode), we ignore event data (file is being written)
+        }
+
+        private void OnTranscriptReceived(object? sender, TranscriptEventArgs e)
+        {
+            System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
             {
                 try
                 {
-                    if (File.Exists(_lastRecordedFilePath))
+                    if (!string.IsNullOrEmpty(e.Text))
                     {
-                        File.Delete(_lastRecordedFilePath);
+                        TranscriptText = e.Text;
                     }
+                    // Always call inject (even for empty text) so committed state is updated correctly
+                    await _inputInjector.InjectStreamingTextAsync(
+                        e.Text ?? string.Empty, e.IsFinal, _targetWindowHandle);
                 }
-                catch { /* Ignore cleanup errors */ }
-                // Do not nullify here if we use this method only for cleanup OLD files.
-                // However, if we clean up, we should probably set it to null or keep it as "cleaned".
-                // But for "StartRecording", we clean up the OLD one, and immediately set _lastRecordedFilePath = null afterwards in StartRecording logic anyway (line 142 in original).
-                // Wait, StartRecording sets _lastRecordedFilePath = null; (line 142).
-                // So calling this before StartRecording works perfectly.
-            }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[MainVM] Streaming inject error: {ex.Message}");
+                }
+            });
+        }
+
+        private void OnStreamingError(object? sender, string errorMessage)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                StatusText = $"Stream error: {errorMessage}";
+            });
+        }
+
+        private void TryDeleteFile(string path)
+        {
+            try { if (File.Exists(path)) File.Delete(path); } catch { }
+        }
+
+        private void ResetState()
+        {
+            IsRecording = false;
+            _isStreaming = false;
+            _isBatchProcessing = false;
+            _isToggleMode = false;
+            _isHybridDecisionMade = false;
+            OnPropertyChanged(nameof(IsSending));
+            AudioLevel = 0;
+            while (_audioBuffer.TryDequeue(out _)) { }
         }
     }
 }

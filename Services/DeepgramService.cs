@@ -38,37 +38,49 @@ namespace BF_STT.Services
             // Build URL
             var url = $"{_baseUrl}?model={_model}&language={language}&smart_format=true";
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Token", _apiKey);
-
-            // Read file bytes
+            // Read file bytes - do this once
             byte[] fileBytes = await File.ReadAllBytesAsync(audioFilePath);
-            using var content = new ByteArrayContent(fileBytes);
-            content.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
-            request.Content = content;
 
-            try
+            int maxRetries = 1;
+            for (int i = 0; i <= maxRetries; i++)
             {
-                var response = await _httpClient.SendAsync(request);
-                response.EnsureSuccessStatusCode();
+                // Create a new request for each attempt
+                using var request = new HttpRequestMessage(HttpMethod.Post, url);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Token", _apiKey);
+                
+                using var content = new ByteArrayContent(fileBytes);
+                content.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
+                request.Content = content;
 
-                var json = await response.Content.ReadAsStringAsync();
+                try
+                {
+                    using var response = await _httpClient.SendAsync(request);
+                    response.EnsureSuccessStatusCode();
 
-                #if DEBUG
-                System.Diagnostics.Debug.WriteLine($"RAW RESPONSE: {json}");
-                #endif
+                    var json = await response.Content.ReadAsStringAsync();
 
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var result = JsonSerializer.Deserialize<DeepgramResponse>(json, options);
+                    #if DEBUG
+                    System.Diagnostics.Debug.WriteLine($"RAW RESPONSE: {json}");
+                    #endif
 
-                var transcript = result?.Results?.Channels?.FirstOrDefault()?.Alternatives?.FirstOrDefault()?.Transcript;
-                return transcript ?? string.Empty;
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    var result = JsonSerializer.Deserialize<DeepgramResponse>(json, options);
+
+                    var transcript = result?.Results?.Channels?.FirstOrDefault()?.Alternatives?.FirstOrDefault()?.Transcript;
+                    return transcript ?? string.Empty;
+                }
+                catch (Exception ex) when (ex is HttpRequestException || ex is TaskCanceledException)
+                {
+                    if (i == maxRetries)
+                    {
+                        throw new HttpRequestException($"Deepgram API Error after retry: {ex.Message}", ex);
+                    }
+                    
+                    // Wait briefly before retry
+                    await Task.Delay(500);
+                }
             }
-            catch (HttpRequestException ex)
-            {
-                // In production, might want better error parsing (Deepgram returns JSON errors)
-                throw new HttpRequestException($"Deepgram API Error: {ex.Message}", ex);
-            }
+            return string.Empty; // Should not reach here
         }
     }
 }

@@ -1,6 +1,8 @@
 using BF_STT.Services;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
+using System.Windows.Threading;
+using System.IO;
 
 namespace BF_STT.ViewModels
 {
@@ -9,6 +11,10 @@ namespace BF_STT.ViewModels
         private readonly AudioRecordingService _audioService;
         private readonly DeepgramService _deepgramService;
         private readonly InputInjector _inputInjector;
+        private readonly SoundService _soundService;
+        
+        private DispatcherTimer _recordingTimer;
+        private TimeSpan _recordingDuration;
 
         private string _transcriptText = string.Empty;
         private string _statusText = "Ready";
@@ -16,17 +22,27 @@ namespace BF_STT.ViewModels
         private bool _isSending;
         private string? _lastRecordedFilePath;
 
-        public MainViewModel(AudioRecordingService audioService, DeepgramService deepgramService, InputInjector inputInjector)
+        public MainViewModel(AudioRecordingService audioService, DeepgramService deepgramService, InputInjector inputInjector, SoundService soundService)
         {
             _audioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
             _deepgramService = deepgramService ?? throw new ArgumentNullException(nameof(deepgramService));
             _inputInjector = inputInjector ?? throw new ArgumentNullException(nameof(inputInjector));
+            _soundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
+
+            _recordingTimer = new DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(1)
+            };
+            _recordingTimer.Tick += RecordingTimer_Tick;
 
             // Allow Start command to execute even if recording (to serve as Cancel)
             StartRecordingCommand = new RelayCommand(StartRecording, _ => !IsSending);
             StopRecordingCommand = new RelayCommand(StopRecording, _ => IsRecording);
             SendToDeepgramCommand = new RelayCommand(async _ => await SendToDeepgramAsync(), _ => !IsRecording && !IsSending && !string.IsNullOrEmpty(_lastRecordedFilePath));
-            CloseCommand = new RelayCommand(_ => System.Windows.Application.Current.Shutdown());
+            CloseCommand = new RelayCommand(_ => {
+                CleanupLastRecording();
+                System.Windows.Application.Current.Shutdown();
+            });
 
             HotkeyCommand = new RelayCommand(HotkeyAction);
         }
@@ -93,6 +109,12 @@ namespace BF_STT.ViewModels
             }
         }
 
+        private void RecordingTimer_Tick(object? sender, EventArgs e)
+        {
+            _recordingDuration = _recordingDuration.Add(TimeSpan.FromSeconds(1));
+            StatusText = $"Recording... {_recordingDuration:mm\\:ss} (Click Start to Cancel)";
+        }
+
         private async void StartRecording(object? parameter)
         {
             try
@@ -100,17 +122,28 @@ namespace BF_STT.ViewModels
                 if (IsRecording)
                 {
                     // Cancel logic: Stop and discard
+                    _recordingTimer.Stop();
                     await _audioService.StopRecordingAsync(discard: true);
+                    _soundService.PlayStopSound();
+                    
                     IsRecording = false;
                     StatusText = "Recording cancelled.";
                     _lastRecordedFilePath = null;
                 }
                 else
                 {
+                    // Clean up previous file before starting new
+                    CleanupLastRecording();
+
                     // Start logic
                     _audioService.StartRecording();
+                    _soundService.PlayStartSound();
+                    
                     IsRecording = true;
-                    StatusText = "Recording... (Click Start to Cancel)";
+                    _recordingDuration = TimeSpan.Zero;
+                    StatusText = "Recording... 00:00 (Click Start to Cancel)";
+                    _recordingTimer.Start();
+                    
                     TranscriptText = string.Empty; // Clear previous
                     _lastRecordedFilePath = null;
                 }
@@ -126,7 +159,10 @@ namespace BF_STT.ViewModels
         {
             try
             {
+                _recordingTimer.Stop();
                 _lastRecordedFilePath = await _audioService.StopRecordingAsync(discard: false);
+                _soundService.PlayStopSound();
+                
                 IsRecording = false;
                 StatusText = "Recording stopped. Sending to Deepgram...";
                 
@@ -172,6 +208,26 @@ namespace BF_STT.ViewModels
             finally
             {
                 IsSending = false;
+            }
+        }
+
+        private void CleanupLastRecording()
+        {
+            if (!string.IsNullOrEmpty(_lastRecordedFilePath))
+            {
+                try
+                {
+                    if (File.Exists(_lastRecordedFilePath))
+                    {
+                        File.Delete(_lastRecordedFilePath);
+                    }
+                }
+                catch { /* Ignore cleanup errors */ }
+                // Do not nullify here if we use this method only for cleanup OLD files.
+                // However, if we clean up, we should probably set it to null or keep it as "cleaned".
+                // But for "StartRecording", we clean up the OLD one, and immediately set _lastRecordedFilePath = null afterwards in StartRecording logic anyway (line 142 in original).
+                // Wait, StartRecording sets _lastRecordedFilePath = null; (line 142).
+                // So calling this before StartRecording works perfectly.
             }
         }
     }

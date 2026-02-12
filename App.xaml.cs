@@ -52,8 +52,9 @@ namespace BF_STT
             var deepgramService = new DeepgramService(httpClient, apiKey ?? "", baseUrl ?? "", model ?? "");
             var audioService = new AudioRecordingService();
             var inputInjector = new InputInjector();
+            var soundService = new SoundService();
 
-            var mainViewModel = new MainViewModel(audioService, deepgramService, inputInjector);
+            var mainViewModel = new MainViewModel(audioService, deepgramService, inputInjector, soundService);
 
             // Set up Global Hotkey
             _hotkeyService = new HotkeyService(() => 

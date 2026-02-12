@@ -16,6 +16,7 @@
         Topmost="True"
         ShowInTaskbar="False"
         Loaded="Window_Loaded"
+        Deactivated="Window_Deactivated"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
         d:DataContext="{d:DesignInstance Type=vm:MainViewModel, IsDesignTimeCreatable=False}" WindowStartupLocation="CenterScreen">
 

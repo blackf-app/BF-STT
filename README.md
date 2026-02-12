@@ -1,89 +1,71 @@
 # BF-STT (Bright-Fast Speech To Text)
 
-BF-STT là một ứng dụng Windows (WPF) nhẹ nhàng và mạnh mẽ, giúp chuyển đổi giọng nói thành văn bản ngay lập tức và nhập liệu trực tiếp vào các cửa sổ ứng dụng đang hoạt động. Ứng dụng sử dụng API Deepgram để đảm bảo độ chính xác cao và tốc độ xử lý vượt trội.
+BF-STT là một ứng dụng Windows (WPF) mạnh mẽ và linh hoạt, giúp chuyển đổi giọng nói thành văn bản ngay lập tức và nhập liệu trực tiếp vào bất kỳ ứng dụng nào đang hoạt động. Ứng dụng tích hợp công nghệ Deepgram mới nhất (Nova-3) để đảm bảo độ chính xác cực cao và độ trễ gần như bằng không.
 
 ## 🚀 Tính năng nổi bật
 
-- **Phím tắt toàn cầu (Global Hotkey):** Nhấn `F3` để bắt đầu/dừng ghi âm một cách nhanh chóng mà không cần chuyển cửa sổ.
-- **Tự động nhập liệu (Auto-Typing):** Sau khi chuyển đổi, văn bản sẽ được tự động "gõ" vào cửa sổ ứng dụng bạn đã sử dụng trước đó.
-- **Phản hồi âm thanh (Sound Feedback):** Phát âm báo nhẹ nhàng khi bắt đầu và kết thúc ghi âm để người dùng nhận biết trạng thái mà không cần nhìn màn hình.
-- **Luôn hiển thị (Always on Top):** Giao diện nhỏ gọn luôn nằm trên cùng, giúp bạn dễ dàng theo dõi trạng thái ghi âm.
-- **Đồng hồ ghi âm:** Hiển thị thời gian thực khi đang ghi âm.
-- **Tự động dọn dẹp:** File âm thanh tạm thời được tự động xóa sau khi xử lý hoặc khi đóng ứng dụng để tiết kiệm dung lượng.
-- **Xử lý âm thanh thông minh:** Tự động chuẩn hóa âm thanh về định dạng PCM 16kHz Mono để tối ưu hóa việc nhận diện.
-- **Hỗ trợ đa ngôn ngữ:** Mặc định được cấu hình tối ưu cho Tiếng Việt (`vi`).
+- **Chế độ Hybrid thông minh (F3):**
+  - **Nhấn nhanh (Short Press):** Chế độ **Batch**. Ghi âm và gửi toàn bộ đoạn hội thoại sau khi kết thúc. Phù hợp cho các câu thoại dài, cần độ chính xác cao nhất và tự động thêm dấu chấm câu.
+  - **Nhấn giữ (Long Press):** Chế độ **Streaming**. Văn bản xuất hiện và được "gõ" trực tiếp ngay khi bạn đang nói. Phù hợp cho việc nhắn tin hoặc nhập liệu thời gian thực.
+- **Tự động nhập liệu (Auto-Typing):** Hỗ trợ nhập liệu thông minh vào cửa sổ ứng dụng đang hoạt động trước đó (Word, Notepad, Browser, Game...).
+- **Xử lý dấu câu tự động:** Trong chế độ Batch, ứng dụng tự động thêm dấu chấm và khoảng trắng vào cuối đoạn văn.
+- **Giao diện cấu hình (Settings Window):** Dễ dàng thay đổi API Key, Model, và tùy chọn khởi động cùng Windows ngay trong ứng dụng.
+- **Phản hồi âm thanh & Trình quan sát âm lượng:** Âm báo "bíp" đặc trưng khi bắt đầu/kết thúc và thanh hiển thị mức độ âm thanh (Audio Level) trực quan.
+- **Tiết kiệm tài nguyên:** Tự động xóa file tạm, phát hiện đoạn thu âm im lặng để bỏ qua yêu cầu API, và chỉ sử dụng một instance duy nhất.
+- **Duy trì Clipboard:** Tự động sao lưu và khôi phục nội dung Clipboard của người dùng sau khi nhập liệu (đối với chế độ Batch).
 
 ## 🛠 Công nghệ sử dụng
 
 - **Framework:** .NET 8, WPF (Windows Presentation Foundation)
-- **Audio Library:** [NAudio](https://github.com/naudio/NAudio) để ghi âm và xử lý luồng âm thanh.
-- **STT Engine:** [Deepgram API](https://deepgram.com/) - Một trong những engine STT nhanh nhất hiện nay.
-- **Pattern:** MVVM (Model-View-ViewModel) đảm bảo mã nguồn sạch và dễ bảo trì.
+- **Audio:** [NAudio](https://github.com/naudio/NAudio) xử lý luồng âm thanh PCM 16kHz Mono chuẩn hóa.
+- **STT Engine:** [Deepgram API](https://deepgram.com/) (Nova-3) qua REST API (Batch) và WebSocket (Streaming).
+- **Kiến trúc:** MVVM (Model-View-ViewModel) sạch sẽ và dễ mở rộng.
 
 ## 📦 Hướng dẫn cài đặt
 
 ### 1. Yêu cầu hệ thống
-- Windows 10/11.
-- .NET 8 Runtime hoặc SDK.
+- Windows 10/11 x64.
+- .NET 8 Runtime.
 
-### 2. Cấu hình API Key
-Trước khi chạy ứng dụng, bạn cần có API Key từ Deepgram.
-1. Đăng ký tài khoản tại [Deepgram Console](https://console.deepgram.com/).
-2. Tạo một API Key mới.
-3. Ứng dụng sẽ tự động đọc cấu hình từ file `appsettings.json` nằm cùng thư mục với file chạy hoặc file cấu hình nhúng. Để ghi đè cấu hình, tạo file `appsettings.json` trong cùng thư mục với nội dung:
+### 2. Cấu hình ban đầu
+Khi khởi chạy lần đầu, ứng dụng sẽ yêu cầu bạn nhập **Deepgram API Key**.
+- Lấy Key tại: [Deepgram Console](https://console.deepgram.com/).
+- Cấu hình sẽ được lưu an toàn tại `%AppData%/BF-STT/settings.json`.
 
-```json
-{
-  "Deepgram": {
-    "ApiKey": "YOUR_DEEPGRAM_API_KEY_HERE",
-    "BaseUrl": "https://api.deepgram.com/v1/listen",
-    "DefaultLanguage": "vi",
-    "Model": "nova-3"
-  }
-}
-```
-
-### 3. Build và Chạy dự án
-Bạn có thể sử dụng Visual Studio 2022 hoặc .NET CLI:
+### 3. Build từ mã nguồn
+Nếu bạn là nhà phát triển, có thể build dự án bằng Visual Studio 2022 hoặc CLI:
 ```bash
 dotnet build
 dotnet run
 ```
+Hệ thống versioning tự động sẽ tự tăng số phiên bản sau mỗi lần build thành công.
 
-Hệ thống versioning tự động sẽ chạy script `scripts/increment_version.ps1` để tăng số version mỗi khi build (trừ khi chạy publish tự động).
-
-### 4. Xuất bản thành file duy nhất (Single EXE)
-Để tạo ra một file `.exe` duy nhất bao gồm tất cả thư viện và file cấu hình, hãy chạy lệnh sau trong PowerShell:
+### 4. Đóng gói (Single EXE)
+Để tạo file chạy duy nhất không cần cài đặt:
 ```powershell
 dotnet publish -c Release -o ./publish
 ```
-Sau khi chạy xong, file `BF-STT.exe` sẽ nằm trong thư mục `publish`. Bạn có thể mang file này đi sử dụng ở bất kỳ máy Windows x64 nào mà không cần cài đặt thêm.
 
 ## ⌨️ Cách sử dụng
 
-1. **Mở ứng dụng:** Ứng dụng sẽ xuất hiện ở phía trên cùng của màn hình.
-2. **Bắt đầu ghi âm:** Nhấn phím `F3` (hoặc click nút Start). Bạn sẽ nghe thấy tiếng "bíp" và trạng thái chuyển sang "Recording...".
-3. **Nói:** Thực hiện đoạn nói của bạn. Đồng hồ sẽ đếm thời gian.
-4. **Dừng và Chuyển đổi:** Nhấn phím `F3` một lần nữa. Bạn sẽ nghe thấy tiếng "bíp" kết thúc. Ứng dụng sẽ tự động gửi dữ liệu đến Deepgram.
-5. **Nhận kết quả:** Văn bản đã chuyển đổi sẽ xuất hiện trong giao diện và được tự động nhập vào cửa sổ ứng dụng bạn đang làm việc (ví dụ: Word, Notepad, Trình duyệt...).
+1. **Khởi động:** Ứng dụng sẽ nằm ở phía trên cùng màn hình.
+2. **Ghi âm (F3):**
+   - **Click F3 một lần:** Bắt đầu ghi âm Batch (nhấn F3 lần nữa để dừng). Status sẽ hiển thị "Recording (Batch)...".
+   - **Nhấn và giữ F3:** Bắt đầu Streaming. Status hiển thị "Streaming...". Thả phím F3 để dừng.
+3. **Kết quả:** Văn bản sẽ tự động được nhập vào vị trí con trỏ chuột của bạn trong ứng dụng đích.
 
-## 📂 Cấu trúc thư mục
+## 📂 Giao diện & Cấu trúc
 
-- `Services/`: Chứa các logic xử lý về Audio, Hotkey, Deepgram API, Sound và Input Injection.
-- `ViewModels/`: Chứa logic điều khiển giao diện (MVVM).
-- `Models/`: Các định dạng dữ liệu.
-- `MainWindow.xaml`: Giao diện chính của ứng dụng.
-- `scripts/`: Chứa các script hỗ trợ development (ví dụ: versioning).
-
-## 🤖 Workflows
-
-Dự án này hỗ trợ các workflow tự động thông qua agent:
-
-- **publish**: Thực thi lệnh `dotnet publish -c Release -o ./publish` để đóng gói ứng dụng. Để chạy, hãy nhập `/publish` trong khung chat với agent.
+- `MainWindow.xaml`: Giao diện chính nhỏ gọn, hiển thị trạng thái và thời gian.
+- `SettingsWindow.xaml`: Nơi quản lý API Key và các tùy chọn hệ thống.
+- `Services/`:
+  - `DeepgramStreamingService`: Xử lý luồng WebSocket thời gian thực.
+  - `InputInjector`: Xử lý logic gõ phím, xử lý delta text cho streaming và bảo vệ clipboard.
+  - `HotkeyService`: Đăng ký phím nóng F3 hệ thống.
 
 ## 📄 Giấy phép
 
-Dự án này được phát triển cho mục đích cá nhân và cộng đồng. Bạn có thể tự do chỉnh sửa và sử dụng.
+Dự án phát triển bởi Antigravity AI, phục vụ cộng đồng. Tự do sử dụng và đóng góp ý kiến.
 
 ---
-*Phát triển bởi Antigravity AI.*
+*Last update: February 2026*

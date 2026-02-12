@@ -35,15 +35,27 @@ namespace BF_STT.Services
         private bool _hasAudio;
         private float _maxPeakLevel;
         private const float SilenceThreshold = 0.01f; // ~-40dB peak threshold
+        
+        // VAD (Voice Activity Detection) state
+        private bool _isSpeaking;
+        private int _silenceFrameCount;
+        private int _speechFrameCount;
+        
+        // VAD Constants
+        private const float VadSpeechThreshold = 0.02f; // ~-34dB energy threshold
+        private const int VadSilenceFramesToPause = 10; // 10 frames * 50ms = 500ms
+        private const int VadSpeechFramesToStart = 2;   // 2 frames * 50ms = 100ms
 
         public event EventHandler<StoppedEventArgs>? RecordingStopped;
         public event EventHandler<float>? AudioLevelUpdated;
+        public event EventHandler<bool>? IsSpeakingChanged;
         /// <summary>
         /// Fired with processed PCM audio data ready to send to Deepgram.
         /// </summary>
         public event EventHandler<AudioDataEventArgs>? AudioDataAvailable;
 
         public bool IsRecording => _isRecording;
+        public bool IsSpeaking => _isSpeaking;
 
         public float VolumeMultiplier
         {
@@ -76,6 +88,11 @@ namespace BF_STT.Services
             // Reset silent detection
             _hasAudio = false;
             _maxPeakLevel = 0;
+            
+            // Reset VAD
+            _isSpeaking = false;
+            _silenceFrameCount = 0;
+            _speechFrameCount = 0;
 
             _waveIn = new WaveInEvent
             {
@@ -139,6 +156,32 @@ namespace BF_STT.Services
             // Track peak for silent detection
             if (maxSample > _maxPeakLevel) _maxPeakLevel = maxSample;
             if (_maxPeakLevel > SilenceThreshold) _hasAudio = true;
+
+            // 5. VAD Logic
+            if (maxSample > VadSpeechThreshold)
+            {
+                _speechFrameCount++;
+                _silenceFrameCount = 0;
+                
+                if (!_isSpeaking && _speechFrameCount >= VadSpeechFramesToStart)
+                {
+                    _isSpeaking = true;
+                    IsSpeakingChanged?.Invoke(this, true);
+                    System.Diagnostics.Debug.WriteLine("[AudioRecording] VAD: Speech Started");
+                }
+            }
+            else
+            {
+                _silenceFrameCount++;
+                _speechFrameCount = 0;
+
+                if (_isSpeaking && _silenceFrameCount >= VadSilenceFramesToPause)
+                {
+                    _isSpeaking = false;
+                    IsSpeakingChanged?.Invoke(this, false);
+                    System.Diagnostics.Debug.WriteLine("[AudioRecording] VAD: Silence Detected (Paused)");
+                }
+            }
 
             AudioLevelUpdated?.Invoke(this, maxSample);
 

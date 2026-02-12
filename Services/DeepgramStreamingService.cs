@@ -14,10 +14,13 @@ namespace BF_STT.Services
 
         private ClientWebSocket? _webSocket;
         private CancellationTokenSource? _receiveCts;
+        private CancellationTokenSource? _keepAliveCts;
         private Task? _receiveTask;
+        private Task? _keepAliveTask;
         private bool _isConnected;
 
         public event EventHandler<TranscriptEventArgs>? TranscriptReceived;
+        public event EventHandler? UtteranceEndReceived;
         public event EventHandler<string>? Error;
 
         public bool IsConnected => _isConnected;
@@ -51,9 +54,10 @@ namespace BF_STT.Services
             // Build WebSocket URL with query parameters
             var url = $"{_streamingUrl}?model={_model}&language={language}" +
                       "&encoding=linear16&sample_rate=16000&channels=1" +
-                      "&interim_results=true&smart_format=true&endpointing=300";
+                      "&interim_results=true&smart_format=true&endpointing=300&utterance_end_ms=1000";
 
             _receiveCts = new CancellationTokenSource();
+            _keepAliveCts = new CancellationTokenSource();
 
             try
             {
@@ -62,6 +66,9 @@ namespace BF_STT.Services
 
                 // Start background receive loop
                 _receiveTask = ReceiveLoopAsync(_receiveCts.Token);
+                
+                // Start KeepAlive loop
+                _keepAliveTask = KeepAliveLoopAsync(_keepAliveCts.Token);
 
                 Debug.WriteLine("[DeepgramStreaming] Connected.");
             }
@@ -144,6 +151,7 @@ namespace BF_STT.Services
         {
             _isConnected = false;
             _receiveCts?.Cancel();
+            _keepAliveCts?.Cancel();
 
             try
             {
@@ -158,8 +166,38 @@ namespace BF_STT.Services
             _webSocket = null;
             _receiveCts?.Dispose();
             _receiveCts = null;
+            _keepAliveCts?.Dispose();
+            _keepAliveCts = null;
 
             Debug.WriteLine("[DeepgramStreaming] Cleaned up.");
+        }
+
+        private async Task KeepAliveLoopAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                while (!cancellationToken.IsCancellationRequested)
+                {
+                    await Task.Delay(5000, cancellationToken);
+
+                    if (_webSocket != null && _webSocket.State == WebSocketState.Open)
+                    {
+                        var keepAliveMessage = Encoding.UTF8.GetBytes("{\"type\":\"KeepAlive\"}");
+                        await _webSocket.SendAsync(
+                            new ArraySegment<byte>(keepAliveMessage),
+                            WebSocketMessageType.Text,
+                            true,
+                            CancellationToken.None);
+                        
+                        Debug.WriteLine("[DeepgramStreaming] Sent KeepAlive.");
+                    }
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[DeepgramStreaming] KeepAlive error: {ex.Message}");
+            }
         }
 
         private async Task ReceiveLoopAsync(CancellationToken cancellationToken)
@@ -226,6 +264,13 @@ namespace BF_STT.Services
                 var response = JsonSerializer.Deserialize<DeepgramStreamingResponse>(json, options);
 
                 if (response == null) return;
+
+                if (response.Type == "UtteranceEnd")
+                {
+                    Debug.WriteLine("[DeepgramStreaming] UtteranceEnd received.");
+                    UtteranceEndReceived?.Invoke(this, EventArgs.Empty);
+                    return;
+                }
 
                 // Only process "Results" type messages
                 if (response.Type != "Results") return;

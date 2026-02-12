@@ -66,6 +66,11 @@ namespace BF_STT.ViewModels
 
             // Wire streaming transcript results
             _streamingService.TranscriptReceived += OnTranscriptReceived;
+            _streamingService.UtteranceEndReceived += (s, e) =>
+            {
+                _inputInjector.CommitCurrentText();
+                System.Diagnostics.Debug.WriteLine("[MainViewModel] UtteranceEnd - Text Committed.");
+            };
             _streamingService.Error += OnStreamingError;
 
             _recordingTimer = new DispatcherTimer
@@ -447,6 +452,9 @@ namespace BF_STT.ViewModels
         {
             if (_isStreaming)
             {
+                // Only send audio when voice activity is detected
+                if (!_audioService.IsSpeaking) return;
+
                 // Push directly to WebSocket
                 try
                 {

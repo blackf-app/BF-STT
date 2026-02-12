@@ -9,16 +9,22 @@ namespace BF_STT.Services
     {
         private const int WH_KEYBOARD_LL = 13;
         private const int WM_KEYDOWN = 0x0100;
+        private const int WM_KEYUP = 0x0101;
         private const int WM_SYSKEYDOWN = 0x0104;
+        private const int WM_SYSKEYUP = 0x0105;
         private const int VK_F3 = 0x72;
 
         private readonly LowLevelKeyboardProc _proc;
         private IntPtr _hookId = IntPtr.Zero;
-        private readonly Action _onHotkeyTriggered;
+        private readonly Action _onKeyDown;
+        private readonly Action _onKeyUp;
 
-        public HotkeyService(Action onHotkeyTriggered)
+        private bool _isF3Down = false;
+
+        public HotkeyService(Action onKeyDown, Action onKeyUp)
         {
-            _onHotkeyTriggered = onHotkeyTriggered;
+            _onKeyDown = onKeyDown;
+            _onKeyUp = onKeyUp;
             _proc = HookCallback;
             _hookId = SetHook(_proc);
         }
@@ -38,13 +44,25 @@ namespace BF_STT.Services
         {
             if (nCode >= 0)
             {
-                if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN)
+                int vkCode = Marshal.ReadInt32(lParam);
+                if (vkCode == VK_F3)
                 {
-                    int vkCode = Marshal.ReadInt32(lParam);
-                    if (vkCode == VK_F3)
+                    if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN)
                     {
-                        // Trigger action on UI thread
-                        System.Windows.Application.Current?.Dispatcher.BeginInvoke(_onHotkeyTriggered);
+                        if (!_isF3Down)
+                        {
+                            _isF3Down = true;
+                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(_onKeyDown);
+                        }
+                        return (IntPtr)1; // Swallow F3 key stroke
+                    }
+                    else if (wParam == (IntPtr)WM_KEYUP || wParam == (IntPtr)WM_SYSKEYUP)
+                    {
+                        if (_isF3Down)
+                        {
+                            _isF3Down = false;
+                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(_onKeyUp);
+                        }
                         return (IntPtr)1; // Swallow F3 key stroke
                     }
                 }

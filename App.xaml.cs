@@ -63,13 +63,10 @@ namespace BF_STT
             var mainViewModel = new MainViewModel(_audioService, deepgramService, _inputInjector, soundService);
 
             // Set up Global Hotkey
-            _hotkeyService = new HotkeyService(() => 
-            {
-                if (mainViewModel.HotkeyCommand.CanExecute(null))
-                {
-                    mainViewModel.HotkeyCommand.Execute(null);
-                }
-            });
+            _hotkeyService = new HotkeyService(
+                onKeyDown: () => mainViewModel.OnF3KeyDown(),
+                onKeyUp: () => mainViewModel.OnF3KeyUp()
+            );
 
             var mainWindow = new MainWindow
             {

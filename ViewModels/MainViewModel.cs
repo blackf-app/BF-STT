@@ -22,6 +22,8 @@ namespace BF_STT.ViewModels
         private bool _isSending;
         private string? _lastRecordedFilePath;
         private float _audioLevel;
+        private DateTime _f3DownTime;
+        private bool _isToggleMode;
 
         public MainViewModel(AudioRecordingService audioService, DeepgramService deepgramService, InputInjector inputInjector, SoundService soundService)
         {
@@ -54,7 +56,7 @@ namespace BF_STT.ViewModels
                 System.Windows.Application.Current.Shutdown();
             });
 
-            HotkeyCommand = new RelayCommand(HotkeyAction);
+
         }
 
         public string TranscriptText
@@ -103,24 +105,65 @@ namespace BF_STT.ViewModels
         public ICommand StopRecordingCommand { get; }
         public ICommand SendToDeepgramCommand { get; }
         public ICommand CloseCommand { get; }
-        public ICommand HotkeyCommand { get; }
 
-        private void HotkeyAction(object? parameter)
+
+        public void OnF3KeyDown()
         {
+            _f3DownTime = DateTime.Now;
+
             if (IsRecording)
             {
-                // Second press: Stop and Send
-                if (StopRecordingCommand.CanExecute(null))
+                // If we are already recording, check if we are in toggle mode.
+                // If we are in Toggle Mode, this press means "Stop".
+                if (_isToggleMode)
                 {
-                    StopRecordingCommand.Execute(null);
+                    if (StopRecordingCommand.CanExecute(null))
+                    {
+                        StopRecordingCommand.Execute(null);
+                    }
+                    _isToggleMode = false;
+                }
+                else
+                {
+                    // Fallback: If we are not in Toggle Mode but recording is on, stop it.
+                    if (StopRecordingCommand.CanExecute(null))
+                    {
+                        StopRecordingCommand.Execute(null);
+                    }
                 }
             }
             else
             {
-                // First press: Start Recording
+                // Start Recording
                 if (StartRecordingCommand.CanExecute(null))
                 {
                     StartRecordingCommand.Execute(null);
+                }
+                // We don't know the mode yet (Toggle or Hold). 
+                // Logic is decided on KeyUp.
+            }
+        }
+
+        public void OnF3KeyUp()
+        {
+            if (IsRecording)
+            {
+                var duration = DateTime.Now - _f3DownTime;
+                if (duration.TotalMilliseconds < 300)
+                {
+                    // Short press -> Toggle Mode!
+                    // Keep recording.
+                    _isToggleMode = true;
+                }
+                else
+                {
+                    // Long press -> Hold Mode!
+                    // Stop recording (and send).
+                    if (StopRecordingCommand.CanExecute(null))
+                    {
+                        StopRecordingCommand.Execute(null);
+                    }
+                    _isToggleMode = false;
                 }
             }
         }

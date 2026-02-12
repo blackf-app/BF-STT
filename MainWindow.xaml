@@ -28,8 +28,8 @@
             <Setter Property="Background" Value="#333333"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="7"/>
-            <Setter Property="Margin" Value="3"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Margin" Value="3,2"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
             <Setter Property="Cursor" Value="Hand"/>
@@ -54,7 +54,7 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="3">
+    <Grid Margin="2">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Buttons -->
             <RowDefinition Height="Auto"/> <!-- Transcript (Hidden) -->
@@ -62,7 +62,7 @@
         </Grid.RowDefinitions>
 
         <!-- Controls Row -->
-        <Grid Grid.Row="0" Margin="0,0,0,3">
+        <Grid Grid.Row="0" Margin="0,0,0,2">
             <!-- Buttons -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <!-- Start Recording / Cancel Recording -->

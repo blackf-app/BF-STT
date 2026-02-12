@@ -28,9 +28,9 @@
             <Setter Property="Background" Value="#333333"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="BorderThickness" Value="0"/>
-            <Setter Property="Padding" Value="10"/>
-            <Setter Property="Margin" Value="5"/>
-            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Padding" Value="7"/>
+            <Setter Property="Margin" Value="3"/>
+            <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
@@ -54,7 +54,7 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="5">
+    <Grid Margin="3">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Buttons -->
             <RowDefinition Height="Auto"/> <!-- Transcript (Hidden) -->
@@ -62,7 +62,7 @@
         </Grid.RowDefinitions>
 
         <!-- Controls Row -->
-        <Grid Grid.Row="0" Margin="0,0,0,5">
+        <Grid Grid.Row="0" Margin="0,0,0,3">
             <!-- Buttons -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <!-- Start Recording / Cancel Recording -->
@@ -106,7 +106,7 @@
                          Background="Transparent" 
                          Foreground="White" 
                          BorderThickness="0" 
-                         FontSize="14" 
+                         FontSize="10" 
                          TextWrapping="Wrap" 
                          IsReadOnly="True"
                          VerticalScrollBarVisibility="Auto"/>
@@ -114,7 +114,7 @@
                 <!-- Loading Overlay -->
                 <Grid Background="#AA000000" Visibility="{Binding IsSending, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <ProgressBar IsIndeterminate="True" Width="100" Height="4" Foreground="#007ACC" Background="#333333" BorderThickness="0"/>
+                        <ProgressBar IsIndeterminate="True" Width="67" Height="3" Foreground="#007ACC" Background="#333333" BorderThickness="0"/>
                     </StackPanel>
                 </Grid>
             </Grid>

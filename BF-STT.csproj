@@ -36,4 +36,10 @@
     <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
   </ItemGroup>
 
+  <!-- Tự động publish khi build Release -->
+  <Target Name="AutoPublishOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And '$(IsAutoPublishing)' != 'true'">
+    <Message Importance="High" Text="Detect Release build. Automatically publishing to ./publish..." />
+    <Exec Command="dotnet publish -c $(Configuration) -o ./publish --no-build /p:IsAutoPublishing=true" />
+  </Target>
+
 </Project>

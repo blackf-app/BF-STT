@@ -9,10 +9,17 @@ namespace BF_STT.Services
         private WaveFileWriter? _writer;
         private string? _currentFilePath;
         private bool _isRecording;
+        private float _volumeMultiplier = 5.0f; // Default gain of 3x
 
         public event EventHandler<StoppedEventArgs>? RecordingStopped;
 
         public bool IsRecording => _isRecording;
+
+        public float VolumeMultiplier
+        {
+            get => _volumeMultiplier;
+            set => _volumeMultiplier = value;
+        }
 
         public void StartRecording()
         {
@@ -40,6 +47,24 @@ namespace BF_STT.Services
             {
                 if (_writer != null)
                 {
+                    // Apply Digital Gain
+                    if (_volumeMultiplier != 1.0f)
+                    {
+                        for (int i = 0; i < e.BytesRecorded; i += 2)
+                        {
+                            short sample = BitConverter.ToInt16(e.Buffer, i);
+                            float amplified = sample * _volumeMultiplier;
+
+                            if (amplified > short.MaxValue) amplified = short.MaxValue;
+                            else if (amplified < short.MinValue) amplified = short.MinValue;
+
+                            short finalSample = (short)amplified;
+                            byte[] bytes = BitConverter.GetBytes(finalSample);
+                            e.Buffer[i] = bytes[0];
+                            e.Buffer[i + 1] = bytes[1];
+                        }
+                    }
+
                     _writer.Write(e.Buffer, 0, e.BytesRecorded);
                     if (_writer.Position > _writer.Length)
                         _writer.Flush();

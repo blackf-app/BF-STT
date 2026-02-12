@@ -54,7 +54,12 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="2">
+    <Grid Margin="2" Background="Transparent">
+        <Grid.ContextMenu>
+            <ContextMenu>
+                <MenuItem Header="Exit" Command="{Binding Path=PlacementTarget.DataContext.CloseCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ContextMenu}}}"/>
+            </ContextMenu>
+        </Grid.ContextMenu>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Buttons -->
             <RowDefinition Height="Auto"/> <!-- Transcript (Hidden) -->

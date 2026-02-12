@@ -58,9 +58,20 @@ namespace BF_STT.Services
         /// Injects text into the last active external window by simulating Ctrl+V.
         /// Backs up and restores the user's clipboard content to avoid data loss.
         /// </summary>
-        public async Task InjectTextAsync(string text)
+        public IntPtr LastExternalWindowHandle => _lastExternalWindowHandle;
+
+        /// <summary>
+        /// Injects text into the specified window (or last active external window) by simulating Ctrl+V.
+        /// Backs up and restores the user's clipboard content to avoid data loss.
+        /// </summary>
+        public async Task InjectTextAsync(string text, IntPtr? targetWindowHandle = null)
         {
-            if (string.IsNullOrEmpty(text) || _lastExternalWindowHandle == IntPtr.Zero) return;
+            // Use the explicit target if provided and valid (non-zero), otherwise fallback to the last known external window
+            var handleToUse = (targetWindowHandle.HasValue && targetWindowHandle.Value != IntPtr.Zero) 
+                              ? targetWindowHandle.Value 
+                              : _lastExternalWindowHandle;
+
+            if (string.IsNullOrEmpty(text) || handleToUse == IntPtr.Zero) return;
 
             // Backup current clipboard content
             WpfIDataObject? clipboardBackup = null;
@@ -73,7 +84,7 @@ namespace BF_STT.Services
             try
             {
                 // Activate the target window
-                SetForegroundWindow(_lastExternalWindowHandle);
+                SetForegroundWindow(handleToUse);
 
                 // Give it a moment to gain focus (non-blocking)
                 await Task.Delay(100);

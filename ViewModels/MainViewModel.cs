@@ -131,6 +131,8 @@ namespace BF_STT.ViewModels
             StatusText = $"Recording... {_recordingDuration:mm\\:ss} (Click Start to Cancel)";
         }
 
+        private IntPtr _targetWindowHandle;
+
         private async void StartRecording(object? parameter)
         {
             try
@@ -149,6 +151,10 @@ namespace BF_STT.ViewModels
                 }
                 else
                 {
+                    // Capture the target window BEFORE we start recording
+                    // This ensures we return text to the app the user was using when they started
+                    _targetWindowHandle = _inputInjector.LastExternalWindowHandle;
+
                     // Clean up previous file before starting new
                     CleanupLastRecording();
 
@@ -216,8 +222,8 @@ namespace BF_STT.ViewModels
                 TranscriptText = transcript;
                 StatusText = "Done.";
                 
-                // Inject text into previous window (with clipboard backup/restore)
-                await _inputInjector.InjectTextAsync(transcript);
+                // Inject text into the window that was active when recording started
+                await _inputInjector.InjectTextAsync(transcript, _targetWindowHandle);
             }
             catch (Exception ex)
             {

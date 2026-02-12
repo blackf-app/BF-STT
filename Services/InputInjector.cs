@@ -1,10 +1,13 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows.Threading;
+using WpfClipboard = System.Windows.Clipboard;
+using WpfDataObject = System.Windows.DataObject;
+using WpfIDataObject = System.Windows.IDataObject;
 
 namespace BF_STT.Services
 {
-    public class InputInjector
+    public class InputInjector : IDisposable
     {
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
@@ -23,7 +26,7 @@ namespace BF_STT.Services
 
         private IntPtr _lastExternalWindowHandle;
         private readonly DispatcherTimer _timer;
-        private int _myProcessId;
+        private readonly int _myProcessId;
 
         public InputInjector()
         {
@@ -51,19 +54,105 @@ namespace BF_STT.Services
             }
         }
 
-        public void InjectText(string text)
+        /// <summary>
+        /// Injects text into the last active external window by simulating Ctrl+V.
+        /// Backs up and restores the user's clipboard content to avoid data loss.
+        /// </summary>
+        public async Task InjectTextAsync(string text)
         {
             if (string.IsNullOrEmpty(text) || _lastExternalWindowHandle == IntPtr.Zero) return;
 
-            // Activate the target window
-            SetForegroundWindow(_lastExternalWindowHandle);
-            
-            // Give it a moment to gain focus
-            Thread.Sleep(100);
+            // Backup current clipboard content
+            WpfIDataObject? clipboardBackup = null;
+            try
+            {
+                clipboardBackup = BackupClipboard();
+            }
+            catch { /* If backup fails, continue without restore */ }
 
-            // Copy text to clipboard and paste (Ctrl+V) to fill all at once
-            System.Windows.Clipboard.SetText(text);
-            System.Windows.Forms.SendKeys.SendWait("^v");
+            try
+            {
+                // Activate the target window
+                SetForegroundWindow(_lastExternalWindowHandle);
+
+                // Give it a moment to gain focus (non-blocking)
+                await Task.Delay(100);
+
+                // Set our text and paste
+                WpfClipboard.SetText(text);
+                System.Windows.Forms.SendKeys.SendWait("^v");
+
+                // Small delay to let the paste complete before restoring clipboard
+                await Task.Delay(50);
+            }
+            finally
+            {
+                // Restore original clipboard content
+                try
+                {
+                    RestoreClipboard(clipboardBackup);
+                }
+                catch { /* Ignore restore errors to avoid crashing */ }
+            }
+        }
+
+        /// <summary>
+        /// Backs up the current clipboard content, preserving all formats.
+        /// </summary>
+        private WpfIDataObject? BackupClipboard()
+        {
+            if (!WpfClipboard.ContainsText() &&
+                !WpfClipboard.ContainsImage() &&
+                !WpfClipboard.ContainsFileDropList() &&
+                !WpfClipboard.ContainsAudio())
+            {
+                return null; // Clipboard is empty or contains unsupported format
+            }
+
+            var backup = new WpfDataObject();
+
+            if (WpfClipboard.ContainsText())
+            {
+                backup.SetText(WpfClipboard.GetText());
+            }
+            if (WpfClipboard.ContainsImage())
+            {
+                var image = WpfClipboard.GetImage();
+                if (image != null) backup.SetImage(image);
+            }
+            if (WpfClipboard.ContainsFileDropList())
+            {
+                var files = WpfClipboard.GetFileDropList();
+                if (files != null) backup.SetFileDropList(files);
+            }
+            if (WpfClipboard.ContainsAudio())
+            {
+                var audio = WpfClipboard.GetAudioStream();
+                if (audio != null) backup.SetAudio(audio);
+            }
+
+            return backup;
+        }
+
+        /// <summary>
+        /// Restores previously backed-up clipboard content.
+        /// </summary>
+        private void RestoreClipboard(WpfIDataObject? backup)
+        {
+            if (backup == null)
+            {
+                // Original clipboard was empty, clear it
+                WpfClipboard.Clear();
+                return;
+            }
+
+            WpfClipboard.SetDataObject(backup, true); // true = persist after app exits
+        }
+
+        public void Dispose()
+        {
+            _timer.Stop();
+            _timer.Tick -= CheckForegroundWindow;
         }
     }
 }

@@ -216,8 +216,8 @@ namespace BF_STT.ViewModels
                 TranscriptText = transcript;
                 StatusText = "Done.";
                 
-                // Inject text into previous window
-                _inputInjector.InjectText(transcript);
+                // Inject text into previous window (with clipboard backup/restore)
+                await _inputInjector.InjectTextAsync(transcript);
             }
             catch (Exception ex)
             {

@@ -10,8 +10,13 @@ namespace BF_STT
 {
     public partial class App : System.Windows.Application
     {
-        public IConfiguration Configuration { get; private set; }
+        public IConfiguration? Configuration { get; private set; }
+        
+        // Track all disposable services for proper cleanup
         private HotkeyService? _hotkeyService;
+        private HttpClient? _httpClient;
+        private AudioRecordingService? _audioService;
+        private InputInjector? _inputInjector;
 
         private void Application_Startup(object sender, StartupEventArgs e)
         {
@@ -48,13 +53,14 @@ namespace BF_STT
             var model = Configuration["Deepgram:Model"];
 
             // Dependency Injection (Manual for simplicity)
-            var httpClient = new HttpClient(); // In a real app, use IHttpClientFactory
-            var deepgramService = new DeepgramService(httpClient, apiKey ?? "", baseUrl ?? "", model ?? "");
-            var audioService = new AudioRecordingService();
-            var inputInjector = new InputInjector();
+            // All disposable services are stored as fields for proper cleanup in OnExit
+            _httpClient = new HttpClient();
+            var deepgramService = new DeepgramService(_httpClient, apiKey ?? "", baseUrl ?? "", model ?? "");
+            _audioService = new AudioRecordingService();
+            _inputInjector = new InputInjector();
             var soundService = new SoundService();
 
-            var mainViewModel = new MainViewModel(audioService, deepgramService, inputInjector, soundService);
+            var mainViewModel = new MainViewModel(_audioService, deepgramService, _inputInjector, soundService);
 
             // Set up Global Hotkey
             _hotkeyService = new HotkeyService(() => 
@@ -75,7 +81,12 @@ namespace BF_STT
 
         protected override void OnExit(ExitEventArgs e)
         {
+            // Dispose all services in reverse order of creation
             _hotkeyService?.Dispose();
+            _inputInjector?.Dispose();
+            _audioService?.Dispose();
+            _httpClient?.Dispose();
+            
             base.OnExit(e);
         }
     }

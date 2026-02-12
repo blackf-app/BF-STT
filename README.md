@@ -6,8 +6,11 @@ BF-STT là một ứng dụng Windows (WPF) nhẹ nhàng và mạnh mẽ, giúp 
 
 - **Phím tắt toàn cầu (Global Hotkey):** Nhấn `F3` để bắt đầu/dừng ghi âm một cách nhanh chóng mà không cần chuyển cửa sổ.
 - **Tự động nhập liệu (Auto-Typing):** Sau khi chuyển đổi, văn bản sẽ được tự động "gõ" vào cửa sổ ứng dụng bạn đã sử dụng trước đó.
+- **Phản hồi âm thanh (Sound Feedback):** Phát âm báo nhẹ nhàng khi bắt đầu và kết thúc ghi âm để người dùng nhận biết trạng thái mà không cần nhìn màn hình.
+- **Luôn hiển thị (Always on Top):** Giao diện nhỏ gọn luôn nằm trên cùng, giúp bạn dễ dàng theo dõi trạng thái ghi âm.
+- **Đồng hồ ghi âm:** Hiển thị thời gian thực khi đang ghi âm.
+- **Tự động dọn dẹp:** File âm thanh tạm thời được tự động xóa sau khi xử lý hoặc khi đóng ứng dụng để tiết kiệm dung lượng.
 - **Xử lý âm thanh thông minh:** Tự động chuẩn hóa âm thanh về định dạng PCM 16kHz Mono để tối ưu hóa việc nhận diện.
-- **Giao diện hiện đại & Nhẹ:** Thiết kế tối giản, hỗ trợ kéo thả và thu nhỏ vào khay hệ thống (System Tray).
 - **Hỗ trợ đa ngôn ngữ:** Mặc định được cấu hình tối ưu cho Tiếng Việt (`vi`).
 
 ## 🛠 Công nghệ sử dụng
@@ -27,7 +30,7 @@ BF-STT là một ứng dụng Windows (WPF) nhẹ nhàng và mạnh mẽ, giúp 
 Trước khi chạy ứng dụng, bạn cần có API Key từ Deepgram.
 1. Đăng ký tài khoản tại [Deepgram Console](https://console.deepgram.com/).
 2. Tạo một API Key mới.
-3. Mở file `appsettings.json` trong thư mục gốc của dự án và dán key của bạn vào:
+3. Ứng dụng sẽ tự động đọc cấu hình từ file `appsettings.json` nằm cùng thư mục với file chạy hoặc file cấu hình nhúng. Để ghi đè cấu hình, tạo file `appsettings.json` trong cùng thư mục với nội dung:
 
 ```json
 {
@@ -47,6 +50,8 @@ dotnet build
 dotnet run
 ```
 
+Hệ thống versioning tự động sẽ chạy script `scripts/increment_version.ps1` để tăng số version mỗi khi build (trừ khi chạy publish tự động).
+
 ### 4. Xuất bản thành file duy nhất (Single EXE)
 Để tạo ra một file `.exe` duy nhất bao gồm tất cả thư viện và file cấu hình, hãy chạy lệnh sau trong PowerShell:
 ```powershell
@@ -57,17 +62,18 @@ Sau khi chạy xong, file `BF-STT.exe` sẽ nằm trong thư mục `publish`. B�
 ## ⌨️ Cách sử dụng
 
 1. **Mở ứng dụng:** Ứng dụng sẽ xuất hiện ở phía trên cùng của màn hình.
-2. **Bắt đầu ghi âm:** Nhấn phím `F3` (hoặc click nút Start). Trạng thái sẽ chuyển sang "Recording...".
-3. **Nói:** Thực hiện đoạn nói của bạn.
-4. **Dừng và Chuyển đổi:** Nhấn phím `F3` một lần nữa. Ứng dụng sẽ tự động gửi dữ liệu đến Deepgram.
+2. **Bắt đầu ghi âm:** Nhấn phím `F3` (hoặc click nút Start). Bạn sẽ nghe thấy tiếng "bíp" và trạng thái chuyển sang "Recording...".
+3. **Nói:** Thực hiện đoạn nói của bạn. Đồng hồ sẽ đếm thời gian.
+4. **Dừng và Chuyển đổi:** Nhấn phím `F3` một lần nữa. Bạn sẽ nghe thấy tiếng "bíp" kết thúc. Ứng dụng sẽ tự động gửi dữ liệu đến Deepgram.
 5. **Nhận kết quả:** Văn bản đã chuyển đổi sẽ xuất hiện trong giao diện và được tự động nhập vào cửa sổ ứng dụng bạn đang làm việc (ví dụ: Word, Notepad, Trình duyệt...).
 
 ## 📂 Cấu trúc thư mục
 
-- `Services/`: Chứa các logic xử lý về Audio, Hotkey, Deepgram API và Input Injection.
+- `Services/`: Chứa các logic xử lý về Audio, Hotkey, Deepgram API, Sound và Input Injection.
 - `ViewModels/`: Chứa logic điều khiển giao diện (MVVM).
 - `Models/`: Các định dạng dữ liệu.
 - `MainWindow.xaml`: Giao diện chính của ứng dụng.
+- `scripts/`: Chứa các script hỗ trợ development (ví dụ: versioning).
 
 ## 🤖 Workflows
 

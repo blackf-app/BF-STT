@@ -21,6 +21,7 @@ namespace BF_STT.ViewModels
         private bool _isRecording;
         private bool _isSending;
         private string? _lastRecordedFilePath;
+        private float _audioLevel;
 
         public MainViewModel(AudioRecordingService audioService, DeepgramService deepgramService, InputInjector inputInjector, SoundService soundService)
         {
@@ -28,6 +29,15 @@ namespace BF_STT.ViewModels
             _deepgramService = deepgramService ?? throw new ArgumentNullException(nameof(deepgramService));
             _inputInjector = inputInjector ?? throw new ArgumentNullException(nameof(inputInjector));
             _soundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
+
+            _audioService.AudioLevelUpdated += (s, level) =>
+            {
+                // Dispatch to UI thread
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    AudioLevel = level;
+                });
+            };
 
             _recordingTimer = new DispatcherTimer
             {
@@ -83,6 +93,12 @@ namespace BF_STT.ViewModels
             }
         }
 
+        public float AudioLevel
+        {
+            get => _audioLevel;
+            set => SetProperty(ref _audioLevel, value);
+        }
+
         public ICommand StartRecordingCommand { get; }
         public ICommand StopRecordingCommand { get; }
         public ICommand SendToDeepgramCommand { get; }
@@ -129,6 +145,7 @@ namespace BF_STT.ViewModels
                     IsRecording = false;
                     StatusText = "Recording cancelled.";
                     _lastRecordedFilePath = null;
+                    AudioLevel = 0;
                 }
                 else
                 {
@@ -146,6 +163,7 @@ namespace BF_STT.ViewModels
                     
                     TranscriptText = string.Empty; // Clear previous
                     _lastRecordedFilePath = null;
+                    AudioLevel = 0;
                 }
             }
             catch (Exception ex)
@@ -165,6 +183,7 @@ namespace BF_STT.ViewModels
                 
                 IsRecording = false;
                 StatusText = "Recording stopped. Sending to Deepgram...";
+                AudioLevel = 0;
                 
                 // Auto-send
                 if (!string.IsNullOrEmpty(_lastRecordedFilePath))

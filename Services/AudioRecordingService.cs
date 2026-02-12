@@ -12,6 +12,7 @@ namespace BF_STT.Services
         private float _volumeMultiplier = 5.0f; // Default gain of 3x
 
         public event EventHandler<StoppedEventArgs>? RecordingStopped;
+        public event EventHandler<float>? AudioLevelUpdated;
 
         public bool IsRecording => _isRecording;
 
@@ -47,6 +48,7 @@ namespace BF_STT.Services
             {
                 if (_writer != null)
                 {
+                    float maxSample = 0;
                     // Apply Digital Gain
                     if (_volumeMultiplier != 1.0f)
                     {
@@ -59,11 +61,27 @@ namespace BF_STT.Services
                             else if (amplified < short.MinValue) amplified = short.MinValue;
 
                             short finalSample = (short)amplified;
+                            
+                            // For visualization, use the amplified value but keep it positive
+                            float absSample = Math.Abs((float)finalSample / short.MaxValue);
+                            if (absSample > maxSample) maxSample = absSample;
+
                             byte[] bytes = BitConverter.GetBytes(finalSample);
                             e.Buffer[i] = bytes[0];
                             e.Buffer[i + 1] = bytes[1];
                         }
                     }
+                    else
+                    {
+                        for (int i = 0; i < e.BytesRecorded; i += 2)
+                        {
+                            short sample = BitConverter.ToInt16(e.Buffer, i);
+                            float absSample = Math.Abs((float)sample / short.MaxValue);
+                            if (absSample > maxSample) maxSample = absSample;
+                        }
+                    }
+
+                    AudioLevelUpdated?.Invoke(this, maxSample);
 
                     _writer.Write(e.Buffer, 0, e.BytesRecorded);
                     if (_writer.Position > _writer.Length)

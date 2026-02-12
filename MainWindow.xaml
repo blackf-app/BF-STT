@@ -25,6 +25,8 @@
             <MenuItem Header="Exit" Command="{Binding CloseCommand}" />
         </ContextMenu>
 
+        <local:LevelToScaleConverter x:Key="LevelToScaleConverter"/>
+
         <Style TargetType="Button">
             <Setter Property="Background" Value="#333333"/>
             <Setter Property="Foreground" Value="White"/>
@@ -62,46 +64,68 @@
             </ContextMenu>
         </Grid.ContextMenu>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Buttons -->
-            <RowDefinition Height="Auto"/> <!-- Transcript (Hidden) -->
+            <RowDefinition Height="Auto"/> <!-- Buttons & Visualizer -->
             <RowDefinition Height="Auto"/> <!-- Status -->
         </Grid.RowDefinitions>
 
         <!-- Controls Row -->
         <Grid Grid.Row="0" Margin="0,0,0,2">
-            <!-- Buttons -->
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <!-- Start Recording / Cancel Recording -->
-                <Button Command="{Binding StartRecordingCommand}" ToolTip="Start / Cancel Recording">
-                    <Button.Content>
-                        <TextBlock Text="&#xE720;" FontFamily="Segoe MDL2 Assets"/> <!-- Microphone -->
-                    </Button.Content>
-                    <Button.Style>
-                        <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                                    <Setter Property="Background" Value="#CC3300"/>
-                                    <Setter Property="ToolTip" Value="Cancel Recording (Discard)"/>
-                                    <Setter Property="Content">
-                                        <Setter.Value>
-                                            <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"/> <!-- X Icon for Cancel -->
-                                        </Setter.Value> 
-                                    </Setter>
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Button.Style>
-                </Button>
-                
-                <!-- Stop & Send (Stop Icon) -->
-                <Button Command="{Binding StopRecordingCommand}" ToolTip="Stop &amp; Send" Background="#CC3300">
-                    <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets"/> 
-                </Button>
-                
-                <!-- Resend (Refresh/Upload Icon) -->
-                <Button Command="{Binding SendToDeepgramCommand}" ToolTip="Re-Send to Deepgram" Background="#007ACC">
-                    <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets"/> 
-                </Button>
+                <!-- Visualizer Area (Moved to left of buttons) -->
+                <Grid Width="18" Height="20" Margin="2,0,2,0" VerticalAlignment="Center" Visibility="{Binding IsRecording, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Border Width="1.5" Height="7" Margin="0.3,0" Background="#CC3300" CornerRadius="0.7" RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleY="{Binding AudioLevel, ConverterParameter=0.8, Converter={StaticResource LevelToScaleConverter}}"/>
+                            </Border.RenderTransform>
+                        </Border>
+                        <Border Width="2" Height="10" Margin="0.3,0" Background="#CC3300" CornerRadius="1" RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleY="{Binding AudioLevel, ConverterParameter=1.5, Converter={StaticResource LevelToScaleConverter}}"/>
+                            </Border.RenderTransform>
+                        </Border>
+                        <Border Width="1.5" Height="7" Margin="0.3,0" Background="#CC3300" CornerRadius="0.7" RenderTransformOrigin="0.5,0.5">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleY="{Binding AudioLevel, ConverterParameter=0.8, Converter={StaticResource LevelToScaleConverter}}"/>
+                            </Border.RenderTransform>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Buttons -->
+                <StackPanel Orientation="Horizontal">
+                    <!-- Start Recording / Cancel Recording -->
+                    <Button Command="{Binding StartRecordingCommand}" ToolTip="Start / Cancel Recording">
+                        <Button.Content>
+                            <TextBlock Text="&#xE720;" FontFamily="Segoe MDL2 Assets"/> <!-- Microphone -->
+                        </Button.Content>
+                        <Button.Style>
+                            <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                        <Setter Property="Background" Value="#CC3300"/>
+                                        <Setter Property="ToolTip" Value="Cancel Recording (Discard)"/>
+                                        <Setter Property="Content">
+                                            <Setter.Value>
+                                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"/> <!-- X Icon for Cancel -->
+                                            </Setter.Value> 
+                                        </Setter>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+                    
+                    <!-- Stop & Send (Stop Icon) -->
+                    <Button Command="{Binding StopRecordingCommand}" ToolTip="Stop &amp; Send" Background="#CC3300">
+                        <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets"/> 
+                    </Button>
+                    
+                    <!-- Resend (Refresh/Upload Icon) -->
+                    <Button Command="{Binding SendToDeepgramCommand}" ToolTip="Re-Send to Deepgram" Background="#007ACC">
+                        <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets"/> 
+                    </Button>
+                </StackPanel>
             </StackPanel>
         </Grid>
 
@@ -127,7 +151,7 @@
         </Border>
 
         <!-- Status (Very small) -->
-        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Foreground="#AAAAAA" FontSize="10" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" MaxWidth="150" ToolTip="{Binding StatusText}"/>
+        <TextBlock Grid.Row="1" Text="{Binding StatusText}" Foreground="#AAAAAA" FontSize="10" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" MaxWidth="150" ToolTip="{Binding StatusText}"/>
         
         <tb:TaskbarIcon x:Name="MyNotifyIcon"
                         ToolTipText="BF-STT"

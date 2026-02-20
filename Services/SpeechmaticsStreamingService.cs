@@ -74,9 +74,9 @@ namespace BF_STT.Services
                     transcription_config = new
                     {
                         language = language,
-                        operating_point = "standard",
+                        operating_point = "enhanced",
                         enable_partials = true,
-                        max_delay = 1.0
+                        max_delay = 3.0
                     }
                 };
 
@@ -240,15 +240,8 @@ namespace BF_STT.Services
                         {
                             if (isFinal)
                             {
-                                var trimmed = transcript.TrimEnd();
-                                if (trimmed.EndsWith("."))
-                                {
-                                    transcript = trimmed + " ";
-                                }
-                                else
-                                {
-                                    transcript = trimmed + ". ";
-                                }
+                                // Only add trailing space for separation, let API handle punctuation
+                                transcript = transcript.TrimEnd() + " ";
                             }
 
                             TranscriptReceived?.Invoke(this, new TranscriptEventArgs

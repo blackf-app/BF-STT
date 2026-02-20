@@ -18,6 +18,10 @@ namespace BF_STT.ViewModels
         private readonly IStreamingSttService _deepgramStreamingService;
         private readonly IBatchSttService _speechmaticsBatchService;
         private readonly IStreamingSttService _speechmaticsStreamingService;
+        private readonly IBatchSttService _sonioxBatchService;
+        private readonly IStreamingSttService _sonioxStreamingService;
+        private readonly IBatchSttService _openaiBatchService;
+        private readonly IStreamingSttService _openaiStreamingService;
 
         private readonly InputInjector _inputInjector;
         private readonly SoundService _soundService;
@@ -29,6 +33,8 @@ namespace BF_STT.ViewModels
         private string _transcriptText = string.Empty;
         private string _deepgramTranscript = string.Empty;
         private string _speechmaticsTranscript = string.Empty;
+        private string _sonioxTranscript = string.Empty;
+        private string _openaiTranscript = string.Empty;
         private string _statusText = "Ready";
         private bool _isRecording;
         private bool _isStreaming;
@@ -48,6 +54,10 @@ namespace BF_STT.ViewModels
             IStreamingSttService deepgramStreamingService, 
             IBatchSttService speechmaticsBatchService,
             IStreamingSttService speechmaticsStreamingService,
+            IBatchSttService sonioxBatchService,
+            IStreamingSttService sonioxStreamingService,
+            IBatchSttService openaiBatchService,
+            IStreamingSttService openaiStreamingService,
             InputInjector inputInjector, 
             SoundService soundService,
             SettingsService settingsService)
@@ -57,6 +67,10 @@ namespace BF_STT.ViewModels
             _deepgramStreamingService = deepgramStreamingService ?? throw new ArgumentNullException(nameof(deepgramStreamingService));
             _speechmaticsBatchService = speechmaticsBatchService ?? throw new ArgumentNullException(nameof(speechmaticsBatchService));
             _speechmaticsStreamingService = speechmaticsStreamingService ?? throw new ArgumentNullException(nameof(speechmaticsStreamingService));
+            _sonioxBatchService = sonioxBatchService ?? throw new ArgumentNullException(nameof(sonioxBatchService));
+            _sonioxStreamingService = sonioxStreamingService ?? throw new ArgumentNullException(nameof(sonioxStreamingService));
+            _openaiBatchService = openaiBatchService ?? throw new ArgumentNullException(nameof(openaiBatchService));
+            _openaiStreamingService = openaiStreamingService ?? throw new ArgumentNullException(nameof(openaiStreamingService));
             _inputInjector = inputInjector ?? throw new ArgumentNullException(nameof(inputInjector));
             _soundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
@@ -81,6 +95,14 @@ namespace BF_STT.ViewModels
             _speechmaticsStreamingService.TranscriptReceived += OnTranscriptReceived;
             _speechmaticsStreamingService.UtteranceEndReceived += OnUtteranceEndReceived;
             _speechmaticsStreamingService.Error += OnStreamingError;
+
+            _sonioxStreamingService.TranscriptReceived += OnTranscriptReceived;
+            _sonioxStreamingService.UtteranceEndReceived += OnUtteranceEndReceived;
+            _sonioxStreamingService.Error += OnStreamingError;
+
+            _openaiStreamingService.TranscriptReceived += OnTranscriptReceived;
+            _openaiStreamingService.UtteranceEndReceived += OnUtteranceEndReceived;
+            _openaiStreamingService.Error += OnStreamingError;
 
             _recordingTimer = new DispatcherTimer
             {
@@ -114,7 +136,7 @@ namespace BF_STT.ViewModels
             System.Diagnostics.Debug.WriteLine("[MainViewModel] UtteranceEnd received.");
         }
 
-        public ObservableCollection<string> AvailableApis { get; } = new ObservableCollection<string> { "Deepgram", "Speechmatics" };
+        public ObservableCollection<string> AvailableApis { get; } = new ObservableCollection<string> { "Deepgram", "Speechmatics", "Soniox", "OpenAI" };
 
         public string SelectedApi
         {
@@ -131,8 +153,20 @@ namespace BF_STT.ViewModels
             }
         }
 
-        private IBatchSttService ActiveBatchService => SelectedApi == "Speechmatics" ? _speechmaticsBatchService : _deepgramBatchService;
-        private IStreamingSttService ActiveStreamingService => SelectedApi == "Speechmatics" ? _speechmaticsStreamingService : _deepgramStreamingService;
+        private IBatchSttService ActiveBatchService => SelectedApi switch
+        {
+            "Soniox" => _sonioxBatchService,
+            "Speechmatics" => _speechmaticsBatchService,
+            "OpenAI" => _openaiBatchService,
+            _ => _deepgramBatchService,
+        };
+        private IStreamingSttService ActiveStreamingService => SelectedApi switch
+        {
+            "Soniox" => _sonioxStreamingService,
+            "Speechmatics" => _speechmaticsStreamingService,
+            "OpenAI" => _openaiStreamingService,
+            _ => _deepgramStreamingService,
+        };
 
         public string TranscriptText
         {
@@ -152,6 +186,22 @@ namespace BF_STT.ViewModels
         {
             get => _speechmaticsTranscript;
             set => SetProperty(ref _speechmaticsTranscript, value);
+        }
+
+        public string SonioxTranscript
+        {
+            get => _sonioxTranscript;
+            set => SetProperty(ref _sonioxTranscript, value);
+        }
+
+        public string OpenAITranscript
+        {
+            get => _openaiTranscript;
+            set
+            {
+                _openaiTranscript = value;
+                OnPropertyChanged(nameof(OpenAITranscript));
+            }
         }
 
         public string StatusText
@@ -212,17 +262,30 @@ namespace BF_STT.ViewModels
             }
         }
 
-        private void CheckApiConfiguration()
+        private bool CheckApiConfiguration()
         {
-            var s = _settingsService.CurrentSettings;
-            if (SelectedApi == "Deepgram" && string.IsNullOrWhiteSpace(s.ApiKey))
+            var settings = _settingsService.CurrentSettings;
+            if (SelectedApi == "Deepgram" && string.IsNullOrWhiteSpace(settings.ApiKey))
             {
-                OpenSettings();
+                StatusText = "Deepgram API Key not configured. Please open Settings.";
+                return false;
             }
-            else if (SelectedApi == "Speechmatics" && string.IsNullOrWhiteSpace(s.SpeechmaticsApiKey))
+            else if (SelectedApi == "Speechmatics" && string.IsNullOrWhiteSpace(settings.SpeechmaticsApiKey))
             {
-                OpenSettings();
+                StatusText = "Speechmatics API Key not configured. Please open Settings.";
+                return false;
             }
+            else if (SelectedApi == "Soniox" && string.IsNullOrWhiteSpace(settings.SonioxApiKey))
+            {
+                StatusText = "Soniox API Key not configured. Please open Settings.";
+                return false;
+            }
+            else if (SelectedApi == "OpenAI" && string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
+            {
+                StatusText = "OpenAI API Key not configured. Please open Settings.";
+                return false;
+            }
+            return true;
         }
 
         private void OpenSettings()
@@ -238,6 +301,10 @@ namespace BF_STT.ViewModels
                 _deepgramStreamingService.UpdateSettings(settings.ApiKey, settings.Model);
                 _speechmaticsBatchService.UpdateSettings(settings.SpeechmaticsApiKey, settings.SpeechmaticsModel);
                 _speechmaticsStreamingService.UpdateSettings(settings.SpeechmaticsApiKey, settings.SpeechmaticsModel);
+                _sonioxBatchService.UpdateSettings(settings.SonioxApiKey, settings.SonioxModel);
+                _sonioxStreamingService.UpdateSettings(settings.SonioxApiKey, settings.SonioxModel);
+                _openaiBatchService.UpdateSettings(settings.OpenAIApiKey, settings.OpenAIModel);
+                _openaiStreamingService.UpdateSettings(settings.OpenAIApiKey, settings.OpenAIModel);
                 
                 StatusText = "Settings updated.";
             }
@@ -345,7 +412,7 @@ namespace BF_STT.ViewModels
                     await _audioService.StopRecordingAsync(discard: true);
                     if (IsTestMode)
                     {
-                        await Task.WhenAll(_deepgramStreamingService.CancelAsync(), _speechmaticsStreamingService.CancelAsync());
+                        await Task.WhenAll(_deepgramStreamingService.CancelAsync(), _speechmaticsStreamingService.CancelAsync(), _sonioxStreamingService.CancelAsync(), _openaiStreamingService.CancelAsync());
                     }
                     else
                     {
@@ -409,6 +476,8 @@ namespace BF_STT.ViewModels
                     {
                         DeepgramTranscript = string.Empty;
                         SpeechmaticsTranscript = string.Empty;
+                        SonioxTranscript = string.Empty;
+                        OpenAITranscript = string.Empty;
                     }
                     else
                     {
@@ -442,14 +511,18 @@ namespace BF_STT.ViewModels
                 {
                     var dTask = _deepgramStreamingService.StartAsync("vi");
                     var sTask = _speechmaticsStreamingService.StartAsync("vi");
-                    await Task.WhenAll(dTask, sTask);
+                    var sonioxTask = _sonioxStreamingService.StartAsync("vi");
+                    var openaiTask = _openaiStreamingService.StartAsync("vi");
+                    await Task.WhenAll(dTask, sTask, sonioxTask, openaiTask);
                     
                     // Flush buffer to WebSocket
                     while (_audioBuffer.TryDequeue(out var args))
                     {
                        var sdTask = _deepgramStreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
                        var ssTask = _speechmaticsStreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
-                       await Task.WhenAll(sdTask, ssTask);
+                       var ssonioxTask = _sonioxStreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
+                       var soaTask = _openaiStreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
+                       await Task.WhenAll(sdTask, ssTask, ssonioxTask, soaTask);
                     }
                 }
                 else
@@ -497,7 +570,9 @@ namespace BF_STT.ViewModels
                     {
                         var t1 = _deepgramStreamingService.StopAsync();
                         var t2 = _speechmaticsStreamingService.StopAsync();
-                        await Task.WhenAll(t1, t2);
+                        var t3 = _sonioxStreamingService.StopAsync();
+                        var t4 = _openaiStreamingService.StopAsync();
+                        await Task.WhenAll(t1, t2, t3, t4);
                     }
                     StatusText = "Done.";
                 }
@@ -550,9 +625,11 @@ namespace BF_STT.ViewModels
 
         private async Task ProcessBatchRecordingAsync(string filePath, IntPtr targetWindow)
         {
+            var sw = Stopwatch.StartNew();
             try
             {
                 var transcript = await ActiveBatchService.TranscribeAsync(filePath, "vi");
+                sw.Stop();
 
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
                 {
@@ -571,7 +648,7 @@ namespace BF_STT.ViewModels
                     }
 
                     TranscriptText = finalTranscript;
-                    StatusText = "Done.";
+                    StatusText = $"Done. ({sw.ElapsedMilliseconds}ms)";
 
                     if (!string.IsNullOrWhiteSpace(finalTranscript))
                     {
@@ -649,13 +726,63 @@ namespace BF_STT.ViewModels
                 }
             });
 
+            // Create independent task for Soniox
+            var sonioxTask = Task.Run(async () => 
+            {
+                var sw = Stopwatch.StartNew();
+                try 
+                {
+                    var result = await _sonioxBatchService.TranscribeAsync(filePath, "vi");
+                    sw.Stop();
+                    var formatted = FormatTranscript(result);
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        SonioxTranscript = $"[{sw.ElapsedMilliseconds}ms]\n{formatted}";
+                    });
+                }
+                catch (Exception ex)
+                {
+                    sw.Stop();
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        SonioxTranscript = $"[{sw.ElapsedMilliseconds}ms] Failed: {ex.Message}";
+                    });
+                }
+            });
+
+            // Create independent task for OpenAI
+            var openaiTask = Task.Run(async () => 
+            {
+                var sw = Stopwatch.StartNew();
+                try 
+                {
+                    var result = await _openaiBatchService.TranscribeAsync(filePath, "vi");
+                    sw.Stop();
+                    var formatted = FormatTranscript(result);
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        OpenAITranscript = $"[{sw.ElapsedMilliseconds}ms]\n{formatted}";
+                    });
+                }
+                catch (Exception ex)
+                {
+                    sw.Stop();
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        OpenAITranscript = $"[{sw.ElapsedMilliseconds}ms] Failed: {ex.Message}";
+                    });
+                }
+            });
+
+            var overallSw = Stopwatch.StartNew();
             try
             {
-                // Wait for both to finish so we can clean up
-                await Task.WhenAll(deepgramTask, speechmaticsTask);
+                // Wait for all to finish so we can clean up
+                await Task.WhenAll(deepgramTask, speechmaticsTask, sonioxTask, openaiTask);
+                overallSw.Stop();
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    StatusText = "Done.";
+                    StatusText = $"Done. ({overallSw.ElapsedMilliseconds}ms)";
                 });
             }
             finally
@@ -697,7 +824,9 @@ namespace BF_STT.ViewModels
                     {
                         var sendD = _deepgramStreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
                         var sendS = _speechmaticsStreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
-                        await Task.WhenAll(sendD, sendS);
+                        var sendSoniox = _sonioxStreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
+                        var sendOpenAI = _openaiStreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
+                        await Task.WhenAll(sendD, sendS, sendSoniox, sendOpenAI);
                     }
                     else
                     {
@@ -735,6 +864,14 @@ namespace BF_STT.ViewModels
                             else if (sender == _speechmaticsStreamingService)
                             {
                                 SpeechmaticsTranscript = e.Text;
+                            }
+                            else if (sender == _sonioxStreamingService)
+                            {
+                                SonioxTranscript = e.Text;
+                            }
+                            else if (sender == _openaiStreamingService)
+                            {
+                                OpenAITranscript = e.Text;
                             }
                         }
                         else
@@ -781,6 +918,8 @@ namespace BF_STT.ViewModels
             AudioLevel = 0;
             DeepgramTranscript = string.Empty;
             SpeechmaticsTranscript = string.Empty;
+            SonioxTranscript = string.Empty;
+            OpenAITranscript = string.Empty;
             TranscriptText = string.Empty;
             while (_audioBuffer.TryDequeue(out _)) { }
         }

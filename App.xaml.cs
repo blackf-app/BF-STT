@@ -18,6 +18,8 @@ namespace BF_STT
         private HttpClient? _httpClient;
         private AudioRecordingService? _audioService;
         private DeepgramStreamingService? _streamingService;
+        private SonioxStreamingService? _sonioxStreamingService;
+        private OpenAIStreamingService? _openAIStreamingService;
         private InputInjector? _inputInjector;
         private static Mutex? _mutex;
 
@@ -65,15 +67,32 @@ namespace BF_STT
             _httpClient = new HttpClient();
             var deepgramService = new DeepgramService(_httpClient, settings.ApiKey, settings.BaseUrl, settings.Model);
             var speechmaticsService = new SpeechmaticsBatchService(_httpClient, settings.SpeechmaticsApiKey, settings.SpeechmaticsBaseUrl);
+            var sonioxService = new SonioxBatchService(_httpClient, settings.SonioxApiKey, settings.SonioxBaseUrl);
+            var openAIService = new OpenAIBatchService(_httpClient, settings.OpenAIApiKey, settings.OpenAIBaseUrl); // Added OpenAI Batch Service
 
             _audioService = new AudioRecordingService();
             _streamingService = new DeepgramStreamingService(settings.ApiKey, settings.StreamingUrl, settings.Model); // Kept for disposing
             var speechmaticsStreaming = new SpeechmaticsStreamingService(settings.SpeechmaticsApiKey, settings.SpeechmaticsStreamingUrl);
+            _sonioxStreamingService = new SonioxStreamingService(settings.SonioxApiKey, settings.SonioxStreamingUrl); // Kept for disposing
+            _openAIStreamingService = new OpenAIStreamingService(settings.OpenAIApiKey); // Added OpenAI Streaming Service for disposing
             
             _inputInjector = new InputInjector();
             var soundService = new SoundService();
 
-            var mainViewModel = new MainViewModel(_audioService, deepgramService, _streamingService, speechmaticsService, speechmaticsStreaming, _inputInjector, soundService, settingsService);
+            var mainViewModel = new MainViewModel(
+                _audioService, 
+                deepgramService, 
+                _streamingService, 
+                speechmaticsService, 
+                speechmaticsStreaming, 
+                sonioxService, 
+                _sonioxStreamingService, 
+                openAIService, // Pass OpenAI batch service
+                _openAIStreamingService, // Pass OpenAI streaming service
+                _inputInjector, 
+                soundService, 
+                settingsService
+            );
 
             // Set up Global Hotkey
             _hotkeyService = new HotkeyService(
@@ -99,6 +118,8 @@ namespace BF_STT
             _hotkeyService?.Dispose();
             _inputInjector?.Dispose();
             _streamingService?.Dispose();
+            _sonioxStreamingService?.Dispose();
+            _openAIStreamingService?.Dispose();
             _audioService?.Dispose();
             _httpClient?.Dispose();
             _mutex?.Dispose();

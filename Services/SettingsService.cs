@@ -22,6 +22,17 @@ namespace BF_STT.Services
         public string SpeechmaticsStreamingUrl { get; set; } = "wss://eu2.rt.speechmatics.com/v2";
         public string SpeechmaticsBaseUrl { get; set; } = "https://asr.api.speechmatics.com/v2";
         public string SpeechmaticsModel { get; set; } = ""; // E.g., not strictly necessary but keeps consistency
+
+        // Soniox
+        public string SonioxApiKey { get; set; } = "";
+        public string SonioxStreamingUrl { get; set; } = "wss://stt-rt.soniox.com/transcribe-websocket";
+        public string SonioxBaseUrl { get; set; } = "https://api.soniox.com/v1";
+        public string SonioxModel { get; set; } = "";
+
+        // OpenAI Whisper
+        public string OpenAIApiKey { get; set; } = "";
+        public string OpenAIBaseUrl { get; set; } = "https://api.openai.com/v1/audio/transcriptions";
+        public string OpenAIModel { get; set; } = "whisper-1";
     }
 
     public class SettingsService

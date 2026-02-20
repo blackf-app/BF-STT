@@ -22,12 +22,14 @@ namespace BF_STT
                 Model = _settingsService.CurrentSettings.Model,
                 SpeechmaticsBaseUrl = _settingsService.CurrentSettings.SpeechmaticsBaseUrl,
                 SpeechmaticsModel = _settingsService.CurrentSettings.SpeechmaticsModel,
-                SelectedApi = _settingsService.CurrentSettings.SelectedApi
+                SelectedApi = _settingsService.CurrentSettings.SelectedApi,
+                TestMode = _settingsService.CurrentSettings.TestMode
             };
 
             ApiKeyTextBox.Text = _tempSettings.ApiKey;
             SpeechmaticsApiKeyTextBox.Text = _tempSettings.SpeechmaticsApiKey;
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
+            TestModeCheckBox.IsChecked = _tempSettings.TestMode;
 
             // Set ComboBox selection based on current SelectedApi
             if (_tempSettings.SelectedApi == "Speechmatics")
@@ -53,6 +55,7 @@ namespace BF_STT
             _tempSettings.ApiKey = ApiKeyTextBox.Text;
             _tempSettings.SpeechmaticsApiKey = SpeechmaticsApiKeyTextBox.Text;
             _tempSettings.StartWithWindows = StartWithWindowsCheckBox.IsChecked ?? false;
+            _tempSettings.TestMode = TestModeCheckBox.IsChecked ?? false;
             
             // Get Selected API from ComboBox
             _tempSettings.SelectedApi = SelectedApiComboBox.SelectedIndex == 1 ? "Speechmatics" : "Deepgram";

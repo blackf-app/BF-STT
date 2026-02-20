@@ -83,6 +83,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" 
@@ -125,12 +126,18 @@
             </StackPanel>
 
             <CheckBox Grid.Row="4" 
+                      x:Name="TestModeCheckBox" 
+                      Content="Test Mode (Run both APIs simultaneously)" 
+                      Margin="0,0,0,10"
+                      HorizontalAlignment="Left"/>
+
+            <CheckBox Grid.Row="5" 
                       x:Name="StartWithWindowsCheckBox" 
                       Content="Start with Windows" 
                       Margin="0,0,0,30"
                       HorizontalAlignment="Left"/>
 
-            <StackPanel Grid.Row="5" 
+            <StackPanel Grid.Row="6" 
                         Orientation="Horizontal" 
                         HorizontalAlignment="Center">
                 <Button Content="Save" 

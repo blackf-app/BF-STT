@@ -8,6 +8,7 @@ namespace BF_STT.Services
     {
         // General
         public bool StartWithWindows { get; set; }
+        public bool TestMode { get; set; } = false;
         public string SelectedApi { get; set; } = "Deepgram";
 
         // Deepgram

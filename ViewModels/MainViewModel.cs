@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using System.IO;
+using System.Diagnostics;
 
 namespace BF_STT.ViewModels
 {
@@ -26,6 +27,8 @@ namespace BF_STT.ViewModels
         private TimeSpan _recordingDuration;
 
         private string _transcriptText = string.Empty;
+        private string _deepgramTranscript = string.Empty;
+        private string _speechmaticsTranscript = string.Empty;
         private string _statusText = "Ready";
         private bool _isRecording;
         private bool _isStreaming;
@@ -33,8 +36,7 @@ namespace BF_STT.ViewModels
         private float _audioLevel;
         private DateTime _f3DownTime;
         private bool _isToggleMode;
-
-        // Hybrid mode state
+        private string? _lastRecordedFilePath;
         private DispatcherTimer _hybridTimer;
         private bool _isHybridDecisionMade;
         private ConcurrentQueue<AudioDataEventArgs> _audioBuffer = new();
@@ -95,8 +97,12 @@ namespace BF_STT.ViewModels
             // Allow Start command to execute even while streaming/recording (for cancel)
             StartRecordingCommand = new RelayCommand(StartRecording, _ => true);
             StopRecordingCommand = new RelayCommand(StopRecording, _ => IsRecording);
-            SendToDeepgramCommand = new RelayCommand(async _ => await Task.CompletedTask, _ => false); // Disabled
+            ResendAudioCommand = new RelayCommand(ResendAudio, CanResendAudio);
             CloseCommand = new RelayCommand(_ => {
+                if (!string.IsNullOrEmpty(_lastRecordedFilePath))
+                {
+                    TryDeleteFile(_lastRecordedFilePath);
+                }
                 System.Windows.Application.Current.Shutdown();
             });
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
@@ -134,6 +140,20 @@ namespace BF_STT.ViewModels
             set => SetProperty(ref _transcriptText, value);
         }
 
+        public bool IsTestMode => _settingsService.CurrentSettings.TestMode;
+
+        public string DeepgramTranscript
+        {
+            get => _deepgramTranscript;
+            set => SetProperty(ref _deepgramTranscript, value);
+        }
+
+        public string SpeechmaticsTranscript
+        {
+            get => _speechmaticsTranscript;
+            set => SetProperty(ref _speechmaticsTranscript, value);
+        }
+
         public string StatusText
         {
             get => _statusText;
@@ -165,9 +185,32 @@ namespace BF_STT.ViewModels
 
         public ICommand StartRecordingCommand { get; }
         public ICommand StopRecordingCommand { get; }
-        public ICommand SendToDeepgramCommand { get; }
+        public ICommand ResendAudioCommand { get; }
         public ICommand CloseCommand { get; }
         public ICommand OpenSettingsCommand { get; }
+
+        private bool CanResendAudio(object? parameter)
+        {
+            return !string.IsNullOrEmpty(_lastRecordedFilePath) && File.Exists(_lastRecordedFilePath) && !IsRecording && !IsSending;
+        }
+
+        private void ResendAudio(object? parameter)
+        {
+            if (!CanResendAudio(null)) return;
+            
+            StatusText = "Resending Batch...";
+            _isBatchProcessing = true;
+            OnPropertyChanged(nameof(IsSending));
+            
+            if (IsTestMode)
+            {
+                _ = ProcessBatchTestModeAsync(_lastRecordedFilePath!);
+            }
+            else
+            {
+                _ = ProcessBatchRecordingAsync(_lastRecordedFilePath!, _targetWindowHandle);
+            }
+        }
 
         private void CheckApiConfiguration()
         {
@@ -190,6 +233,7 @@ namespace BF_STT.ViewModels
                 // Reload settings
                 var settings = _settingsService.CurrentSettings;
                 OnPropertyChanged(nameof(SelectedApi)); // Update UI if it was changed in SettingsWindow
+                OnPropertyChanged(nameof(IsTestMode)); // Update UI if Test Mode changed
                 _deepgramBatchService.UpdateSettings(settings.ApiKey, settings.Model);
                 _deepgramStreamingService.UpdateSettings(settings.ApiKey, settings.Model);
                 _speechmaticsBatchService.UpdateSettings(settings.SpeechmaticsApiKey, settings.SpeechmaticsModel);
@@ -299,7 +343,14 @@ namespace BF_STT.ViewModels
                     _recordingTimer.Stop();
                     _hybridTimer.Stop();
                     await _audioService.StopRecordingAsync(discard: true);
-                    await ActiveStreamingService.CancelAsync();
+                    if (IsTestMode)
+                    {
+                        await Task.WhenAll(_deepgramStreamingService.CancelAsync(), _speechmaticsStreamingService.CancelAsync());
+                    }
+                    else
+                    {
+                        await ActiveStreamingService.CancelAsync();
+                    }
                     _soundService.PlayStopSound();
                     
                     ResetState();
@@ -310,6 +361,13 @@ namespace BF_STT.ViewModels
                     // Start new session
                     _targetWindowHandle = _inputInjector.LastExternalWindowHandle;
                     _inputInjector.ResetStreamingState();
+                    
+                    if (!string.IsNullOrEmpty(_lastRecordedFilePath))
+                    {
+                        TryDeleteFile(_lastRecordedFilePath);
+                        _lastRecordedFilePath = null;
+                        System.Windows.Application.Current.Dispatcher.Invoke(() => CommandManager.InvalidateRequerySuggested());
+                    }
                     
                     // Reset buffer
                     while (_audioBuffer.TryDequeue(out _)) { }
@@ -347,7 +405,15 @@ namespace BF_STT.ViewModels
 
                     _recordingTimer.Start();
                     
-                    TranscriptText = string.Empty;
+                    if (IsTestMode)
+                    {
+                        DeepgramTranscript = string.Empty;
+                        SpeechmaticsTranscript = string.Empty;
+                    }
+                    else
+                    {
+                        TranscriptText = string.Empty;
+                    }
                     AudioLevel = 0;
                 }
             }
@@ -372,12 +438,29 @@ namespace BF_STT.ViewModels
             // Connect WebSocket
             try 
             {
-                await ActiveStreamingService.StartAsync("vi");
-                
-                // Flush buffer to WebSocket
-                while (_audioBuffer.TryDequeue(out var args))
+                if (IsTestMode)
                 {
-                   await ActiveStreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
+                    var dTask = _deepgramStreamingService.StartAsync("vi");
+                    var sTask = _speechmaticsStreamingService.StartAsync("vi");
+                    await Task.WhenAll(dTask, sTask);
+                    
+                    // Flush buffer to WebSocket
+                    while (_audioBuffer.TryDequeue(out var args))
+                    {
+                       var sdTask = _deepgramStreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
+                       var ssTask = _speechmaticsStreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
+                       await Task.WhenAll(sdTask, ssTask);
+                    }
+                }
+                else
+                {
+                    await ActiveStreamingService.StartAsync("vi");
+                    
+                    // Flush buffer to WebSocket
+                    while (_audioBuffer.TryDequeue(out var args))
+                    {
+                       await ActiveStreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
+                    }
                 }
             }
             catch (Exception ex)
@@ -405,8 +488,17 @@ namespace BF_STT.ViewModels
                 {
                     // Finish Streaming
                     StatusText = "Finalizing Stream...";
-                    _inputInjector.CommitCurrentText(); // Lock in displayed text
-                    await ActiveStreamingService.StopAsync();
+                    if (!IsTestMode)
+                    {
+                        _inputInjector.CommitCurrentText(); // Lock in displayed text
+                        await ActiveStreamingService.StopAsync();
+                    }
+                    else
+                    {
+                        var t1 = _deepgramStreamingService.StopAsync();
+                        var t2 = _speechmaticsStreamingService.StopAsync();
+                        await Task.WhenAll(t1, t2);
+                    }
                     StatusText = "Done.";
                 }
                 else
@@ -418,10 +510,19 @@ namespace BF_STT.ViewModels
                         {
                             StatusText = "Processing Batch...";
                             _isBatchProcessing = true;
+                            _lastRecordedFilePath = filePath;
+                            System.Windows.Application.Current.Dispatcher.Invoke(() => CommandManager.InvalidateRequerySuggested());
                             OnPropertyChanged(nameof(IsSending));
                             
                             // Fire-and-forget batch processing
-                            _ = ProcessBatchRecordingAsync(filePath, _targetWindowHandle);
+                            if (IsTestMode)
+                            {
+                                _ = ProcessBatchTestModeAsync(filePath);
+                            }
+                            else
+                            {
+                                _ = ProcessBatchRecordingAsync(filePath, _targetWindowHandle);
+                            }
                         }
                         else
                         {
@@ -489,13 +590,90 @@ namespace BF_STT.ViewModels
             }
             finally
             {
-                TryDeleteFile(filePath);
                 _isBatchProcessing = false;
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
                     OnPropertyChanged(nameof(IsSending));
+                    CommandManager.InvalidateRequerySuggested();
                 });
             }
+        }
+
+        private async Task ProcessBatchTestModeAsync(string filePath)
+        {
+            // Create independent task for Deepgram
+            var deepgramTask = Task.Run(async () => 
+            {
+                var sw = Stopwatch.StartNew();
+                try 
+                {
+                    var result = await _deepgramBatchService.TranscribeAsync(filePath, "vi");
+                    sw.Stop();
+                    var formatted = FormatTranscript(result);
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        DeepgramTranscript = $"[{sw.ElapsedMilliseconds}ms]\n{formatted}";
+                    });
+                }
+                catch (Exception ex)
+                {
+                    sw.Stop();
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        DeepgramTranscript = $"[{sw.ElapsedMilliseconds}ms] Failed: {ex.Message}";
+                    });
+                }
+            });
+
+            // Create independent task for Speechmatics
+            var speechmaticsTask = Task.Run(async () => 
+            {
+                var sw = Stopwatch.StartNew();
+                try 
+                {
+                    var result = await _speechmaticsBatchService.TranscribeAsync(filePath, "vi");
+                    sw.Stop();
+                    var formatted = FormatTranscript(result);
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        SpeechmaticsTranscript = $"[{sw.ElapsedMilliseconds}ms]\n{formatted}";
+                    });
+                }
+                catch (Exception ex)
+                {
+                    sw.Stop();
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        SpeechmaticsTranscript = $"[{sw.ElapsedMilliseconds}ms] Failed: {ex.Message}";
+                    });
+                }
+            });
+
+            try
+            {
+                // Wait for both to finish so we can clean up
+                await Task.WhenAll(deepgramTask, speechmaticsTask);
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    StatusText = "Done.";
+                });
+            }
+            finally
+            {
+                _isBatchProcessing = false;
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    OnPropertyChanged(nameof(IsSending));
+                    CommandManager.InvalidateRequerySuggested();
+                });
+            }
+        }
+
+        private string FormatTranscript(string transcript)
+        {
+            if (string.IsNullOrWhiteSpace(transcript)) return string.Empty;
+            var trimmed = transcript.TrimEnd();
+            return trimmed.EndsWith(".") ? trimmed + " " : trimmed + ". ";
         }
 
         private void RecordingTimer_Tick(object? sender, EventArgs e)
@@ -515,7 +693,16 @@ namespace BF_STT.ViewModels
                 // Push directly to WebSocket
                 try
                 {
-                    await ActiveStreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
+                    if (IsTestMode)
+                    {
+                        var sendD = _deepgramStreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
+                        var sendS = _speechmaticsStreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
+                        await Task.WhenAll(sendD, sendS);
+                    }
+                    else
+                    {
+                        await ActiveStreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -539,11 +726,25 @@ namespace BF_STT.ViewModels
                     // Always update UI with latest text (partial or final)
                     if (!string.IsNullOrEmpty(e.Text))
                     {
-                        TranscriptText = e.Text;
+                        if (IsTestMode)
+                        {
+                            if (sender == _deepgramStreamingService)
+                            {
+                                DeepgramTranscript = e.Text;
+                            }
+                            else if (sender == _speechmaticsStreamingService)
+                            {
+                                SpeechmaticsTranscript = e.Text;
+                            }
+                        }
+                        else
+                        {
+                            TranscriptText = e.Text;
+                        }
                     }
 
                     // Only inject into target window when result is final
-                    if (e.IsFinal && !string.IsNullOrEmpty(e.Text))
+                    if (!IsTestMode && e.IsFinal && !string.IsNullOrEmpty(e.Text))
                     {
                         await _inputInjector.InjectStreamingTextAsync(
                             e.Text, true, _targetWindowHandle);
@@ -578,6 +779,9 @@ namespace BF_STT.ViewModels
             _isHybridDecisionMade = false;
             OnPropertyChanged(nameof(IsSending));
             AudioLevel = 0;
+            DeepgramTranscript = string.Empty;
+            SpeechmaticsTranscript = string.Empty;
+            TranscriptText = string.Empty;
             while (_audioBuffer.TryDequeue(out _)) { }
         }
     }

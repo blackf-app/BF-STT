@@ -42,8 +42,14 @@ namespace BF_STT
             var settingsService = new SettingsService();
             var settings = settingsService.CurrentSettings;
 
-            // Check API Key on startup
-            if (string.IsNullOrEmpty(settings.ApiKey))
+            // Check API Key on startup based on the selected API
+            bool missingKey = false;
+            if (settings.SelectedApi == "Speechmatics" && string.IsNullOrEmpty(settings.SpeechmaticsApiKey))
+                missingKey = true;
+            else if (settings.SelectedApi == "Deepgram" && string.IsNullOrEmpty(settings.ApiKey))
+                missingKey = true;
+            
+            if (missingKey)
             {
                 var settingsWindow = new SettingsWindow(settingsService);
                 if (settingsWindow.ShowDialog() != true)

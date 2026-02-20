@@ -189,6 +189,7 @@ namespace BF_STT.ViewModels
             {
                 // Reload settings
                 var settings = _settingsService.CurrentSettings;
+                OnPropertyChanged(nameof(SelectedApi)); // Update UI if it was changed in SettingsWindow
                 _deepgramBatchService.UpdateSettings(settings.ApiKey, settings.Model);
                 _deepgramStreamingService.UpdateSettings(settings.ApiKey, settings.Model);
                 _speechmaticsBatchService.UpdateSettings(settings.SpeechmaticsApiKey, settings.SpeechmaticsModel);

@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace BF_STT.Services
 {
-    public class DeepgramService
+    public class DeepgramService : IBatchSttService
     {
         private readonly HttpClient _httpClient;
         private string _apiKey;

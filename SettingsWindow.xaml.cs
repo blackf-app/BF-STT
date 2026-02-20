@@ -16,12 +16,15 @@ namespace BF_STT
             _tempSettings = new AppSettings
             {
                 ApiKey = _settingsService.CurrentSettings.ApiKey,
+                SpeechmaticsApiKey = _settingsService.CurrentSettings.SpeechmaticsApiKey,
                 StartWithWindows = _settingsService.CurrentSettings.StartWithWindows,
                 StreamingUrl = _settingsService.CurrentSettings.StreamingUrl,
-                Model = _settingsService.CurrentSettings.Model
+                Model = _settingsService.CurrentSettings.Model,
+                SelectedApi = _settingsService.CurrentSettings.SelectedApi
             };
 
             ApiKeyTextBox.Text = _tempSettings.ApiKey;
+            SpeechmaticsApiKeyTextBox.Text = _tempSettings.SpeechmaticsApiKey;
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
         }
 
@@ -36,6 +39,7 @@ namespace BF_STT
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
             _tempSettings.ApiKey = ApiKeyTextBox.Text;
+            _tempSettings.SpeechmaticsApiKey = SpeechmaticsApiKeyTextBox.Text;
             _tempSettings.StartWithWindows = StartWithWindowsCheckBox.IsChecked ?? false;
 
             _settingsService.SaveSettings(_tempSettings);

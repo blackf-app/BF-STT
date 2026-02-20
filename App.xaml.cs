@@ -58,13 +58,16 @@ namespace BF_STT
             // Dependency Injection
             _httpClient = new HttpClient();
             var deepgramService = new DeepgramService(_httpClient, settings.ApiKey, settings.BaseUrl, settings.Model);
+            var speechmaticsService = new SpeechmaticsBatchService(_httpClient, settings.SpeechmaticsApiKey, settings.SpeechmaticsBaseUrl);
+
             _audioService = new AudioRecordingService();
-            _streamingService = new DeepgramStreamingService(settings.ApiKey, settings.StreamingUrl, settings.Model); // Updated to use settings
+            _streamingService = new DeepgramStreamingService(settings.ApiKey, settings.StreamingUrl, settings.Model); // Kept for disposing
+            var speechmaticsStreaming = new SpeechmaticsStreamingService(settings.SpeechmaticsApiKey, settings.SpeechmaticsStreamingUrl);
+            
             _inputInjector = new InputInjector();
             var soundService = new SoundService();
 
-            var mainViewModel = new MainViewModel(_audioService, deepgramService, _streamingService, _inputInjector, soundService, settingsService);
-
+            var mainViewModel = new MainViewModel(_audioService, deepgramService, _streamingService, speechmaticsService, speechmaticsStreaming, _inputInjector, soundService, settingsService);
 
             // Set up Global Hotkey
             _hotkeyService = new HotkeyService(

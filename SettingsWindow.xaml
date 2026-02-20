@@ -81,6 +81,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" 
@@ -91,7 +92,7 @@
                        Margin="0,0,0,25"
                        HorizontalAlignment="Center"/>
 
-            <StackPanel Grid.Row="1" Margin="0,0,0,20">
+            <StackPanel Grid.Row="1" Margin="0,0,0,10">
                 <TextBlock Text="Deepgram API Key" 
                            Foreground="#888888" 
                            FontSize="12" 
@@ -100,13 +101,22 @@
                 <TextBox x:Name="ApiKeyTextBox" Width="320"/>
             </StackPanel>
 
-            <CheckBox Grid.Row="2" 
+            <StackPanel Grid.Row="2" Margin="0,0,0,20">
+                <TextBlock Text="Speechmatics API Key" 
+                           Foreground="#888888" 
+                           FontSize="12" 
+                           Margin="0,0,0,6" 
+                           FontWeight="SemiBold"/>
+                <TextBox x:Name="SpeechmaticsApiKeyTextBox" Width="320"/>
+            </StackPanel>
+
+            <CheckBox Grid.Row="3" 
                       x:Name="StartWithWindowsCheckBox" 
                       Content="Start with Windows" 
                       Margin="0,0,0,30"
                       HorizontalAlignment="Left"/>
 
-            <StackPanel Grid.Row="3" 
+            <StackPanel Grid.Row="4" 
                         Orientation="Horizontal" 
                         HorizontalAlignment="Center">
                 <Button Content="Save" 

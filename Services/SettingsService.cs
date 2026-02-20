@@ -6,11 +6,21 @@ namespace BF_STT.Services
 {
     public class AppSettings
     {
-        public string ApiKey { get; set; } = "";
+        // General
         public bool StartWithWindows { get; set; }
+        public string SelectedApi { get; set; } = "Deepgram";
+
+        // Deepgram
+        public string ApiKey { get; set; } = "";
         public string StreamingUrl { get; set; } = "wss://api.deepgram.com/v1/listen";
         public string BaseUrl { get; set; } = "https://api.deepgram.com/v1/listen";
         public string Model { get; set; } = "nova-3";
+
+        // Speechmatics
+        public string SpeechmaticsApiKey { get; set; } = "";
+        public string SpeechmaticsStreamingUrl { get; set; } = "wss://eu2.rt.speechmatics.com/v2";
+        public string SpeechmaticsBaseUrl { get; set; } = "https://asr.api.speechmatics.com/v2";
+        public string SpeechmaticsModel { get; set; } = ""; // E.g., not strictly necessary but keeps consistency
     }
 
     public class SettingsService
@@ -46,7 +56,6 @@ namespace BF_STT.Services
             else
             {
                 // Fallback: Check appsettings.json in application directory
-                CurrentSettings = new AppSettings();
                 try
                 {
                     var appSettingsPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json");

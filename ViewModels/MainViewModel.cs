@@ -13,8 +13,11 @@ namespace BF_STT.ViewModels
     public class MainViewModel : ViewModelBase
     {
         private readonly AudioRecordingService _audioService;
-        private readonly DeepgramService _deepgramService;
-        private readonly DeepgramStreamingService _streamingService;
+        private readonly IBatchSttService _deepgramBatchService;
+        private readonly IStreamingSttService _deepgramStreamingService;
+        private readonly IBatchSttService _speechmaticsBatchService;
+        private readonly IStreamingSttService _speechmaticsStreamingService;
+
         private readonly InputInjector _inputInjector;
         private readonly SoundService _soundService;
         private readonly SettingsService _settingsService;
@@ -39,15 +42,19 @@ namespace BF_STT.ViewModels
 
         public MainViewModel(
             AudioRecordingService audioService, 
-            DeepgramService deepgramService,
-            DeepgramStreamingService streamingService, 
+            IBatchSttService deepgramBatchService,
+            IStreamingSttService deepgramStreamingService, 
+            IBatchSttService speechmaticsBatchService,
+            IStreamingSttService speechmaticsStreamingService,
             InputInjector inputInjector, 
             SoundService soundService,
             SettingsService settingsService)
         {
             _audioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
-            _deepgramService = deepgramService ?? throw new ArgumentNullException(nameof(deepgramService));
-            _streamingService = streamingService ?? throw new ArgumentNullException(nameof(streamingService));
+            _deepgramBatchService = deepgramBatchService ?? throw new ArgumentNullException(nameof(deepgramBatchService));
+            _deepgramStreamingService = deepgramStreamingService ?? throw new ArgumentNullException(nameof(deepgramStreamingService));
+            _speechmaticsBatchService = speechmaticsBatchService ?? throw new ArgumentNullException(nameof(speechmaticsBatchService));
+            _speechmaticsStreamingService = speechmaticsStreamingService ?? throw new ArgumentNullException(nameof(speechmaticsStreamingService));
             _inputInjector = inputInjector ?? throw new ArgumentNullException(nameof(inputInjector));
             _soundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
@@ -64,14 +71,14 @@ namespace BF_STT.ViewModels
             // Wire audio data to hybrid buffer / streaming
             _audioService.AudioDataAvailable += OnAudioDataAvailable;
 
-            // Wire streaming transcript results
-            _streamingService.TranscriptReceived += OnTranscriptReceived;
-            _streamingService.UtteranceEndReceived += (s, e) =>
-            {
-                _inputInjector.CommitCurrentText();
-                System.Diagnostics.Debug.WriteLine("[MainViewModel] UtteranceEnd - Text Committed.");
-            };
-            _streamingService.Error += OnStreamingError;
+            // Wire streaming transcript results for both
+            _deepgramStreamingService.TranscriptReceived += OnTranscriptReceived;
+            _deepgramStreamingService.UtteranceEndReceived += OnUtteranceEndReceived;
+            _deepgramStreamingService.Error += OnStreamingError;
+
+            _speechmaticsStreamingService.TranscriptReceived += OnTranscriptReceived;
+            _speechmaticsStreamingService.UtteranceEndReceived += OnUtteranceEndReceived;
+            _speechmaticsStreamingService.Error += OnStreamingError;
 
             _recordingTimer = new DispatcherTimer
             {
@@ -94,6 +101,32 @@ namespace BF_STT.ViewModels
             });
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
         }
+
+        private void OnUtteranceEndReceived(object? sender, EventArgs e)
+        {
+            _inputInjector.CommitCurrentText();
+            System.Diagnostics.Debug.WriteLine("[MainViewModel] UtteranceEnd - Text Committed.");
+        }
+
+        public ObservableCollection<string> AvailableApis { get; } = new ObservableCollection<string> { "Deepgram", "Speechmatics" };
+
+        public string SelectedApi
+        {
+            get => _settingsService.CurrentSettings.SelectedApi;
+            set
+            {
+                if (_settingsService.CurrentSettings.SelectedApi != value)
+                {
+                    _settingsService.CurrentSettings.SelectedApi = value;
+                    _settingsService.SaveSettings(_settingsService.CurrentSettings);
+                    OnPropertyChanged();
+                    CheckApiConfiguration();
+                }
+            }
+        }
+
+        private IBatchSttService ActiveBatchService => SelectedApi == "Speechmatics" ? _speechmaticsBatchService : _deepgramBatchService;
+        private IStreamingSttService ActiveStreamingService => SelectedApi == "Speechmatics" ? _speechmaticsStreamingService : _deepgramStreamingService;
 
         public string TranscriptText
         {
@@ -136,6 +169,19 @@ namespace BF_STT.ViewModels
         public ICommand CloseCommand { get; }
         public ICommand OpenSettingsCommand { get; }
 
+        private void CheckApiConfiguration()
+        {
+            var s = _settingsService.CurrentSettings;
+            if (SelectedApi == "Deepgram" && string.IsNullOrWhiteSpace(s.ApiKey))
+            {
+                OpenSettings();
+            }
+            else if (SelectedApi == "Speechmatics" && string.IsNullOrWhiteSpace(s.SpeechmaticsApiKey))
+            {
+                OpenSettings();
+            }
+        }
+
         private void OpenSettings()
         {
             var settingsWindow = new SettingsWindow(_settingsService);
@@ -143,8 +189,10 @@ namespace BF_STT.ViewModels
             {
                 // Reload settings
                 var settings = _settingsService.CurrentSettings;
-                _deepgramService.UpdateSettings(settings.ApiKey, settings.Model);
-                _streamingService.UpdateSettings(settings.ApiKey, settings.Model);
+                _deepgramBatchService.UpdateSettings(settings.ApiKey, settings.Model);
+                _deepgramStreamingService.UpdateSettings(settings.ApiKey, settings.Model);
+                _speechmaticsBatchService.UpdateSettings(settings.SpeechmaticsApiKey, settings.SpeechmaticsModel);
+                _speechmaticsStreamingService.UpdateSettings(settings.SpeechmaticsApiKey, settings.SpeechmaticsModel);
                 
                 StatusText = "Settings updated.";
             }
@@ -250,7 +298,7 @@ namespace BF_STT.ViewModels
                     _recordingTimer.Stop();
                     _hybridTimer.Stop();
                     await _audioService.StopRecordingAsync(discard: true);
-                    await _streamingService.CancelAsync();
+                    await ActiveStreamingService.CancelAsync();
                     _soundService.PlayStopSound();
                     
                     ResetState();
@@ -323,12 +371,12 @@ namespace BF_STT.ViewModels
             // Connect WebSocket
             try 
             {
-                await _streamingService.StartAsync("vi");
+                await ActiveStreamingService.StartAsync("vi");
                 
                 // Flush buffer to WebSocket
                 while (_audioBuffer.TryDequeue(out var args))
                 {
-                   await _streamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
+                   await ActiveStreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded);
                 }
             }
             catch (Exception ex)
@@ -357,7 +405,7 @@ namespace BF_STT.ViewModels
                     // Finish Streaming
                     StatusText = "Finalizing Stream...";
                     _inputInjector.CommitCurrentText(); // Lock in displayed text
-                    await _streamingService.StopAsync();
+                    await ActiveStreamingService.StopAsync();
                     StatusText = "Done.";
                 }
                 else
@@ -402,14 +450,22 @@ namespace BF_STT.ViewModels
         {
             try
             {
-                var transcript = await _deepgramService.TranscribeAsync(filePath, "vi");
+                var transcript = await ActiveBatchService.TranscribeAsync(filePath, "vi");
 
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
                 {
                     var finalTranscript = transcript;
                     if (!string.IsNullOrWhiteSpace(transcript))
                     {
-                        finalTranscript = transcript.TrimEnd() + ". ";
+                        var trimmed = transcript.TrimEnd();
+                        if (trimmed.EndsWith("."))
+                        {
+                            finalTranscript = trimmed + " ";
+                        }
+                        else
+                        {
+                            finalTranscript = trimmed + ". ";
+                        }
                     }
 
                     TranscriptText = finalTranscript;
@@ -458,7 +514,7 @@ namespace BF_STT.ViewModels
                 // Push directly to WebSocket
                 try
                 {
-                    await _streamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
+                    await ActiveStreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded);
                 }
                 catch (Exception ex)
                 {

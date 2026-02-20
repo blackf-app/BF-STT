@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace BF_STT.Services
 {
-    public class DeepgramStreamingService : IDisposable
+    public class DeepgramStreamingService : IStreamingSttService, IDisposable
     {
         private string _apiKey;
         private readonly string _streamingUrl;
@@ -277,6 +277,19 @@ namespace BF_STT.Services
 
                 var transcript = response.Channel?.Alternatives?.FirstOrDefault()?.Transcript;
                 if (transcript == null) transcript = string.Empty;
+
+                if (response.IsFinal && !string.IsNullOrWhiteSpace(transcript))
+                {
+                    var trimmed = transcript.TrimEnd();
+                    if (trimmed.EndsWith("."))
+                    {
+                        transcript = trimmed + " ";
+                    }
+                    else
+                    {
+                        transcript = trimmed + ". ";
+                    }
+                }
 
 #if DEBUG
                 Debug.WriteLine($"[DeepgramStreaming] Type={response.Type} IsFinal={response.IsFinal} SpeechFinal={response.SpeechFinal} Text=\"{transcript}\"");

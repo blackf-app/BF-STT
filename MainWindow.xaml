@@ -96,6 +96,11 @@
                     </StackPanel>
                 </Grid>
 
+                <!-- API Selection -->
+                <ComboBox ItemsSource="{Binding AvailableApis}" SelectedItem="{Binding SelectedApi}"
+                          VerticalAlignment="Center" Margin="5,2,5,2" Width="95" Height="22"
+                          Background="#333333" Foreground="Black" BorderThickness="0" FontSize="11" />
+
                 <!-- Buttons -->
                 <StackPanel Orientation="Horizontal">
                     <!-- Start Recording / Cancel Recording -->

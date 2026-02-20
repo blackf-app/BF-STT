@@ -259,13 +259,8 @@ namespace BF_STT.Services
                             });
                         }
                         
-                        if (isFinal && !string.IsNullOrWhiteSpace(transcript))
-                        {
-                            // Trigger utterance end as well to commit the text?
-                            // Deepgram fires a distinct UtteranceEnd message. Speechmatics just finalizes.
-                            // We can approximate utterance end on final transcript containing text.
-                            UtteranceEndReceived?.Invoke(this, EventArgs.Empty);
-                        }
+                        // UtteranceEnd commit is now handled by MainViewModel when IsFinal=true
+                        // No need to fire UtteranceEndReceived here — it caused a race condition
                     }
                     else if (msgType == "EndOfTranscript")
                     {

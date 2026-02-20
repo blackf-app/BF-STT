@@ -104,8 +104,8 @@ namespace BF_STT.ViewModels
 
         private void OnUtteranceEndReceived(object? sender, EventArgs e)
         {
-            _inputInjector.CommitCurrentText();
-            System.Diagnostics.Debug.WriteLine("[MainViewModel] UtteranceEnd - Text Committed.");
+            // Commit is now handled inside OnTranscriptReceived when IsFinal=true
+            System.Diagnostics.Debug.WriteLine("[MainViewModel] UtteranceEnd received.");
         }
 
         public ObservableCollection<string> AvailableApis { get; } = new ObservableCollection<string> { "Deepgram", "Speechmatics" };
@@ -536,13 +536,18 @@ namespace BF_STT.ViewModels
             {
                 try
                 {
+                    // Always update UI with latest text (partial or final)
                     if (!string.IsNullOrEmpty(e.Text))
                     {
                         TranscriptText = e.Text;
                     }
-                    // Always call inject (even for empty text) so committed state is updated correctly
-                    await _inputInjector.InjectStreamingTextAsync(
-                        e.Text ?? string.Empty, e.IsFinal, _targetWindowHandle);
+
+                    // Only inject into target window when result is final
+                    if (e.IsFinal && !string.IsNullOrEmpty(e.Text))
+                    {
+                        await _inputInjector.InjectStreamingTextAsync(
+                            e.Text, true, _targetWindowHandle);
+                    }
                 }
                 catch (Exception ex)
                 {

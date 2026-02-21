@@ -17,7 +17,10 @@ BF-STT là một ứng dụng Windows (WPF) mạnh mẽ và linh hoạt, giúp c
 - **Xử lý dấu câu và định dạng:** Tự động tối ưu hóa, thêm dấu chấm câu (ví dụ: tự động thêm ". " vào cuối đoạn trong Batch mode) và nối chuỗi cho luồng Streaming kết quả cuối cùng.
 - **Hỗ trợ Keyterm (Tùy chỉnh Từ vựng):** Tính năng thiết lập các từ khóa chuyên ngành, biến thể phương ngữ để tăng độ chính xác theo ngữ cảnh người dùng.
 - **Voice Activity Detection (VAD) & Trình quan sát âm lượng:** Loại bỏ các khoảng lặng, tối ưu dung lượng/băng thông gửi API và có thanh hiển thị Audio Level trực quan kèm âm thanh thông báo.
-- **Giao diện Cấu hình (Settings Window):** Quản lý chi tiết API Key, Model cho từng nhà cung cấp, Test Mode, và thiết lập khởi động cùng hệ thống.
+- **Giao diện Cấu hình (Settings Window):** Quản lý chi tiết API Key, Model cho từng nhà cung cấp, Test Mode, cấu hình phím nóng và thiết lập khởi động cùng hệ thống. Cho phép chọn API riêng biệt cho chế độ Batch và Streaming.
+- **Lọc im lặng & Chống Hallucination:** 
+  - Tự động phân tích năng lượng âm thanh (RMS) để bỏ qua các đoạn ghi âm im lặng hoặc chỉ có tiếng ồn.
+  - Bộ lọc thông minh loại bỏ các câu "hallucination" thường gặp của AI (như "Cảm ơn đã xem", "Subscribe",...) để đảm bảo văn bản sạch nhất.
 - **Bảo vệ Clipboard:** Sao lưu và khôi phục an toàn nội dung Clipboard người dùng sau quá trình nhập liệu.
 
 ## 🛠 Công nghệ sử dụng
@@ -69,7 +72,9 @@ dotnet publish -c Release -o ./publish
 - `SettingsWindow.xaml`: Trình quản lý nhà cung cấp APIs, Key, Models, Test Mode và UI Settings.
 - `Services/`:
   - `*StreamingService.cs` / `*BatchService.cs`: Trình xử lý nghiệp vụ STT cho Deepgram, Speechmatics, Soniox, OpenAI.
-  - `AudioRecordingService`: Lọc âm thanh, ghi dữ liệu, xử lý VAD (loại bỏ khoảng lặng) và cấp ngõ ra cho cả File lẫn Event Buffer.
+  - `AudioRecordingService`: Lọc âm thanh, ghi dữ liệu, xử lý VAD thời gian thực.
+  - `AudioSilenceDetector`: Phân tích file ghi âm để phát hiện im lặng trước khi gửi API.
+  - `HallucinationFilter`: Hậu xử lý văn bản để loại bỏ các câu nhiễu do AI tự suy diễn.
   - `InputInjector`: Mô phỏng và gõ văn bản chính xác trên Target Window Handle.
   - `SettingsService`: Logic I/O cấu hình.
   - `HotkeyService`: Nhúng phím nóng (Global hook).

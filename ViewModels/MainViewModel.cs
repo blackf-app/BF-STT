@@ -138,14 +138,14 @@ namespace BF_STT.ViewModels
 
         public ObservableCollection<string> AvailableApis { get; } = new ObservableCollection<string> { "Deepgram", "Speechmatics", "Soniox", "OpenAI" };
 
-        public string SelectedApi
+        public string BatchModeApi
         {
-            get => _settingsService.CurrentSettings.SelectedApi;
+            get => _settingsService.CurrentSettings.BatchModeApi;
             set
             {
-                if (_settingsService.CurrentSettings.SelectedApi != value)
+                if (_settingsService.CurrentSettings.BatchModeApi != value)
                 {
-                    _settingsService.CurrentSettings.SelectedApi = value;
+                    _settingsService.CurrentSettings.BatchModeApi = value;
                     _settingsService.SaveSettings(_settingsService.CurrentSettings);
                     OnPropertyChanged();
                     CheckApiConfiguration();
@@ -153,14 +153,29 @@ namespace BF_STT.ViewModels
             }
         }
 
-        private IBatchSttService ActiveBatchService => SelectedApi switch
+        public string StreamingModeApi
+        {
+            get => _settingsService.CurrentSettings.StreamingModeApi;
+            set
+            {
+                if (_settingsService.CurrentSettings.StreamingModeApi != value)
+                {
+                    _settingsService.CurrentSettings.StreamingModeApi = value;
+                    _settingsService.SaveSettings(_settingsService.CurrentSettings);
+                    OnPropertyChanged();
+                    CheckApiConfiguration();
+                }
+            }
+        }
+
+        private IBatchSttService ActiveBatchService => BatchModeApi switch
         {
             "Soniox" => _sonioxBatchService,
             "Speechmatics" => _speechmaticsBatchService,
             "OpenAI" => _openaiBatchService,
             _ => _deepgramBatchService,
         };
-        private IStreamingSttService ActiveStreamingService => SelectedApi switch
+        private IStreamingSttService ActiveStreamingService => StreamingModeApi switch
         {
             "Soniox" => _sonioxStreamingService,
             "Speechmatics" => _speechmaticsStreamingService,
@@ -265,26 +280,51 @@ namespace BF_STT.ViewModels
         private bool CheckApiConfiguration()
         {
             var settings = _settingsService.CurrentSettings;
-            if (SelectedApi == "Deepgram" && string.IsNullOrWhiteSpace(settings.ApiKey))
+            
+            // Check Batch API
+            if (BatchModeApi == "Deepgram" && string.IsNullOrWhiteSpace(settings.ApiKey))
             {
-                StatusText = "Deepgram API Key not configured. Please open Settings.";
+                StatusText = "Deepgram API Key missing for Batch.";
                 return false;
             }
-            else if (SelectedApi == "Speechmatics" && string.IsNullOrWhiteSpace(settings.SpeechmaticsApiKey))
+            if (BatchModeApi == "Speechmatics" && string.IsNullOrWhiteSpace(settings.SpeechmaticsApiKey))
             {
-                StatusText = "Speechmatics API Key not configured. Please open Settings.";
+                StatusText = "Speechmatics API Key missing for Batch.";
                 return false;
             }
-            else if (SelectedApi == "Soniox" && string.IsNullOrWhiteSpace(settings.SonioxApiKey))
+            if (BatchModeApi == "Soniox" && string.IsNullOrWhiteSpace(settings.SonioxApiKey))
             {
-                StatusText = "Soniox API Key not configured. Please open Settings.";
+                StatusText = "Soniox API Key missing for Batch.";
                 return false;
             }
-            else if (SelectedApi == "OpenAI" && string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
+            if (BatchModeApi == "OpenAI" && string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
             {
-                StatusText = "OpenAI API Key not configured. Please open Settings.";
+                StatusText = "OpenAI API Key missing for Batch.";
                 return false;
             }
+
+            // Check Streaming API
+            if (StreamingModeApi == "Deepgram" && string.IsNullOrWhiteSpace(settings.ApiKey))
+            {
+                StatusText = "Deepgram API Key missing for Streaming.";
+                return false;
+            }
+            if (StreamingModeApi == "Speechmatics" && string.IsNullOrWhiteSpace(settings.SpeechmaticsApiKey))
+            {
+                StatusText = "Speechmatics API Key missing for Streaming.";
+                return false;
+            }
+            if (StreamingModeApi == "Soniox" && string.IsNullOrWhiteSpace(settings.SonioxApiKey))
+            {
+                StatusText = "Soniox API Key missing for Streaming.";
+                return false;
+            }
+            if (StreamingModeApi == "OpenAI" && string.IsNullOrWhiteSpace(settings.OpenAIApiKey))
+            {
+                StatusText = "OpenAI API Key missing for Streaming.";
+                return false;
+            }
+
             return true;
         }
 
@@ -295,7 +335,8 @@ namespace BF_STT.ViewModels
             {
                 // Reload settings
                 var settings = _settingsService.CurrentSettings;
-                OnPropertyChanged(nameof(SelectedApi)); // Update UI if it was changed in SettingsWindow
+                OnPropertyChanged(nameof(BatchModeApi)); // Update UI if it was changed in SettingsWindow
+                OnPropertyChanged(nameof(StreamingModeApi)); // Update UI if it was changed in SettingsWindow
                 OnPropertyChanged(nameof(IsTestMode)); // Update UI if Test Mode changed
                 _deepgramBatchService.UpdateSettings(settings.ApiKey, settings.Model);
                 _deepgramStreamingService.UpdateSettings(settings.ApiKey, settings.Model);

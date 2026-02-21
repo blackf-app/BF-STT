@@ -9,7 +9,11 @@ namespace BF_STT.Services
         // General
         public bool StartWithWindows { get; set; }
         public bool TestMode { get; set; } = false;
-        public string SelectedApi { get; set; } = "Deepgram";
+        public string BatchModeApi { get; set; } = "Deepgram";
+        public string StreamingModeApi { get; set; } = "Deepgram";
+
+        // Legacy for migration
+        public string? SelectedApi { get; set; } 
 
         // Deepgram
         public string ApiKey { get; set; } = "";
@@ -88,6 +92,15 @@ namespace BF_STT.Services
                     }
                 }
                 catch { /* Ignore errors in fallback */ }
+            }
+
+            // Migrate SelectedApi to BatchModeApi and StreamingModeApi
+            if (!string.IsNullOrEmpty(CurrentSettings.SelectedApi))
+            {
+                CurrentSettings.BatchModeApi = CurrentSettings.SelectedApi;
+                CurrentSettings.StreamingModeApi = CurrentSettings.SelectedApi;
+                CurrentSettings.SelectedApi = null;
+                needsFix = true;
             }
 
             // Sanitize StreamingUrl (remove query params)

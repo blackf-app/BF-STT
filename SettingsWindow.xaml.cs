@@ -29,7 +29,8 @@ namespace BF_STT
                 OpenAIApiKey = _settingsService.CurrentSettings.OpenAIApiKey,
                 OpenAIBaseUrl = _settingsService.CurrentSettings.OpenAIBaseUrl,
                 OpenAIModel = _settingsService.CurrentSettings.OpenAIModel,
-                SelectedApi = _settingsService.CurrentSettings.SelectedApi,
+                BatchModeApi = _settingsService.CurrentSettings.BatchModeApi,
+                StreamingModeApi = _settingsService.CurrentSettings.StreamingModeApi,
                 TestMode = _settingsService.CurrentSettings.TestMode
             };
 
@@ -40,23 +41,17 @@ namespace BF_STT
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
             TestModeCheckBox.IsChecked = _tempSettings.TestMode;
 
-            // Set ComboBox selection based on current SelectedApi
-            if (_tempSettings.SelectedApi == "Speechmatics")
-            {
-                SelectedApiComboBox.SelectedIndex = 1;
-            }
-            else if (_tempSettings.SelectedApi == "Soniox")
-            {
-                SelectedApiComboBox.SelectedIndex = 2;
-            }
-            else if (_tempSettings.SelectedApi == "OpenAI")
-            {
-                SelectedApiComboBox.SelectedIndex = 3;
-            }
-            else
-            {
-                SelectedApiComboBox.SelectedIndex = 0;
-            }
+            // Set ComboBox selection based on current BatchModeApi
+            if (_tempSettings.BatchModeApi == "Speechmatics") BatchModeApiComboBox.SelectedIndex = 1;
+            else if (_tempSettings.BatchModeApi == "Soniox") BatchModeApiComboBox.SelectedIndex = 2;
+            else if (_tempSettings.BatchModeApi == "OpenAI") BatchModeApiComboBox.SelectedIndex = 3;
+            else BatchModeApiComboBox.SelectedIndex = 0;
+
+            // Set ComboBox selection based on current StreamingModeApi
+            if (_tempSettings.StreamingModeApi == "Speechmatics") StreamingModeApiComboBox.SelectedIndex = 1;
+            else if (_tempSettings.StreamingModeApi == "Soniox") StreamingModeApiComboBox.SelectedIndex = 2;
+            else if (_tempSettings.StreamingModeApi == "OpenAI") StreamingModeApiComboBox.SelectedIndex = 3;
+            else StreamingModeApiComboBox.SelectedIndex = 0;
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -76,14 +71,17 @@ namespace BF_STT
             _tempSettings.StartWithWindows = StartWithWindowsCheckBox.IsChecked ?? false;
             _tempSettings.TestMode = TestModeCheckBox.IsChecked ?? false;
             
-            // Get Selected API from ComboBox
-            if (SelectedApiComboBox.SelectedIndex == 3) _tempSettings.SelectedApi = "OpenAI";
-            else if (SelectedApiComboBox.SelectedIndex == 2) _tempSettings.SelectedApi = "Soniox";
-            else if (SelectedApiComboBox.SelectedIndex == 1) _tempSettings.SelectedApi = "Speechmatics";
-            else _tempSettings.SelectedApi = "Deepgram";
+            // Get Batch API from ComboBox
+            if (BatchModeApiComboBox.SelectedIndex == 3) _tempSettings.BatchModeApi = "OpenAI";
+            else if (BatchModeApiComboBox.SelectedIndex == 2) _tempSettings.BatchModeApi = "Soniox";
+            else if (BatchModeApiComboBox.SelectedIndex == 1) _tempSettings.BatchModeApi = "Speechmatics";
+            else _tempSettings.BatchModeApi = "Deepgram";
 
-            // If the selected API changed here, MainViewModel's UI binding might not automatically pick it up
-            // unless MainViewModel listens to an event. However, it will apply on next restart or reload.
+            // Get Streaming API from ComboBox
+            if (StreamingModeApiComboBox.SelectedIndex == 3) _tempSettings.StreamingModeApi = "OpenAI";
+            else if (StreamingModeApiComboBox.SelectedIndex == 2) _tempSettings.StreamingModeApi = "Soniox";
+            else if (StreamingModeApiComboBox.SelectedIndex == 1) _tempSettings.StreamingModeApi = "Speechmatics";
+            else _tempSettings.StreamingModeApi = "Deepgram";
 
             _settingsService.SaveSettings(_tempSettings);
             DialogResult = true;

@@ -97,9 +97,16 @@
                 </Grid>
 
                 <!-- API Selection -->
-                <ComboBox ItemsSource="{Binding AvailableApis}" SelectedItem="{Binding SelectedApi}"
-                          VerticalAlignment="Center" Margin="5,2,5,2" Width="95" Height="22"
-                          Background="#333333" Foreground="Black" BorderThickness="0" FontSize="11" />
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5,0,5,0">
+                    <ComboBox ItemsSource="{Binding AvailableApis}" SelectedItem="{Binding BatchModeApi}"
+                              ToolTip="Batch API"
+                              VerticalAlignment="Center" Margin="0,2,2,2" Width="68" Height="22"
+                              Background="#333333" Foreground="Black" BorderThickness="0" FontSize="10" />
+                    <ComboBox ItemsSource="{Binding AvailableApis}" SelectedItem="{Binding StreamingModeApi}"
+                              ToolTip="Streaming API"
+                              VerticalAlignment="Center" Margin="2,2,0,2" Width="68" Height="22"
+                              Background="#333333" Foreground="Black" BorderThickness="0" FontSize="10" />
+                </StackPanel>
 
                 <!-- Buttons -->
                 <StackPanel Orientation="Horizontal">

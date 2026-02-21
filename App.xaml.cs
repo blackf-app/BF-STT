@@ -44,12 +44,18 @@ namespace BF_STT
             var settingsService = new SettingsService();
             var settings = settingsService.CurrentSettings;
 
-            // Check API Key on startup based on the selected API
+            // Check API Key on startup based on the selected APIs
             bool missingKey = false;
-            if (settings.SelectedApi == "Speechmatics" && string.IsNullOrEmpty(settings.SpeechmaticsApiKey))
-                missingKey = true;
-            else if (settings.SelectedApi == "Deepgram" && string.IsNullOrEmpty(settings.ApiKey))
-                missingKey = true;
+            
+            if (settings.BatchModeApi == "Speechmatics" && string.IsNullOrEmpty(settings.SpeechmaticsApiKey)) missingKey = true;
+            else if (settings.BatchModeApi == "Deepgram" && string.IsNullOrEmpty(settings.ApiKey)) missingKey = true;
+            else if (settings.BatchModeApi == "Soniox" && string.IsNullOrEmpty(settings.SonioxApiKey)) missingKey = true;
+            else if (settings.BatchModeApi == "OpenAI" && string.IsNullOrEmpty(settings.OpenAIApiKey)) missingKey = true;
+
+            if (settings.StreamingModeApi == "Speechmatics" && string.IsNullOrEmpty(settings.SpeechmaticsApiKey)) missingKey = true;
+            else if (settings.StreamingModeApi == "Deepgram" && string.IsNullOrEmpty(settings.ApiKey)) missingKey = true;
+            else if (settings.StreamingModeApi == "Soniox" && string.IsNullOrEmpty(settings.SonioxApiKey)) missingKey = true;
+            else if (settings.StreamingModeApi == "OpenAI" && string.IsNullOrEmpty(settings.OpenAIApiKey)) missingKey = true;
             
             if (missingKey)
             {

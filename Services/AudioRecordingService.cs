@@ -64,6 +64,8 @@ namespace BF_STT.Services
             set => _volumeMultiplier = value;
         }
 
+        public int DeviceNumber { get; set; } = 0;
+
         /// <summary>
         /// Starts recording. Always writes to a temporary WAV file (for batch mode) 
         /// AND fires AudioDataAvailable events (for streaming/buffering).
@@ -98,7 +100,7 @@ namespace BF_STT.Services
 
             _waveIn = new WaveInEvent
             {
-                DeviceNumber = 0,
+                DeviceNumber = DeviceNumber,
                 WaveFormat = new WaveFormat(16000, 16, 1), // 16kHz, 16-bit, Mono
                 BufferMilliseconds = 50, // balanced latency/stability
                 NumberOfBuffers = 3

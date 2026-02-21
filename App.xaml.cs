@@ -93,6 +93,7 @@ namespace BF_STT
 
             // Set up Global Hotkey
             _hotkeyService = new HotkeyService(
+                settingsService,
                 onKeyDown: () => mainViewModel.OnF3KeyDown(),
                 onKeyUp: () => mainViewModel.OnF3KeyUp()
             );

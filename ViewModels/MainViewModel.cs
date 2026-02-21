@@ -358,6 +358,7 @@ namespace BF_STT.ViewModels
                     _isToggleMode = false;
                     _isBatchProcessing = false;
 
+                    _audioService.DeviceNumber = _settingsService.CurrentSettings.MicrophoneDeviceNumber;
                     _audioService.StartRecording();
                     
                     bool isKeyTrigger = parameter is string s && s == "Key";
@@ -760,6 +761,7 @@ namespace BF_STT.ViewModels
 
         private void OpenSettings()
         {
+            System.Windows.Application.Current.MainWindow.Hide();
             var settingsWindow = new SettingsWindow(_settingsService);
             if (settingsWindow.ShowDialog() == true)
             {
@@ -772,6 +774,7 @@ namespace BF_STT.ViewModels
                 
                 StatusText = "Settings updated.";
             }
+            System.Windows.Application.Current.MainWindow.Show();
         }
 
         private bool CanResendAudio(object? parameter)

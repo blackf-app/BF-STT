@@ -32,7 +32,9 @@ namespace BF_STT
                 BatchModeApi = _settingsService.CurrentSettings.BatchModeApi,
                 StreamingModeApi = _settingsService.CurrentSettings.StreamingModeApi,
                 TestMode = _settingsService.CurrentSettings.TestMode,
-                DefaultLanguage = _settingsService.CurrentSettings.DefaultLanguage
+                DefaultLanguage = _settingsService.CurrentSettings.DefaultLanguage,
+                HotkeyVirtualKeyCode = _settingsService.CurrentSettings.HotkeyVirtualKeyCode,
+                MicrophoneDeviceNumber = _settingsService.CurrentSettings.MicrophoneDeviceNumber
             };
 
             ApiKeyTextBox.Text = _tempSettings.ApiKey;
@@ -65,6 +67,46 @@ namespace BF_STT
                 }
             }
             if (LanguageComboBox.SelectedIndex < 0) LanguageComboBox.SelectedIndex = 0;
+
+            // Enumerate Microphones
+            for (int i = 0; i < NAudio.Wave.WaveIn.DeviceCount; i++)
+            {
+                var caps = NAudio.Wave.WaveIn.GetCapabilities(i);
+                MicrophoneComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = caps.ProductName, Tag = i });
+            }
+
+            // Set current microphone
+            for (int i = 0; i < MicrophoneComboBox.Items.Count; i++)
+            {
+                if (MicrophoneComboBox.Items[i] is System.Windows.Controls.ComboBoxItem item && (int)item.Tag == _tempSettings.MicrophoneDeviceNumber)
+                {
+                    MicrophoneComboBox.SelectedIndex = i;
+                    break;
+                }
+            }
+            if (MicrophoneComboBox.SelectedIndex < 0 && MicrophoneComboBox.Items.Count > 0) MicrophoneComboBox.SelectedIndex = 0;
+
+            var hotkeys = new System.Collections.Generic.Dictionary<string, int>
+            {
+                { "F1", 0x70 }, { "F2", 0x71 }, { "F3", 0x72 }, { "F4", 0x73 },
+                { "F5", 0x74 }, { "F6", 0x75 }, { "F7", 0x76 }, { "F8", 0x77 },
+                { "F9", 0x78 }, { "F10", 0x79 }, { "F11", 0x7A }, { "F12", 0x7B },
+                { "` (Tilde)", 0xC0 }
+            };
+            foreach (var hk in hotkeys)
+            {
+                HotkeyComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = hk.Key, Tag = hk.Value });
+            }
+            
+            for (int i = 0; i < HotkeyComboBox.Items.Count; i++)
+            {
+                if (HotkeyComboBox.Items[i] is System.Windows.Controls.ComboBoxItem item && (int)item.Tag == _tempSettings.HotkeyVirtualKeyCode)
+                {
+                    HotkeyComboBox.SelectedIndex = i;
+                    break;
+                }
+            }
+            if (HotkeyComboBox.SelectedIndex < 0) HotkeyComboBox.SelectedIndex = 2; // Default F3
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -100,6 +142,18 @@ namespace BF_STT
             if (LanguageComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem langItem)
             {
                 _tempSettings.DefaultLanguage = langItem.Tag?.ToString() ?? "vi";
+            }
+
+            // Get Microphone
+            if (MicrophoneComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem micItem && micItem.Tag is int deviceId)
+            {
+                _tempSettings.MicrophoneDeviceNumber = deviceId;
+            }
+
+            // Get Hotkey
+            if (HotkeyComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem hotkeyItem && hotkeyItem.Tag is int hvk)
+            {
+                _tempSettings.HotkeyVirtualKeyCode = hvk;
             }
 
             _settingsService.SaveSettings(_tempSettings);

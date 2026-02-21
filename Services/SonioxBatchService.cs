@@ -54,15 +54,22 @@ namespace BF_STT.Services
 
             // Create transcription job
             var transcribeUrl = $"{_baseUrl}/transcriptions";
-            var transcriptionId = await CreateTranscriptionAsync(transcribeUrl, fileId);
+            var transcriptionId = await CreateTranscriptionAsync(transcribeUrl, fileId, language);
 
             if (string.IsNullOrEmpty(transcriptionId))
             {
                 throw new Exception("Failed to create transcription job with Soniox.");
             }
 
-            // Poll for result
-            return await PollForTranscriptionAsync(transcribeUrl, transcriptionId);
+            // Wait for completion
+            var isCompleted = await WaitForJobCompletionAsync(transcribeUrl, transcriptionId);
+            if (!isCompleted)
+            {
+                 throw new Exception("Soniox transcription job failed or timed out.");
+            }
+
+            // Get Transcript
+            return await GetTranscriptAsync(transcribeUrl, transcriptionId);
         }
 
         private async Task<string> UploadFileAsync(string url, string filePath)
@@ -70,7 +77,7 @@ namespace BF_STT.Services
             using var fileStream = File.OpenRead(filePath);
             var content = new MultipartFormDataContent();
             var streamContent = new StreamContent(fileStream);
-            streamContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav"); // or auto-detect
+            streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream"); // or auto-detect
             content.Add(streamContent, "file", Path.GetFileName(filePath));
 
             var request = new HttpRequestMessage(HttpMethod.Post, url);
@@ -78,27 +85,21 @@ namespace BF_STT.Services
             request.Content = content;
 
             using var response = await _httpClient.SendAsync(request);
+            var json = await response.Content.ReadAsStringAsync();
+
             if (!response.IsSuccessStatusCode)
             {
-                var errorBody = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"Upload file failed: {response.StatusCode} - {errorBody}");
+                throw new HttpRequestException($"Upload file failed: {response.StatusCode} - {json}");
             }
 
-            var json = await response.Content.ReadAsStringAsync();
             try
             {
                 using var document = JsonDocument.Parse(json);
-                // Soniox usually returns {"file": {"id": "..."}}
-                if (document.RootElement.TryGetProperty("file", out var fileElement) && fileElement.TryGetProperty("id", out var idElement))
+                if (document.RootElement.TryGetProperty("id", out var idElement))
                 {
                     return idElement.GetString() ?? "";
                 }
-                // Or maybe just id or file_id at root
-                if (document.RootElement.TryGetProperty("id", out var idRootElement))
-                {
-                    return idRootElement.GetString() ?? "";
-                }
-                return document.RootElement.GetProperty("file_id").GetString() ?? "";
+                return "";
             }
             catch (Exception ex)
             {
@@ -106,12 +107,16 @@ namespace BF_STT.Services
             }
         }
 
-        private async Task<string> CreateTranscriptionAsync(string url, string fileId)
+        private async Task<string> CreateTranscriptionAsync(string url, string fileId, string language)
         {
             var requestBody = new
             {
                 file_id = fileId,
-                model = _model
+                model = _model,
+                transcription_config = new
+                {
+                    language = language
+                }
             };
             
             var request = new HttpRequestMessage(HttpMethod.Post, url);
@@ -119,25 +124,21 @@ namespace BF_STT.Services
             request.Content = new StringContent(JsonSerializer.Serialize(requestBody), System.Text.Encoding.UTF8, "application/json");
 
             using var response = await _httpClient.SendAsync(request);
+            var json = await response.Content.ReadAsStringAsync();
+
             if (!response.IsSuccessStatusCode)
             {
-                var errorBody = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException($"Create transcription failed: {response.StatusCode} - {errorBody}");
+                throw new HttpRequestException($"Create transcription failed: {response.StatusCode} - {json}");
             }
 
-            var json = await response.Content.ReadAsStringAsync();
             try
             {
                 using var document = JsonDocument.Parse(json);
-                if (document.RootElement.TryGetProperty("transcription", out var transElement) && transElement.TryGetProperty("id", out var idElement))
+                if (document.RootElement.TryGetProperty("id", out var idElement))
                 {
                     return idElement.GetString() ?? "";
                 }
-                if (document.RootElement.TryGetProperty("id", out idElement))
-                {
-                    return idElement.GetString() ?? "";
-                }
-                return document.RootElement.GetProperty("transcription_id").GetString() ?? "";
+                return "";
             }
             catch (Exception ex)
             {
@@ -145,53 +146,48 @@ namespace BF_STT.Services
             }
         }
 
-        private async Task<string> PollForTranscriptionAsync(string baseUrl, string transcriptionId)
+        private async Task<bool> WaitForJobCompletionAsync(string baseUrl, string transcriptionId)
         {
             var url = $"{baseUrl}/{transcriptionId}";
-            var maxAttempts = 60; // 1 minute roughly
+            var maxAttempts = 600; // 10 minutes roughly
             var delayMs = 1000;
 
             for (int i = 0; i < maxAttempts; i++)
             {
-                var request = new HttpRequestMessage(HttpMethod.Get, url);
+                using var request = new HttpRequestMessage(HttpMethod.Get, url);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
                 
                 using var response = await _httpClient.SendAsync(request);
+                var json = await response.Content.ReadAsStringAsync();
+
                 if (!response.IsSuccessStatusCode)
                 {
-                    var errorBody = await response.Content.ReadAsStringAsync();
-                    throw new HttpRequestException($"Poll transcription failed: {response.StatusCode} - {errorBody}");
+                    throw new HttpRequestException($"Poll transcription failed: {response.StatusCode} - {json}");
                 }
 
-                var json = await response.Content.ReadAsStringAsync();
                 try
                 {
                     using var document = JsonDocument.Parse(json);
                     
-                    JsonElement transElement = document.RootElement;
-                    if (document.RootElement.TryGetProperty("transcription", out var te))
-                    {
-                        transElement = te;
-                    }
-
-                    if (!transElement.TryGetProperty("status", out var statusElement))
+                    if (!document.RootElement.TryGetProperty("status", out var statusElement))
                     {
                         throw new KeyNotFoundException("Cannot find 'status' property in JSON.");
                     }
                     var status = statusElement.GetString();
 
-                    if (status == "COMPLETED")
+                    if (string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
                     {
-                        // Some endpoints return words array, some return text.
-                        if (transElement.TryGetProperty("text", out var textElement))
-                        {
-                            return textElement.GetString() ?? "";
-                        }
-                        return "Completed, but no text found in response.";
+                        return true;
                     }
-                    else if (status == "FAILED")
+                    else if (string.Equals(status, "failed", StringComparison.OrdinalIgnoreCase) || string.Equals(status, "error", StringComparison.OrdinalIgnoreCase))
                     {
-                        throw new Exception($"Soniox transcription failed. Response: {json}");
+                        var errorMessage = "Soniox transcription failed.";
+                        if (document.RootElement.TryGetProperty("error_message", out var errorMsgElement))
+                        {
+                            errorMessage = errorMsgElement.GetString() ?? errorMessage;
+                        }
+                        
+                        throw new Exception($"{errorMessage} (Response: {json})");
                     }
                 }
                 catch (Exception ex)
@@ -202,7 +198,36 @@ namespace BF_STT.Services
                 await Task.Delay(delayMs);
             }
 
-            throw new TimeoutException("Soniox transcription timed out.");
+            return false;
+        }
+
+        private async Task<string> GetTranscriptAsync(string baseUrl, string transcriptionId)
+        {
+            var url = $"{baseUrl}/{transcriptionId}/transcript";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+
+            using var response = await _httpClient.SendAsync(request);
+            var json = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException($"Get transcript failed: {response.StatusCode} - {json}");
+            }
+
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                if (document.RootElement.TryGetProperty("text", out var textElement))
+                {
+                    return textElement.GetString() ?? "";
+                }
+                throw new Exception($"Get transcript missing 'text'. Response: {json}");
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Get transcript failed to parse. Response: {json}", ex);
+            }
         }
     }
 }

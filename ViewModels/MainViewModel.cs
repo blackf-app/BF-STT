@@ -669,11 +669,31 @@ namespace BF_STT.ViewModels
             var sw = Stopwatch.StartNew();
             try
             {
+                // Pre-API: File-level silence detection
+                if (!AudioSilenceDetector.ContainsSpeech(filePath))
+                {
+                    sw.Stop();
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        StatusText = "Silent — skipped.";
+                        TranscriptText = string.Empty;
+                    });
+                    return;
+                }
+
                 var transcript = await ActiveBatchService.TranscribeAsync(filePath, "vi");
                 sw.Stop();
 
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
                 {
+                    // Post-API: Hallucination filter
+                    if (HallucinationFilter.IsHallucination(transcript))
+                    {
+                        StatusText = $"Hallucination — skipped. ({sw.ElapsedMilliseconds}ms)";
+                        TranscriptText = string.Empty;
+                        return;
+                    }
+
                     var finalTranscript = transcript;
                     if (!string.IsNullOrWhiteSpace(transcript))
                     {
@@ -719,6 +739,26 @@ namespace BF_STT.ViewModels
 
         private async Task ProcessBatchTestModeAsync(string filePath)
         {
+            // Pre-API: File-level silence detection
+            if (!AudioSilenceDetector.ContainsSpeech(filePath))
+            {
+                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                {
+                    StatusText = "Silent — skipped.";
+                    DeepgramTranscript = "[Skipped] Silent audio";
+                    SpeechmaticsTranscript = "[Skipped] Silent audio";
+                    SonioxTranscript = "[Skipped] Silent audio";
+                    OpenAITranscript = "[Skipped] Silent audio";
+                });
+                _isBatchProcessing = false;
+                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                {
+                    OnPropertyChanged(nameof(IsSending));
+                    CommandManager.InvalidateRequerySuggested();
+                });
+                return;
+            }
+
             // Create independent task for Deepgram
             var deepgramTask = Task.Run(async () => 
             {
@@ -727,7 +767,8 @@ namespace BF_STT.ViewModels
                 {
                     var result = await _deepgramBatchService.TranscribeAsync(filePath, "vi");
                     sw.Stop();
-                    var formatted = FormatTranscript(result);
+                    var label = HallucinationFilter.IsHallucination(result) ? "[Hallucination]" : "";
+                    var formatted = label == "" ? FormatTranscript(result) : $"{label} {result}";
                     await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         DeepgramTranscript = $"[{sw.ElapsedMilliseconds}ms]\n{formatted}";
@@ -751,7 +792,8 @@ namespace BF_STT.ViewModels
                 {
                     var result = await _speechmaticsBatchService.TranscribeAsync(filePath, "vi");
                     sw.Stop();
-                    var formatted = FormatTranscript(result);
+                    var label = HallucinationFilter.IsHallucination(result) ? "[Hallucination]" : "";
+                    var formatted = label == "" ? FormatTranscript(result) : $"{label} {result}";
                     await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         SpeechmaticsTranscript = $"[{sw.ElapsedMilliseconds}ms]\n{formatted}";
@@ -775,7 +817,8 @@ namespace BF_STT.ViewModels
                 {
                     var result = await _sonioxBatchService.TranscribeAsync(filePath, "vi");
                     sw.Stop();
-                    var formatted = FormatTranscript(result);
+                    var label = HallucinationFilter.IsHallucination(result) ? "[Hallucination]" : "";
+                    var formatted = label == "" ? FormatTranscript(result) : $"{label} {result}";
                     await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         SonioxTranscript = $"[{sw.ElapsedMilliseconds}ms]\n{formatted}";
@@ -799,7 +842,8 @@ namespace BF_STT.ViewModels
                 {
                     var result = await _openaiBatchService.TranscribeAsync(filePath, "vi");
                     sw.Stop();
-                    var formatted = FormatTranscript(result);
+                    var label = HallucinationFilter.IsHallucination(result) ? "[Hallucination]" : "";
+                    var formatted = label == "" ? FormatTranscript(result) : $"{label} {result}";
                     await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
                         OpenAITranscript = $"[{sw.ElapsedMilliseconds}ms]\n{formatted}";

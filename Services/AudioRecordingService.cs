@@ -33,6 +33,7 @@ namespace BF_STT.Services
         
         // Silent detection
         private bool _hasAudio;
+        private bool _hasSpeechContent;
         private float _maxPeakLevel;
         private const float SilenceThreshold = 0.01f; // ~-40dB peak threshold
         
@@ -88,6 +89,7 @@ namespace BF_STT.Services
             // Reset silent detection
             _hasAudio = false;
             _maxPeakLevel = 0;
+            _hasSpeechContent = false;
             
             // Reset VAD
             _isSpeaking = false;
@@ -157,19 +159,20 @@ namespace BF_STT.Services
             if (maxSample > _maxPeakLevel) _maxPeakLevel = maxSample;
             if (_maxPeakLevel > SilenceThreshold) _hasAudio = true;
 
-            // 5. VAD Logic
-            if (maxSample > VadSpeechThreshold)
+        // 5. VAD Logic
+        if (maxSample > VadSpeechThreshold)
+        {
+            _speechFrameCount++;
+            _silenceFrameCount = 0;
+            
+            if (!_isSpeaking && _speechFrameCount >= VadSpeechFramesToStart)
             {
-                _speechFrameCount++;
-                _silenceFrameCount = 0;
-                
-                if (!_isSpeaking && _speechFrameCount >= VadSpeechFramesToStart)
-                {
-                    _isSpeaking = true;
-                    IsSpeakingChanged?.Invoke(this, true);
-                    System.Diagnostics.Debug.WriteLine("[AudioRecording] VAD: Speech Started");
-                }
+                _isSpeaking = true;
+                _hasSpeechContent = true;
+                IsSpeakingChanged?.Invoke(this, true);
+                System.Diagnostics.Debug.WriteLine("[AudioRecording] VAD: Speech Started");
             }
+        }
             else
             {
                 _silenceFrameCount++;
@@ -300,7 +303,7 @@ namespace BF_STT.Services
         /// </summary>
         public bool HasMeaningfulAudio()
         {
-            return _hasAudio;
+            return _hasSpeechContent || (_hasAudio && _speechFrameCount > 0);
         }
 
         public void Dispose()

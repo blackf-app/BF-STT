@@ -27,7 +27,7 @@ namespace BF_STT.Services
             _apiKey = apiKey;
         }
 
-        public async Task<string> TranscribeAsync(string audioFilePath, string language)
+        public async Task<string> TranscribeAsync(string audioFilePath, string language, CancellationToken ct = default)
         {
             if (string.IsNullOrEmpty(audioFilePath) || !File.Exists(audioFilePath))
             {

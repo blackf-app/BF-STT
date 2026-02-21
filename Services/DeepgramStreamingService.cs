@@ -43,7 +43,7 @@ namespace BF_STT.Services
         /// <summary>
         /// Opens a WebSocket connection to Deepgram streaming API.
         /// </summary>
-        public async Task StartAsync(string language)
+        public async Task StartAsync(string language, CancellationToken ct = default)
         {
             if (_isConnected) return;
 
@@ -84,7 +84,7 @@ namespace BF_STT.Services
         /// Sends raw PCM audio bytes to the WebSocket.
         /// Buffer should be 16kHz, 16-bit, mono PCM (already processed by AudioRecordingService).
         /// </summary>
-        public async Task SendAudioAsync(byte[] buffer, int count)
+        public async Task SendAudioAsync(byte[] buffer, int count, CancellationToken ct = default)
         {
             if (_webSocket == null || _webSocket.State != WebSocketState.Open) return;
 
@@ -102,7 +102,7 @@ namespace BF_STT.Services
         /// <summary>
         /// Sends CloseStream message and waits for final results before closing.
         /// </summary>
-        public async Task StopAsync()
+        public async Task StopAsync(CancellationToken ct = default)
         {
             if (!_isConnected || _webSocket == null) return;
 
@@ -141,7 +141,7 @@ namespace BF_STT.Services
         /// <summary>
         /// Cancel and cleanup without waiting for final results.
         /// </summary>
-        public async Task CancelAsync()
+        public async Task CancelAsync(CancellationToken ct = default)
         {
             _receiveCts?.Cancel();
             await CleanupAsync();

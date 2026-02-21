@@ -31,7 +31,8 @@ namespace BF_STT
                 OpenAIModel = _settingsService.CurrentSettings.OpenAIModel,
                 BatchModeApi = _settingsService.CurrentSettings.BatchModeApi,
                 StreamingModeApi = _settingsService.CurrentSettings.StreamingModeApi,
-                TestMode = _settingsService.CurrentSettings.TestMode
+                TestMode = _settingsService.CurrentSettings.TestMode,
+                DefaultLanguage = _settingsService.CurrentSettings.DefaultLanguage
             };
 
             ApiKeyTextBox.Text = _tempSettings.ApiKey;
@@ -52,6 +53,18 @@ namespace BF_STT
             else if (_tempSettings.StreamingModeApi == "Soniox") StreamingModeApiComboBox.SelectedIndex = 2;
             else if (_tempSettings.StreamingModeApi == "OpenAI") StreamingModeApiComboBox.SelectedIndex = 3;
             else StreamingModeApiComboBox.SelectedIndex = 0;
+
+            // Set Language ComboBox
+            for (int i = 0; i < LanguageComboBox.Items.Count; i++)
+            {
+                if (LanguageComboBox.Items[i] is System.Windows.Controls.ComboBoxItem item
+                    && item.Tag?.ToString() == _tempSettings.DefaultLanguage)
+                {
+                    LanguageComboBox.SelectedIndex = i;
+                    break;
+                }
+            }
+            if (LanguageComboBox.SelectedIndex < 0) LanguageComboBox.SelectedIndex = 0;
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -82,6 +95,12 @@ namespace BF_STT
             else if (StreamingModeApiComboBox.SelectedIndex == 2) _tempSettings.StreamingModeApi = "Soniox";
             else if (StreamingModeApiComboBox.SelectedIndex == 1) _tempSettings.StreamingModeApi = "Speechmatics";
             else _tempSettings.StreamingModeApi = "Deepgram";
+
+            // Get Language from ComboBox
+            if (LanguageComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem langItem)
+            {
+                _tempSettings.DefaultLanguage = langItem.Tag?.ToString() ?? "vi";
+            }
 
             _settingsService.SaveSettings(_tempSettings);
             DialogResult = true;

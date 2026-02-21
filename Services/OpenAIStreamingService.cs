@@ -31,7 +31,7 @@ namespace BF_STT.Services
             _apiKey = apiKey;
         }
 
-        public Task StartAsync(string language)
+        public Task StartAsync(string language, CancellationToken ct = default)
         {
             _isConnected = true;
             // Native Open AI doesn't support streaming websockets for whisper in this simple way yet.
@@ -40,18 +40,18 @@ namespace BF_STT.Services
             return Task.CompletedTask;
         }
 
-        public Task SendAudioAsync(byte[] buffer, int count)
+        public Task SendAudioAsync(byte[] buffer, int count, CancellationToken ct = default)
         {
             return Task.CompletedTask;
         }
 
-        public Task StopAsync()
+        public Task StopAsync(CancellationToken ct = default)
         {
             _isConnected = false;
             return Task.CompletedTask;
         }
 
-        public Task CancelAsync()
+        public Task CancelAsync(CancellationToken ct = default)
         {
             _isConnected = false;
             return Task.CompletedTask;

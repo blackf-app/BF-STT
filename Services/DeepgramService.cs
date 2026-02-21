@@ -29,7 +29,7 @@ namespace BF_STT.Services
             if (!string.IsNullOrWhiteSpace(model)) _model = model;
         }
 
-        public async Task<string> TranscribeAsync(string audioFilePath, string language)
+        public async Task<string> TranscribeAsync(string audioFilePath, string language, CancellationToken ct = default)
         {
             if (string.IsNullOrEmpty(audioFilePath) || !File.Exists(audioFilePath))
             {

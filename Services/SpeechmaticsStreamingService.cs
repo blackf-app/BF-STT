@@ -36,7 +36,7 @@ namespace BF_STT.Services
             _apiKey = apiKey;
         }
 
-        public async Task StartAsync(string language)
+        public async Task StartAsync(string language, CancellationToken ct = default)
         {
             if (_isConnected) return;
 
@@ -92,7 +92,7 @@ namespace BF_STT.Services
             }
         }
 
-        public async Task SendAudioAsync(byte[] buffer, int count)
+        public async Task SendAudioAsync(byte[] buffer, int count, CancellationToken ct = default)
         {
             if (_webSocket == null || _webSocket.State != WebSocketState.Open) return;
 
@@ -109,7 +109,7 @@ namespace BF_STT.Services
             }
         }
 
-        public async Task StopAsync()
+        public async Task StopAsync(CancellationToken ct = default)
         {
             if (!_isConnected || _webSocket == null) return;
 
@@ -136,7 +136,7 @@ namespace BF_STT.Services
             }
         }
 
-        public async Task CancelAsync()
+        public async Task CancelAsync(CancellationToken ct = default)
         {
             _receiveCts?.Cancel();
             await CleanupAsync();

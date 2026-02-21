@@ -67,5 +67,6 @@ obj/
 *.publishsettings
 
 # Others
+appsettings.json
 appsettings.Development.json
 /publish

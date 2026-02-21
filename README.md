@@ -1,88 +1,78 @@
 # BF-STT (Bright-Fast Speech To Text)
 
-BF-STT là một ứng dụng Windows (WPF) mạnh mẽ và linh hoạt, giúp chuyển đổi giọng nói thành văn bản ngay lập tức và nhập liệu trực tiếp vào bất kỳ ứng dụng nào đang hoạt động. Ứng dụng tích hợp công nghệ từ nhiều nhà cung cấp Speech-to-Text hàng đầu như Deepgram, Speechmatics, Soniox, và OpenAI Whisper để đảm bảo độ chính xác cực cao, hỗ trợ nhiều ngôn ngữ (bao gồm tiếng Việt) và độ trễ gần như bằng không.
+**BF-STT** là một ứng dụng Windows (WPF) mạnh mẽ và linh hoạt, giúp chuyển đổi giọng nói thành văn bản ngay lập tức và nhập liệu trực tiếp vào bất kỳ ứng dụng nào đang hoạt động. Ứng dụng tích hợp công nghệ từ nhiều nhà cung cấp Speech-to-Text hàng đầu như **Deepgram**, **Speechmatics**, **Soniox**, và **OpenAI Whisper** để đảm bảo độ chính xác cực cao và độ trễ gần như bằng không.
 
-## 🚀 Tính năng nổi bật
+---
 
-- **Chế độ Hybrid thông minh (F3):**
-  - **Nhấn nhanh (Short Press):** Chế độ **Batch**. Ghi âm và gửi toàn bộ đoạn hội thoại sau khi kết thúc. Phù hợp cho các câu thoại dài, cần độ chính xác cao nhất và tự động thêm dấu chấm câu.
+### 🚀 Tính năng nổi bật
+
+- **Chế độ Hybrid thông minh (Phím tắt F3):**
+  - **Nhấn nhanh (Short Press):** Chế độ **Batch**. Ghi âm và gửi toàn bộ đoạn hội thoại sau khi kết thúc. Phù hợp cho các câu thoại dài, cần độ chính xác cao và tự động thêm dấu chấm câu.
   - **Nhấn giữ (Long Press):** Chế độ **Streaming**. Văn bản xuất hiện và được gõ trực tiếp ngay khi bạn đang nói. Phù hợp cho việc nhắn tin hoặc nhập liệu thời gian thực.
-  
-- **Hỗ trợ Đa Nền tảng STT (Multi-Provider Support):**
+- **Hỗ trợ Đa Nền tảng STT:**
   - Hỗ trợ linh hoạt chuyển đổi giữa **Deepgram (Nova-3)**, **Speechmatics**, **Soniox**, và **OpenAI Whisper**.
-  - **Test Mode (Chế độ Kiểm thử):** Cho phép chạy đồng thời và so sánh trực tiếp kết quả, tốc độ phản hồi từ nhiều API khác nhau (Deepgram, Speechmatics, Soniox, OpenAI) trên cùng một giao diện. Tự động vô hiệu hóa nhập liệu (Auto-Typing) khi ở chế độ này để tránh xung đột.
-  
-- **Resend Audio (Gửi lại âm thanh):** Dễ dàng gửi lại đoạn ghi âm vừa thu trong chế độ Batch cho API mà không cần phải đọc lại, cực kỳ hữu ích khi muốn đối chiếu chéo các API.
-- **Tự động nhập liệu (Auto-Typing):** Nhập liệu thông minh trực tiếp vào cửa sổ ứng dụng đang hoạt động (Word, Notepad, Browser, Games...).
-- **Xử lý dấu câu và định dạng:** Tự động tối ưu hóa, thêm dấu chấm câu (ví dụ: tự động thêm ". " vào cuối đoạn trong Batch mode) và nối chuỗi cho luồng Streaming kết quả cuối cùng.
-- **Hỗ trợ Keyterm (Tùy chỉnh Từ vựng):** Tính năng thiết lập các từ khóa chuyên ngành, biến thể phương ngữ để tăng độ chính xác theo ngữ cảnh người dùng.
-- **Voice Activity Detection (VAD) & Trình quan sát âm lượng:** Loại bỏ các khoảng lặng, tối ưu dung lượng/băng thông gửi API và có thanh hiển thị Audio Level trực quan kèm âm thanh thông báo.
-- **Giao diện Cấu hình (Settings Window):** Quản lý chi tiết API Key, Model cho từng nhà cung cấp, Test Mode, cấu hình phím nóng và thiết lập khởi động cùng hệ thống. Cho phép chọn API riêng biệt cho chế độ Batch và Streaming.
-- **Lọc im lặng & Chống Hallucination:** 
-  - Tự động phân tích năng lượng âm thanh (RMS) để bỏ qua các đoạn ghi âm im lặng hoặc chỉ có tiếng ồn.
-  - Bộ lọc thông minh loại bỏ các câu "hallucination" thường gặp của AI (như "Cảm ơn đã xem", "Subscribe",...) để đảm bảo văn bản sạch nhất.
-- **Bảo vệ Clipboard:** Sao lưu và khôi phục an toàn nội dung Clipboard người dùng sau quá trình nhập liệu.
+  - **Chế độ Kiểm thử (Test Mode):** Cho phép chạy đồng thời và so sánh trực tiếp kết quả, tốc độ phản hồi từ nhiều API khác nhau trên cùng một giao diện.
+- **Quản lý âm thanh nâng cao:**
+  - **Resend Audio (Gửi lại âm thanh):** Gửi lại đoạn ghi âm vừa thu cho API khác mà không cần đọc lại, cực kỳ hữu ích khi muốn đối chiếu chéo kết quả các API.
+  - **VAD & Lọc im lặng:** Tự động loại bỏ các đoạn không có tiếng người để tối ưu dung lượng và tránh các kết quả rác.
+  - **Chống Hallucination:** Bộ lọc thông minh loại bỏ các câu "ảo giác" do AI tự suy diễn (ví dụ: "Cảm ơn đã xem", "Subscribe",...).
+- **Tích hợp hệ thống thông minh:**
+  - **Tự động nhập liệu (Auto-Typing):** Nhập văn bản trực tiếp vào cửa sổ ứng dụng đang hoạt động (Word, Notepad, Browser, Games...).
+  - **Bảo vệ Clipboard:** Tự động sao lưu và khôi phục nội dung Clipboard của người dùng sau khi nhập liệu.
+- **Giao diện & Cấu hình:** Quản lý chi tiết API Key, Model, cấu hình phím nóng và thiết lập khởi động cùng hệ thống.
 
-## 🛠 Công nghệ sử dụng
+---
 
-- **Framework:** .NET 8, WPF (Windows Presentation Foundation)
-- **Audio:** [NAudio](https://github.com/naudio/NAudio) xử lý luồng âm thanh PCM 16kHz Mono chuẩn hóa kết hợp Voice Activity Detection.
-- **Tích hợp API:** REST API (cho Batch) và WebSocket (cho Streaming) tương tác trực tiếp tới hệ thống backend của Deepgram, Speechmatics, Soniox và OpenAI.
-- **Kiến trúc:** Clean MVVM (Model-View-ViewModel) với Interface riêng biệt (`IBatchSttService`, `IStreamingSttService`).
+### 🛠 Công nghệ sử dụng
 
-## 📦 Hướng dẫn cài đặt
+- **Framework:** .NET 8, WPF (Windows Presentation Foundation).
+- **Audio Engine:** [NAudio](https://github.com/naudio/NAudio) xử lý luồng âm thanh PCM 16kHz Mono.
+- **Giao tiếp API:** REST API (cho Batch) và WebSocket (cho Streaming) tương tác trực tiếp tới hệ thống backend của các nhà cung cấp.
+- **Kiến trúc:** Clean MVVM (Model-View-ViewModel) với các Interface dịch vụ riêng biệt.
 
-### 1. Yêu cầu hệ thống
+---
+
+### 📦 Hướng dẫn cài đặt & Sử dụng
+
+#### 1. Yêu cầu hệ thống
 - Windows 10/11 x64.
 - .NET 8 Desktop Runtime.
 
-### 2. Cấu hình ban đầu
-Khi khởi chạy lần đầu hoặc từ Context Menu hệ thống, truy cập bảng **Settings** để cấu hình API:
-- Bạn có thể chuyển đổi linh hoạt thiết lập: **Deepgram**, **Speechmatics**, **Soniox**, **OpenAI**.
-- Yêu cầu đăng ký API Key từ Dashboard của nhà cung cấp bạn định sử dụng (hoặc cấu hình tất cả cho Test Mode).
-- Cấu hình được lưu trữ local (JSON) an toàn.
+#### 2. Cấu hình ban đầu
+- Mở bảng **Settings** từ menu chuột phải ở System Tray hoặc giao diện chính.
+- Nhập API Key cho các nhà cung cấp bạn muốn sử dụng.
+- Thiết lập ngôn ngữ mặc định (mặc định là `vi`).
 
-### 3. Build từ mã nguồn
-Nếu bạn là nhà phát triển, có thể build dự án bằng Visual Studio 2022 hoặc qua CLI:
+#### 3. Cách sử dụng chính
+- **F3 (Nhấn nhả):** Bắt đầu/Kết thúc ghi âm Batch.
+- **F3 (Nhấn giữ):** Ghi âm Streaming (thả phím để kết thúc).
+- **Nút Resend:** Gửi lại đoạn âm thanh vừa thu để thử nghiệm với API khác.
+
+#### 4. Build từ mã nguồn
 ```bash
 dotnet build
 dotnet run
 ```
-Dự án đã tích hợp sẵn kịch bản và script cho đóng gói tiện lợi.
 
-### 4. Đóng gói (Single EXE)
-Để tạo file chạy độc lập Publish (Ví dụ: thông qua slash command publish hay CLI tool):
+#### 5. Đóng gói (Single EXE)
 ```powershell
 dotnet publish -c Release -o ./publish
 ```
 
-## ⌨️ Cách sử dụng
+---
 
-1. **Khởi động:** Ứng dụng hiển thị trên cùng màn hình dạng thanh gọn nhẹ (có thể kéo thả) & chạy ngầm System Tray.
-2. **Thao tác nhanh (Phím tắt F3):**
-   - **Click F3 một lần:** Bắt đầu ghi âm Batch (nhấn F3 lần nữa để kết thúc ghi). Trạng thái (Status) hiển thị "Recording (Batch)...".
-   - **Nhấn và giữ F3:** Bắt đầu truyền cảm trực tiếp (Streaming). Trạng thái hiển thị "Streaming...". Thả phím F3 để dừng ghi và chốt câu.
-3. **Resend / Test Mode:**
-   - Kích hoạt **Test Mode** trong Settings nếu muốn đánh giá độ phân tích của 4 API cùng lúc.
-   - Nhấn **"Resend Batch"** để gửi lại tệp tin âm thanh lưu gần nhất phân tích lại mà không cần nói lại.
+### 📂 Cấu trúc mã nguồn
 
-## 📂 Giao diện & Cấu trúc mã
-
-- `MainWindow.xaml`: Giao diện chính nhỏ gọn (có thể hiển thị ở chế độ Test Mode chia làm 4 panels để so sánh kết quả các APIs).
-- `SettingsWindow.xaml`: Trình quản lý nhà cung cấp APIs, Key, Models, Test Mode và UI Settings.
+- `MainWindow.xaml`: Giao diện chính, tích hợp bảng điều khiển và Visualizer âm lượng.
+- `SettingsWindow.xaml`: Quản lý cấu hình API, phím tắt và tùy chỉnh UI.
 - `Services/`:
-  - `*StreamingService.cs` / `*BatchService.cs`: Trình xử lý nghiệp vụ STT cho Deepgram, Speechmatics, Soniox, OpenAI.
-  - `AudioRecordingService`: Lọc âm thanh, ghi dữ liệu, xử lý VAD thời gian thực.
-  - `AudioSilenceDetector`: Phân tích file ghi âm để phát hiện im lặng trước khi gửi API.
-  - `HallucinationFilter`: Hậu xử lý văn bản để loại bỏ các câu nhiễu do AI tự suy diễn.
-  - `InputInjector`: Mô phỏng và gõ văn bản chính xác trên Target Window Handle.
-  - `SettingsService`: Logic I/O cấu hình.
-  - `HotkeyService`: Nhúng phím nóng (Global hook).
-- `ViewModels/`: `MainViewModel.cs` dùng để điều phối toàn bộ trạng thái (Recording Timer, Hybrid Decision threshold, Mutiple providers tasks).
-
-## 📄 Giấy phép
-
-Dự án tối ưu và phát triển bởi **Antigravity AI**, phục vụ mục đích tiện ích cá nhân & cộng đồng. Tự do sử dụng.
+  - `*StreamingService.cs` & `*BatchService.cs`: Logic xử lý STT cho từng nhà cung cấp.
+  - `AudioRecordingService`: Quản lý thu âm, VAD và lọc nhiễu.
+  - `InputInjector`: Xử lý việc mô phỏng bàn phím để nhập dữ liệu.
+  - `HallucinationFilter`: Bộ lọc hậu xử lý văn bản AI.
+- `ViewModels/`: Điều phối trạng thái và logic ứng dụng.
 
 ---
-*Last update: February 2026*
+*Phát triển bởi **Antigravity AI**. Cập nhật lần cuối: Tháng 2, 2026*
+
+

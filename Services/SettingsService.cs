@@ -11,6 +11,7 @@ namespace BF_STT.Services
         public bool TestMode { get; set; } = false;
         public string BatchModeApi { get; set; } = "Deepgram";
         public string StreamingModeApi { get; set; } = "Deepgram";
+        public string DefaultLanguage { get; set; } = "vi";
 
         // Legacy for migration
         public string? SelectedApi { get; set; } 

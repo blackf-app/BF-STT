@@ -1,9 +1,7 @@
 ﻿using BF_STT.Services;
 using BF_STT.ViewModels;
-using Microsoft.Extensions.Configuration;
 using System.IO;
 using System.Net.Http;
-using System.Reflection;
 using System.Threading;
 using System.Windows;
 
@@ -11,15 +9,11 @@ namespace BF_STT
 {
     public partial class App : System.Windows.Application
     {
-        // Public configuration not strictly needed anymore as we use SettingsService
-        
         // Track all disposable services for proper cleanup
         private HotkeyService? _hotkeyService;
         private HttpClient? _httpClient;
         private AudioRecordingService? _audioService;
-        private DeepgramStreamingService? _streamingService;
-        private SonioxStreamingService? _sonioxStreamingService;
-        private OpenAIStreamingService? _openAIStreamingService;
+        private SttProviderRegistry? _registry;
         private InputInjector? _inputInjector;
         private static Mutex? _mutex;
 
@@ -44,19 +38,39 @@ namespace BF_STT
             var settingsService = new SettingsService();
             var settings = settingsService.CurrentSettings;
 
-            // Check API Key on startup based on the selected APIs
-            bool missingKey = false;
-            
-            if (settings.BatchModeApi == "Speechmatics" && string.IsNullOrEmpty(settings.SpeechmaticsApiKey)) missingKey = true;
-            else if (settings.BatchModeApi == "Deepgram" && string.IsNullOrEmpty(settings.ApiKey)) missingKey = true;
-            else if (settings.BatchModeApi == "Soniox" && string.IsNullOrEmpty(settings.SonioxApiKey)) missingKey = true;
-            else if (settings.BatchModeApi == "OpenAI" && string.IsNullOrEmpty(settings.OpenAIApiKey)) missingKey = true;
+            // Build services
+            _httpClient = new HttpClient();
+            _audioService = new AudioRecordingService();
+            _inputInjector = new InputInjector();
+            var soundService = new SoundService();
 
-            if (settings.StreamingModeApi == "Speechmatics" && string.IsNullOrEmpty(settings.SpeechmaticsApiKey)) missingKey = true;
-            else if (settings.StreamingModeApi == "Deepgram" && string.IsNullOrEmpty(settings.ApiKey)) missingKey = true;
-            else if (settings.StreamingModeApi == "Soniox" && string.IsNullOrEmpty(settings.SonioxApiKey)) missingKey = true;
-            else if (settings.StreamingModeApi == "OpenAI" && string.IsNullOrEmpty(settings.OpenAIApiKey)) missingKey = true;
-            
+            // Build provider registry
+            _registry = new SttProviderRegistry();
+
+            var deepgramBatch = new DeepgramService(_httpClient, settings.ApiKey, settings.BaseUrl, settings.Model);
+            var deepgramStreaming = new DeepgramStreamingService(settings.ApiKey, settings.StreamingUrl, settings.Model);
+            _registry.Register("Deepgram", deepgramBatch, deepgramStreaming,
+                s => s.ApiKey, s => s.Model);
+
+            var speechmaticsBatch = new SpeechmaticsBatchService(_httpClient, settings.SpeechmaticsApiKey, settings.SpeechmaticsBaseUrl);
+            var speechmaticsStreaming = new SpeechmaticsStreamingService(settings.SpeechmaticsApiKey, settings.SpeechmaticsStreamingUrl);
+            _registry.Register("Speechmatics", speechmaticsBatch, speechmaticsStreaming,
+                s => s.SpeechmaticsApiKey, s => s.SpeechmaticsModel);
+
+            var sonioxBatch = new SonioxBatchService(_httpClient, settings.SonioxApiKey, settings.SonioxBaseUrl);
+            var sonioxStreaming = new SonioxStreamingService(settings.SonioxApiKey, settings.SonioxStreamingUrl);
+            _registry.Register("Soniox", sonioxBatch, sonioxStreaming,
+                s => s.SonioxApiKey, s => s.SonioxModel);
+
+            var openaiBatch = new OpenAIBatchService(_httpClient, settings.OpenAIApiKey, settings.OpenAIBaseUrl);
+            var openaiStreaming = new OpenAIStreamingService(settings.OpenAIApiKey);
+            _registry.Register("OpenAI", openaiBatch, openaiStreaming,
+                s => s.OpenAIApiKey, s => s.OpenAIModel);
+
+            // Check API Key on startup using registry
+            bool missingKey = _registry.ValidateApiKey(settings.BatchModeApi, settings) != null
+                           || _registry.ValidateApiKey(settings.StreamingModeApi, settings) != null;
+
             if (missingKey)
             {
                 var settingsWindow = new SettingsWindow(settingsService);
@@ -69,34 +83,11 @@ namespace BF_STT
                 settings = settingsService.CurrentSettings;
             }
 
-            // Dependency Injection
-            _httpClient = new HttpClient();
-            var deepgramService = new DeepgramService(_httpClient, settings.ApiKey, settings.BaseUrl, settings.Model);
-            var speechmaticsService = new SpeechmaticsBatchService(_httpClient, settings.SpeechmaticsApiKey, settings.SpeechmaticsBaseUrl);
-            var sonioxService = new SonioxBatchService(_httpClient, settings.SonioxApiKey, settings.SonioxBaseUrl);
-            var openAIService = new OpenAIBatchService(_httpClient, settings.OpenAIApiKey, settings.OpenAIBaseUrl); // Added OpenAI Batch Service
-
-            _audioService = new AudioRecordingService();
-            _streamingService = new DeepgramStreamingService(settings.ApiKey, settings.StreamingUrl, settings.Model); // Kept for disposing
-            var speechmaticsStreaming = new SpeechmaticsStreamingService(settings.SpeechmaticsApiKey, settings.SpeechmaticsStreamingUrl);
-            _sonioxStreamingService = new SonioxStreamingService(settings.SonioxApiKey, settings.SonioxStreamingUrl); // Kept for disposing
-            _openAIStreamingService = new OpenAIStreamingService(settings.OpenAIApiKey); // Added OpenAI Streaming Service for disposing
-            
-            _inputInjector = new InputInjector();
-            var soundService = new SoundService();
-
             var mainViewModel = new MainViewModel(
-                _audioService, 
-                deepgramService, 
-                _streamingService, 
-                speechmaticsService, 
-                speechmaticsStreaming, 
-                sonioxService, 
-                _sonioxStreamingService, 
-                openAIService, // Pass OpenAI batch service
-                _openAIStreamingService, // Pass OpenAI streaming service
-                _inputInjector, 
-                soundService, 
+                _audioService,
+                _registry,
+                _inputInjector,
+                soundService,
                 settingsService
             );
 
@@ -123,9 +114,19 @@ namespace BF_STT
             // Dispose all services in reverse order of creation
             _hotkeyService?.Dispose();
             _inputInjector?.Dispose();
-            _streamingService?.Dispose();
-            _sonioxStreamingService?.Dispose();
-            _openAIStreamingService?.Dispose();
+
+            // Dispose all streaming services registered in the registry
+            if (_registry != null)
+            {
+                foreach (var provider in _registry.GetAllProviders())
+                {
+                    if (provider.StreamingService is IDisposable disposable)
+                    {
+                        disposable.Dispose();
+                    }
+                }
+            }
+
             _audioService?.Dispose();
             _httpClient?.Dispose();
             _mutex?.Dispose();

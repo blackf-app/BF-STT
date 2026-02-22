@@ -1,4 +1,5 @@
 using BF_STT.Models;
+using BF_STT.Services.States;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
@@ -8,45 +9,50 @@ using System.Windows.Threading;
 namespace BF_STT.Services
 {
     /// <summary>
-    /// Coordinates the full recording lifecycle: hotkey handling, hybrid mode decisions,
-    /// streaming, batch processing, and audio data routing.
+    /// Coordinates the full recording lifecycle using the State Pattern.
+    /// States: Idle → HybridPending → (BatchRecording | Streaming) → Processing → Idle
     /// Fires events to let the ViewModel update UI state.
     /// </summary>
     public class RecordingCoordinator
     {
-        #region Dependencies
+        #region Dependencies (internal for state access)
 
-        private readonly AudioRecordingService _audioService;
-        private readonly SttProviderRegistry _registry;
-        private readonly InputInjector _inputInjector;
-        private readonly SoundService _soundService;
-        private readonly SettingsService _settingsService;
-        private readonly HistoryService _historyService;
+        internal readonly AudioRecordingService AudioService;
+        internal readonly SttProviderRegistry Registry;
+        internal readonly InputInjector InputInjector;
+        internal readonly SoundService SoundService;
+        internal readonly SettingsService SettingsService;
+        internal readonly HistoryService HistoryService;
 
         #endregion
 
         #region State
 
-        private bool _isRecording;
-        private bool _isStreaming;
-        private bool _isBatchProcessing;
-        private bool _isToggleMode;
-        private bool _isHybridDecisionMade;
-        private bool _shouldAutoSend;
-        private DateTime _hotkeyDownTime;
-        private string? _lastRecordedFilePath;
-        private IntPtr _targetWindowHandle;
+        private IRecordingState _currentState;
+
+        /// <summary>Current auto-send flag for the active session.</summary>
+        internal bool ShouldAutoSend { get; set; }
+
+        /// <summary>Timestamp when the hotkey was pressed down.</summary>
+        internal DateTime HotkeyDownTime { get; set; }
+
+        /// <summary>Window handle captured at session start for text injection.</summary>
+        internal IntPtr TargetWindowHandle { get; set; }
+
+        /// <summary>Last recorded audio bytes for Resend feature.</summary>
+        private byte[]? _lastAudioData;
+
+        /// <summary>Audio buffer for hybrid pending state.</summary>
         private ConcurrentQueue<AudioDataEventArgs> _audioBuffer = new();
+
         private DispatcherTimer _recordingTimer;
         private DispatcherTimer _hybridTimer;
         private TimeSpan _recordingDuration;
 
-        /// <summary>
-        /// Per-provider transcript text for Test Mode display.
-        /// </summary>
+        /// <summary>Per-provider transcript text for Test Mode display.</summary>
         private readonly Dictionary<string, string> _providerTranscripts = new();
 
-        private const int HybridThresholdMs = 300;
+        internal const int HybridThresholdMs = 300;
 
         #endregion
 
@@ -77,39 +83,47 @@ namespace BF_STT.Services
 
         #region Properties
 
-        public bool IsRecording => _isRecording;
-        public bool IsSending => _isStreaming || _isBatchProcessing;
-        public bool CanResend => !string.IsNullOrEmpty(_lastRecordedFilePath) 
-                                 && File.Exists(_lastRecordedFilePath) 
-                                 && !_isRecording && !IsSending;
+        public IRecordingState CurrentState => _currentState;
+        public RecordingStateEnum State => _currentState.StateId;
+
+        public bool IsRecording => State == RecordingStateEnum.HybridPending
+                                || State == RecordingStateEnum.BatchRecording
+                                || State == RecordingStateEnum.Streaming;
+
+        public bool IsSending => State == RecordingStateEnum.Streaming
+                              || State == RecordingStateEnum.Processing;
+
+        public bool CanResend => _lastAudioData != null
+                              && _lastAudioData.Length > 0
+                              && State == RecordingStateEnum.Idle;
 
         public string BatchModeApi
         {
-            get => _settingsService.CurrentSettings.BatchModeApi;
+            get => SettingsService.CurrentSettings.BatchModeApi;
             set
             {
-                if (_settingsService.CurrentSettings.BatchModeApi != value)
+                if (SettingsService.CurrentSettings.BatchModeApi != value)
                 {
-                    _settingsService.CurrentSettings.BatchModeApi = value;
-                    _settingsService.SaveSettings(_settingsService.CurrentSettings);
+                    SettingsService.CurrentSettings.BatchModeApi = value;
+                    SettingsService.SaveSettings(SettingsService.CurrentSettings);
                 }
             }
         }
 
         public string StreamingModeApi
         {
-            get => _settingsService.CurrentSettings.StreamingModeApi;
+            get => SettingsService.CurrentSettings.StreamingModeApi;
             set
             {
-                if (_settingsService.CurrentSettings.StreamingModeApi != value)
+                if (SettingsService.CurrentSettings.StreamingModeApi != value)
                 {
-                    _settingsService.CurrentSettings.StreamingModeApi = value;
-                    _settingsService.SaveSettings(_settingsService.CurrentSettings);
+                    SettingsService.CurrentSettings.StreamingModeApi = value;
+                    SettingsService.SaveSettings(SettingsService.CurrentSettings);
                 }
             }
         }
 
-        public bool IsTestMode => _settingsService.CurrentSettings.TestMode;
+        public bool IsTestMode => SettingsService.CurrentSettings.TestMode;
 
         #endregion
 
@@ -123,21 +137,23 @@ namespace BF_STT.Services
             SettingsService settingsService,
             HistoryService historyService)
         {
-            _audioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
-            _registry = registry ?? throw new ArgumentNullException(nameof(registry));
-            _inputInjector = inputInjector ?? throw new ArgumentNullException(nameof(inputInjector));
-            _soundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
-            _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
-            _historyService = historyService ?? throw new ArgumentNullException(nameof(historyService));
+            AudioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
+            Registry = registry ?? throw new ArgumentNullException(nameof(registry));
+            InputInjector = inputInjector ?? throw new ArgumentNullException(nameof(inputInjector));
+            SoundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
+            SettingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            HistoryService = historyService ?? throw new ArgumentNullException(nameof(historyService));
+
+            _currentState = IdleState.Instance;
 
             // Initialize per-provider transcript storage
-            foreach (var p in _registry.GetAllProviders())
+            foreach (var p in Registry.GetAllProviders())
             {
                 _providerTranscripts[p.Name] = string.Empty;
             }
 
             // Wire audio level updates
-            _audioService.AudioLevelUpdated += (s, level) =>
+            AudioService.AudioLevelUpdated += (s, level) =>
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
@@ -145,11 +161,11 @@ namespace BF_STT.Services
                 });
             };
 
-            // Wire audio data to hybrid buffer / streaming
-            _audioService.AudioDataAvailable += OnAudioDataAvailable;
+            // Wire audio data to current state
+            AudioService.AudioDataAvailable += OnAudioDataAvailable;
 
             // Wire streaming events for all providers
-            foreach (var provider in _registry.GetAllProviders())
+            foreach (var provider in Registry.GetAllProviders())
             {
                 provider.StreamingService.TranscriptReceived += OnTranscriptReceived;
                 provider.StreamingService.UtteranceEndReceived += OnUtteranceEndReceived;
@@ -171,6 +187,314 @@ namespace BF_STT.Services
 
         #endregion
 
+        #region State Transitions
+
+        /// <summary>
+        /// Transitions to a new state and fires relevant UI events.
+        /// </summary>
+        internal void TransitionTo(IRecordingState newState)
+        {
+            var oldState = _currentState;
+            _currentState = newState;
+
+            Debug.WriteLine($"[Coordinator] State: {oldState.StateId} → {newState.StateId}");
+
+            // Fire recording state change if transitioning in/out of recording
+            bool wasRecording = oldState.StateId == RecordingStateEnum.HybridPending
+                             || oldState.StateId == RecordingStateEnum.BatchRecording
+                             || oldState.StateId == RecordingStateEnum.Streaming;
+            bool nowRecording = IsRecording;
+            if (wasRecording != nowRecording)
+            {
+                RecordingStateChanged?.Invoke(nowRecording);
+            }
+
+            SendingStateChanged?.Invoke();
+            CommandsInvalidated?.Invoke();
+        }
+
+        #endregion
+
+        #region Public API (delegated to state)
+
+        public void HandleHotkeyDown(bool autoSend)
+        {
+            HotkeyDownTime = DateTime.Now;
+            ShouldAutoSend = autoSend;
+            _currentState.HandleHotkeyDown(this, autoSend);
+        }
+
+        public void HandleHotkeyUp()
+        {
+            _currentState.HandleHotkeyUp(this);
+        }
+
+        public void StartRecording(string? parameter = null)
+        {
+            if (IsRecording)
+            {
+                // If already recording, treat as cancel
+                CancelRecording();
+            }
+            else if (State == RecordingStateEnum.Idle || State == RecordingStateEnum.Failed)
+            {
+                _currentState.HandleStartButton(this);
+            }
+        }
+
+        public void StopRecording()
+        {
+            if (State == RecordingStateEnum.BatchRecording)
+            {
+                StopAndProcessBatch();
+            }
+            else if (State == RecordingStateEnum.Streaming)
+            {
+                StopStreamingAndFinalize();
+            }
+        }
+
+        #endregion
+
+        #region Internal Methods (called by state classes)
+
+        /// <summary>Begins a new recording session, resetting state and capturing target window.</summary>
+        internal void BeginNewSession(bool autoSend)
+        {
+            ShouldAutoSend = autoSend;
+            TargetWindowHandle = InputInjector.LastExternalWindowHandle;
+            InputInjector.ResetStreamingState();
+
+            // Clear previous audio data
+            _lastAudioData = null;
+            CommandsInvalidated?.Invoke();
+
+            ClearAudioBuffer();
+
+            if (IsTestMode)
+            {
+                foreach (var p in Registry.GetAllProviders())
+                {
+                    SetProviderTranscript(p.Name, string.Empty);
+                }
+            }
+            else
+            {
+                TranscriptChanged?.Invoke(string.Empty);
+            }
+            AudioLevelChanged?.Invoke(0);
+        }
+
+        /// <summary>Starts audio capture and transitions to appropriate state.</summary>
+        internal void StartAudioCapture(bool isKeyTrigger)
+        {
+            try
+            {
+                AudioService.DeviceNumber = SettingsService.CurrentSettings.MicrophoneDeviceNumber;
+                AudioService.StartRecording();
+
+                _recordingDuration = TimeSpan.Zero;
+                _recordingTimer.Start();
+
+                if (isKeyTrigger)
+                {
+                    FireStatusChanged("..."); // Pending hybrid decision
+                    _hybridTimer.Start();
+                    TransitionTo(HybridPendingState.Instance);
+                }
+                else
+                {
+                    PlayStartSound();
+                    FireStatusChanged("Recording (Batch)...");
+                    TransitionTo(BatchRecordingState.Instance);
+                }
+            }
+            catch (Exception ex)
+            {
+                FireStatusChanged($"Error: {ex.Message}");
+                TransitionTo(FailedState.Instance);
+            }
+        }
+
+        /// <summary>Enters streaming mode — starts WebSocket connections and flushes buffered audio.</summary>
+        internal async void EnterStreamingMode()
+        {
+            _hybridTimer.Stop();
+            TransitionTo(StreamingState.Instance);
+
+            PlayStartSound();
+            FireStatusChanged("Streaming... 00:00");
+
+            try
+            {
+                var language = SettingsService.CurrentSettings.DefaultLanguage;
+                if (IsTestMode)
+                {
+                    var startTasks = Registry.GetAllProviders()
+                        .Select(p => p.StreamingService.StartAsync(language));
+                    await Task.WhenAll(startTasks);
+
+                    // Flush buffer to all WebSockets
+                    while (_audioBuffer.TryDequeue(out var args))
+                    {
+                        var sendTasks = Registry.GetAllProviders()
+                            .Select(p => p.StreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded));
+                        await Task.WhenAll(sendTasks);
+                    }
+                }
+                else
+                {
+                    var activeStreaming = Registry.GetStreamingService(StreamingModeApi);
+                    await activeStreaming.StartAsync(language);
+
+                    while (_audioBuffer.TryDequeue(out var args))
+                    {
+                        await activeStreaming.SendAudioAsync(args.Buffer, args.BytesRecorded);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                FireStatusChanged($"Stream Error: {ex.Message}");
+            }
+        }
+
+        /// <summary>Stops recording and sends audio to batch API for processing.</summary>
+        internal async void StopAndProcessBatch()
+        {
+            try
+            {
+                _recordingTimer.Stop();
+                _hybridTimer.Stop();
+
+                var audioData = await AudioService.StopRecordingAsync();
+
+                SoundService.PlayStopSound();
+
+                if (audioData != null && audioData.Length > 0)
+                {
+                    if (AudioService.HasMeaningfulAudio())
+                    {
+                        FireStatusChanged("Processing Batch...");
+                        _lastAudioData = audioData;
+                        TransitionTo(ProcessingState.Instance);
+
+                        if (IsTestMode)
+                        {
+                            _ = ProcessBatchTestModeAsync(audioData);
+                        }
+                        else
+                        {
+                            _ = ProcessBatchRecordingAsync(audioData, TargetWindowHandle);
+                        }
+                    }
+                    else
+                    {
+                        FireStatusChanged("Silent — skipped.");
+                        TransitionTo(IdleState.Instance);
+                    }
+                }
+                else
+                {
+                    FireStatusChanged("No recording.");
+                    TransitionTo(IdleState.Instance);
+                }
+
+                AudioLevelChanged?.Invoke(0);
+            }
+            catch (Exception ex)
+            {
+                FireStatusChanged($"Error: {ex.Message}");
+                TransitionTo(FailedState.Instance);
+            }
+        }
+
+        /// <summary>Stops streaming, finalizes WebSocket, and transitions to Idle.</summary>
+        internal async void StopStreamingAndFinalize()
+        {
+            try
+            {
+                _recordingTimer.Stop();
+                _hybridTimer.Stop();
+
+                // Discard the recording file — streaming doesn't need it
+                await AudioService.StopRecordingAsync(discard: true);
+
+                SoundService.PlayStopSound();
+
+                FireStatusChanged("Finalizing Stream...");
+                if (!IsTestMode)
+                {
+                    InputInjector.CommitCurrentText();
+                    await Registry.GetStreamingService(StreamingModeApi).StopAsync();
+                    if (ShouldAutoSend)
+                    {
+                        await InputInjector.PressEnterAsync(TargetWindowHandle);
+                    }
+                }
+                else
+                {
+                    var stopTasks = Registry.GetAllProviders()
+                        .Select(p => p.StreamingService.StopAsync());
+                    await Task.WhenAll(stopTasks);
+                }
+
+                FireStatusChanged("Done.");
+                TransitionTo(IdleState.Instance);
+                AudioLevelChanged?.Invoke(0);
+            }
+            catch (Exception ex)
+            {
+                FireStatusChanged($"Error: {ex.Message}");
+                TransitionTo(FailedState.Instance);
+            }
+        }
+
+        /// <summary>Cancels the current recording session and returns to Idle.</summary>
+        internal async void CancelRecording()
+        {
+            try
+            {
+                _recordingTimer.Stop();
+                _hybridTimer.Stop();
+                await AudioService.StopRecordingAsync(discard: true);
+
+                if (State == RecordingStateEnum.Streaming || State == RecordingStateEnum.HybridPending)
+                {
+                    if (IsTestMode)
+                    {
+                        var cancelTasks = Registry.GetAllProviders()
+                            .Select(p => p.StreamingService.CancelAsync());
+                        await Task.WhenAll(cancelTasks);
+                    }
+                    else
+                    {
+                        await Registry.GetStreamingService(StreamingModeApi).CancelAsync();
+                    }
+                }
+
+                SoundService.PlayStopSound();
+                FireStatusChanged("Cancelled.");
+                ResetState();
+            }
+            catch (Exception ex)
+            {
+                FireStatusChanged($"Error: {ex.Message}");
+                ResetState();
+            }
+        }
+
+        internal void PlayStartSound() => SoundService.PlayStartSound();
+        internal void StopHybridTimer() => _hybridTimer.Stop();
+        internal void ClearAudioBuffer()
+        {
+            while (_audioBuffer.TryDequeue(out _)) { }
+        }
+        internal void EnqueueAudioBuffer(AudioDataEventArgs e) => _audioBuffer.Enqueue(e);
+        internal void FireStatusChanged(string status) => StatusChanged?.Invoke(status);
+
+        #endregion
+
         #region Provider Transcript Helpers
 
         public string GetProviderTranscript(string providerName)
@@ -186,329 +510,49 @@ namespace BF_STT.Services
 
         #endregion
 
-        #region Hotkey Handlers
-
-        public void HandleHotkeyDown(bool autoSend)
-        {
-            _hotkeyDownTime = DateTime.Now;
-            _shouldAutoSend = autoSend;
-
-            if (_isRecording)
-            {
-                if (_isStreaming)
-                {
-                    // Streaming mode — ignore repeated KeyDown
-                    return;
-                }
-                else if (_isToggleMode)
-                {
-                    // Batch mode — second press stops recording
-                    StopRecording();
-                    _isToggleMode = false;
-                }
-            }
-            else
-            {
-                // Start new recording session
-                StartRecording("Key");
-            }
-        }
-
-        public void HandleHotkeyUp()
-        {
-            if (_isRecording)
-            {
-                var duration = DateTime.Now - _hotkeyDownTime;
-
-                if (_isStreaming)
-                {
-                    // Streaming mode — release stops
-                    StopRecording();
-                }
-                else if (!_isHybridDecisionMade && duration.TotalMilliseconds < HybridThresholdMs)
-                {
-                    // Short press → Batch Mode (Toggle)
-                    _isToggleMode = true;
-                    _isHybridDecisionMade = true;
-                    _hybridTimer.Stop();
-
-                    while (_audioBuffer.TryDequeue(out _)) { }
-
-                    _soundService.PlayStartSound();
-                    StatusChanged?.Invoke("Recording (Batch)...");
-                }
-            }
-        }
-
-        private void HybridTimer_Tick(object? sender, EventArgs e)
-        {
-            _hybridTimer.Stop();
-            StartStreamingMode();
-        }
-
-        #endregion
-
-        #region Recording Control
-
-        public async void StartRecording(string? parameter = null)
-        {
-            try
-            {
-                if (_isRecording)
-                {
-                    // Cancel logic
-                    _recordingTimer.Stop();
-                    _hybridTimer.Stop();
-                    await _audioService.StopRecordingAsync(discard: true);
-
-                    if (IsTestMode)
-                    {
-                        var cancelTasks = _registry.GetAllProviders()
-                            .Select(p => p.StreamingService.CancelAsync());
-                        await Task.WhenAll(cancelTasks);
-                    }
-                    else
-                    {
-                        await _registry.GetStreamingService(StreamingModeApi).CancelAsync();
-                    }
-                    _soundService.PlayStopSound();
-
-                    ResetState();
-                    StatusChanged?.Invoke("Cancelled.");
-                }
-                else
-                {
-                    // Start new session
-                    _targetWindowHandle = _inputInjector.LastExternalWindowHandle;
-                    _inputInjector.ResetStreamingState();
-
-                    if (!string.IsNullOrEmpty(_lastRecordedFilePath))
-                    {
-                        TryDeleteFile(_lastRecordedFilePath);
-                        _lastRecordedFilePath = null;
-                        CommandsInvalidated?.Invoke();
-                    }
-
-                    while (_audioBuffer.TryDequeue(out _)) { }
-
-                    _isHybridDecisionMade = false;
-                    _isStreaming = false;
-                    _isToggleMode = false;
-                    _isBatchProcessing = false;
-
-                    _audioService.DeviceNumber = _settingsService.CurrentSettings.MicrophoneDeviceNumber;
-                    _audioService.StartRecording();
-
-                    bool isKeyTrigger = parameter is string s && s == "Key";
-
-                    _isRecording = true;
-                    RecordingStateChanged?.Invoke(true);
-                    _recordingDuration = TimeSpan.Zero;
-
-                    if (isKeyTrigger)
-                    {
-                        _isHybridDecisionMade = false;
-                        StatusChanged?.Invoke("..."); // Pending decision
-                        _hybridTimer.Start();
-                    }
-                    else
-                    {
-                        _isHybridDecisionMade = true;
-                        _isToggleMode = true;
-                        StatusChanged?.Invoke("Recording (Batch)...");
-                        _soundService.PlayStartSound();
-                    }
-
-                    _recordingTimer.Start();
-
-                    if (IsTestMode)
-                    {
-                        foreach (var p in _registry.GetAllProviders())
-                        {
-                            SetProviderTranscript(p.Name, string.Empty);
-                        }
-                    }
-                    else
-                    {
-                        TranscriptChanged?.Invoke(string.Empty);
-                    }
-                    AudioLevelChanged?.Invoke(0);
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusChanged?.Invoke($"Error: {ex.Message}");
-                ResetState();
-            }
-        }
-
-        private async void StartStreamingMode()
-        {
-            _isStreaming = true;
-            _isHybridDecisionMade = true;
-            SendingStateChanged?.Invoke();
-
-            _soundService.PlayStartSound();
-            StatusChanged?.Invoke("Streaming... 00:00");
-
-            try
-            {
-                var language = _settingsService.CurrentSettings.DefaultLanguage;
-                if (IsTestMode)
-                {
-                    var startTasks = _registry.GetAllProviders()
-                        .Select(p => p.StreamingService.StartAsync(language));
-                    await Task.WhenAll(startTasks);
-
-                    // Flush buffer to all WebSockets
-                    while (_audioBuffer.TryDequeue(out var args))
-                    {
-                        var sendTasks = _registry.GetAllProviders()
-                            .Select(p => p.StreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded));
-                        await Task.WhenAll(sendTasks);
-                    }
-                }
-                else
-                {
-                    var activeStreaming = _registry.GetStreamingService(StreamingModeApi);
-                    await activeStreaming.StartAsync(language);
-
-                    while (_audioBuffer.TryDequeue(out var args))
-                    {
-                        await activeStreaming.SendAudioAsync(args.Buffer, args.BytesRecorded);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                StatusChanged?.Invoke($"Stream Error: {ex.Message}");
-            }
-        }
-
-        public async void StopRecording()
-        {
-            try
-            {
-                _recordingTimer.Stop();
-                _hybridTimer.Stop();
-
-                bool discardFile = _isStreaming;
-                var filePath = await _audioService.StopRecordingAsync(discard: discardFile);
-
-                _soundService.PlayStopSound();
-
-                if (_isStreaming)
-                {
-                    StatusChanged?.Invoke("Finalizing Stream...");
-                    if (!IsTestMode)
-                    {
-                        _inputInjector.CommitCurrentText();
-                        await _registry.GetStreamingService(StreamingModeApi).StopAsync();
-                        if (_shouldAutoSend)
-                        {
-                            await _inputInjector.PressEnterAsync(_targetWindowHandle);
-                        }
-                    }
-                    else
-                    {
-                        var stopTasks = _registry.GetAllProviders()
-                            .Select(p => p.StreamingService.StopAsync());
-                        await Task.WhenAll(stopTasks);
-                    }
-                    StatusChanged?.Invoke("Done.");
-                }
-                else
-                {
-                    // Finish Batch
-                    if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
-                    {
-                        if (_audioService.HasMeaningfulAudio())
-                        {
-                            StatusChanged?.Invoke("Processing Batch...");
-                            _isBatchProcessing = true;
-                            _lastRecordedFilePath = filePath;
-                            CommandsInvalidated?.Invoke();
-                            SendingStateChanged?.Invoke();
-
-                            if (IsTestMode)
-                            {
-                                _ = ProcessBatchTestModeAsync(filePath);
-                            }
-                            else
-                            {
-                                _ = ProcessBatchRecordingAsync(filePath, _targetWindowHandle);
-                            }
-                        }
-                        else
-                        {
-                            StatusChanged?.Invoke("Silent — skipped.");
-                            TryDeleteFile(filePath);
-                        }
-                    }
-                    else
-                    {
-                        StatusChanged?.Invoke("No recording.");
-                    }
-                }
-
-                _isRecording = false;
-                RecordingStateChanged?.Invoke(false);
-                _isStreaming = false;
-                SendingStateChanged?.Invoke();
-                AudioLevelChanged?.Invoke(0);
-            }
-            catch (Exception ex)
-            {
-                StatusChanged?.Invoke($"Error: {ex.Message}");
-                ResetState();
-            }
-        }
-
-        #endregion
-
         #region Batch Processing
 
-        private async Task ProcessBatchRecordingAsync(string filePath, IntPtr targetWindow)
+        private async Task ProcessBatchRecordingAsync(byte[] audioData, IntPtr targetWindow)
         {
             var sw = Stopwatch.StartNew();
             try
             {
-                if (!AudioSilenceDetector.ContainsSpeech(filePath))
+                if (!AudioSilenceDetector.ContainsSpeech(audioData))
                 {
                     sw.Stop();
                     await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                     {
-                        StatusChanged?.Invoke("Silent — skipped.");
+                        FireStatusChanged("Silent — skipped.");
                         TranscriptChanged?.Invoke(string.Empty);
                     });
                     return;
                 }
 
-                var activeBatch = _registry.GetBatchService(BatchModeApi);
-                var language = _settingsService.CurrentSettings.DefaultLanguage;
-                var transcript = await activeBatch.TranscribeAsync(filePath, language);
+                var activeBatch = Registry.GetBatchService(BatchModeApi);
+                var language = SettingsService.CurrentSettings.DefaultLanguage;
+                var transcript = await activeBatch.TranscribeAsync(audioData, language);
                 sw.Stop();
 
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
                 {
                     if (HallucinationFilter.IsHallucination(transcript))
                     {
-                        StatusChanged?.Invoke($"Hallucination — skipped. ({sw.ElapsedMilliseconds}ms)");
+                        FireStatusChanged($"Hallucination — skipped. ({sw.ElapsedMilliseconds}ms)");
                         TranscriptChanged?.Invoke(string.Empty);
                         return;
                     }
 
                     var finalTranscript = FormatTranscript(transcript);
                     TranscriptChanged?.Invoke(finalTranscript);
-                    StatusChanged?.Invoke($"Done. ({sw.ElapsedMilliseconds}ms)");
+                    FireStatusChanged($"Done. ({sw.ElapsedMilliseconds}ms)");
 
                     if (!string.IsNullOrWhiteSpace(finalTranscript))
                     {
-                        _historyService.AddEntry(finalTranscript, BatchModeApi);
-                        await _inputInjector.InjectTextAsync(finalTranscript, targetWindow);
-                        if (_shouldAutoSend)
+                        HistoryService.AddEntry(finalTranscript, BatchModeApi);
+                        await InputInjector.InjectTextAsync(finalTranscript, targetWindow);
+                        if (ShouldAutoSend)
                         {
-                            await _inputInjector.PressEnterAsync(targetWindow);
+                            await InputInjector.PressEnterAsync(targetWindow);
                         }
                     }
                 });
@@ -517,52 +561,48 @@ namespace BF_STT.Services
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    StatusChanged?.Invoke($"Error: {ex.Message}");
+                    FireStatusChanged($"Error: {ex.Message}");
                     TranscriptChanged?.Invoke("Failed to get transcript.");
                 });
             }
             finally
             {
-                _isBatchProcessing = false;
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    SendingStateChanged?.Invoke();
-                    CommandsInvalidated?.Invoke();
+                    TransitionTo(IdleState.Instance);
                 });
             }
         }
 
-        private async Task ProcessBatchTestModeAsync(string filePath)
+        private async Task ProcessBatchTestModeAsync(byte[] audioData)
         {
-            // Pre-API: File-level silence detection
-            if (!AudioSilenceDetector.ContainsSpeech(filePath))
+            // Pre-API: silence detection on in-memory WAV data
+            if (!AudioSilenceDetector.ContainsSpeech(audioData))
             {
                 await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    StatusChanged?.Invoke("Silent — skipped.");
-                    foreach (var p in _registry.GetAllProviders())
+                    FireStatusChanged("Silent — skipped.");
+                    foreach (var p in Registry.GetAllProviders())
                     {
                         SetProviderTranscript(p.Name, "[Skipped] Silent audio");
                     }
                 });
-                _isBatchProcessing = false;
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    SendingStateChanged?.Invoke();
-                    CommandsInvalidated?.Invoke();
+                    TransitionTo(IdleState.Instance);
                 });
                 return;
             }
 
-            var language = _settingsService.CurrentSettings.DefaultLanguage;
+            var language = SettingsService.CurrentSettings.DefaultLanguage;
 
-            // Create independent tasks for each provider using registry
-            var providerTasks = _registry.GetAllProviders().Select(provider => Task.Run(async () =>
+            // Create independent tasks for each provider
+            var providerTasks = Registry.GetAllProviders().Select(provider => Task.Run(async () =>
             {
                 var sw = Stopwatch.StartNew();
                 try
                 {
-                    var result = await provider.BatchService.TranscribeAsync(filePath, language);
+                    var result = await provider.BatchService.TranscribeAsync(audioData, language);
                     sw.Stop();
                     var label = HallucinationFilter.IsHallucination(result) ? "[Hallucination]" : "";
                     var formatted = label == "" ? FormatTranscript(result) : $"{label} {result}";
@@ -588,16 +628,14 @@ namespace BF_STT.Services
                 overallSw.Stop();
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    StatusChanged?.Invoke($"Done. ({overallSw.ElapsedMilliseconds}ms)");
+                    FireStatusChanged($"Done. ({overallSw.ElapsedMilliseconds}ms)");
                 });
             }
             finally
             {
-                _isBatchProcessing = false;
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    SendingStateChanged?.Invoke();
-                    CommandsInvalidated?.Invoke();
+                    TransitionTo(IdleState.Instance);
                 });
             }
         }
@@ -606,34 +644,9 @@ namespace BF_STT.Services
 
         #region Audio & Streaming Events
 
-        private async void OnAudioDataAvailable(object? sender, AudioDataEventArgs e)
+        private void OnAudioDataAvailable(object? sender, AudioDataEventArgs e)
         {
-            if (_isStreaming)
-            {
-                if (!_audioService.IsSpeaking) return;
-
-                try
-                {
-                    if (IsTestMode)
-                    {
-                        var sendTasks = _registry.GetAllProviders()
-                            .Select(p => p.StreamingService.SendAudioAsync(e.Buffer, e.BytesRecorded));
-                        await Task.WhenAll(sendTasks);
-                    }
-                    else
-                    {
-                        await _registry.GetStreamingService(StreamingModeApi).SendAudioAsync(e.Buffer, e.BytesRecorded);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[Coordinator] Audio send error: {ex.Message}");
-                }
-            }
-            else if (!_isHybridDecisionMade)
-            {
-                _audioBuffer.Enqueue(e);
-            }
+            _currentState.HandleAudioData(this, e);
         }
 
         private void OnTranscriptReceived(object? sender, TranscriptEventArgs e)
@@ -646,8 +659,7 @@ namespace BF_STT.Services
                     {
                         if (IsTestMode)
                         {
-                            // Identify which provider sent this transcript
-                            foreach (var provider in _registry.GetAllProviders())
+                            foreach (var provider in Registry.GetAllProviders())
                             {
                                 if (sender == provider.StreamingService)
                                 {
@@ -664,9 +676,9 @@ namespace BF_STT.Services
 
                     if (!IsTestMode && e.IsFinal && !string.IsNullOrEmpty(e.Text))
                     {
-                        _historyService.AddEntry(e.Text, StreamingModeApi);
-                        await _inputInjector.InjectStreamingTextAsync(
-                            e.Text, true, _targetWindowHandle);
+                        HistoryService.AddEntry(e.Text, StreamingModeApi);
+                        await InputInjector.InjectStreamingTextAsync(
+                            e.Text, true, TargetWindowHandle);
                     }
                 }
                 catch (Exception ex)
@@ -685,7 +697,7 @@ namespace BF_STT.Services
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() =>
             {
-                StatusChanged?.Invoke($"Stream error: {errorMessage}");
+                FireStatusChanged($"Stream error: {errorMessage}");
             });
         }
 
@@ -695,19 +707,19 @@ namespace BF_STT.Services
 
         public bool CheckApiConfiguration()
         {
-            var settings = _settingsService.CurrentSettings;
+            var settings = SettingsService.CurrentSettings;
 
-            var batchError = _registry.ValidateApiKey(BatchModeApi, settings);
+            var batchError = Registry.ValidateApiKey(BatchModeApi, settings);
             if (batchError != null)
             {
-                StatusChanged?.Invoke($"{batchError} for Batch.");
+                FireStatusChanged($"{batchError} for Batch.");
                 return false;
             }
 
-            var streamingError = _registry.ValidateApiKey(StreamingModeApi, settings);
+            var streamingError = Registry.ValidateApiKey(StreamingModeApi, settings);
             if (streamingError != null)
             {
-                StatusChanged?.Invoke($"{streamingError} for Streaming.");
+                FireStatusChanged($"{streamingError} for Streaming.");
                 return false;
             }
 
@@ -716,35 +728,31 @@ namespace BF_STT.Services
 
         public void UpdateSettingsFromRegistry()
         {
-            var settings = _settingsService.CurrentSettings;
-            _registry.UpdateAllSettings(settings);
-            _historyService.UpdateMaxItems(settings.MaxHistoryItems);
+            var settings = SettingsService.CurrentSettings;
+            Registry.UpdateAllSettings(settings);
+            HistoryService.UpdateMaxItems(settings.MaxHistoryItems);
         }
 
         public void ResendAudio()
         {
-            if (!CanResend) return;
+            if (!CanResend || _lastAudioData == null) return;
 
-            StatusChanged?.Invoke("Resending Batch...");
-            _isBatchProcessing = true;
-            SendingStateChanged?.Invoke();
+            FireStatusChanged("Resending Batch...");
+            TransitionTo(ProcessingState.Instance);
 
             if (IsTestMode)
             {
-                _ = ProcessBatchTestModeAsync(_lastRecordedFilePath!);
+                _ = ProcessBatchTestModeAsync(_lastAudioData);
             }
             else
             {
-                _ = ProcessBatchRecordingAsync(_lastRecordedFilePath!, _targetWindowHandle);
+                _ = ProcessBatchRecordingAsync(_lastAudioData, TargetWindowHandle);
             }
         }
 
         public void CleanupLastFile()
         {
-            if (!string.IsNullOrEmpty(_lastRecordedFilePath))
-            {
-                TryDeleteFile(_lastRecordedFilePath);
-            }
+            _lastAudioData = null;
         }
 
         #endregion
@@ -761,33 +769,32 @@ namespace BF_STT.Services
         private void RecordingTimer_Tick(object? sender, EventArgs e)
         {
             _recordingDuration = _recordingDuration.Add(TimeSpan.FromSeconds(1));
-            string mode = _isStreaming ? "Streaming" : (_isToggleMode ? "Recording" : "Listening");
-            StatusChanged?.Invoke($"{mode}... {_recordingDuration:mm\\:ss}");
+            string mode = State switch
+            {
+                RecordingStateEnum.Streaming => "Streaming",
+                RecordingStateEnum.BatchRecording => "Recording",
+                _ => "Listening"
+            };
+            FireStatusChanged($"{mode}... {_recordingDuration:mm\\:ss}");
         }
 
-        private void TryDeleteFile(string path)
+        private void HybridTimer_Tick(object? sender, EventArgs e)
         {
-            try { if (File.Exists(path)) File.Delete(path); }
-            catch (Exception ex) { Debug.WriteLine($"[Coordinator] Failed to delete file: {ex.Message}"); }
+            _hybridTimer.Stop();
+            _currentState.HandleHybridTimeout(this);
         }
 
         public void ResetState()
         {
-            _isRecording = false;
-            RecordingStateChanged?.Invoke(false);
-            _isStreaming = false;
-            _isBatchProcessing = false;
-            _isToggleMode = false;
-            _isHybridDecisionMade = false;
-            _shouldAutoSend = false;
-            SendingStateChanged?.Invoke();
+            TransitionTo(IdleState.Instance);
+            ShouldAutoSend = false;
             AudioLevelChanged?.Invoke(0);
-            foreach (var p in _registry.GetAllProviders())
+            foreach (var p in Registry.GetAllProviders())
             {
                 SetProviderTranscript(p.Name, string.Empty);
             }
             TranscriptChanged?.Invoke(string.Empty);
-            while (_audioBuffer.TryDequeue(out _)) { }
+            ClearAudioBuffer();
         }
 
         #endregion

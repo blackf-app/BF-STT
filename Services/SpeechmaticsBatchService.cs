@@ -34,12 +34,23 @@ namespace BF_STT.Services
                 throw new FileNotFoundException("Audio file not found.", audioFilePath);
             }
 
+            byte[] fileBytes = await File.ReadAllBytesAsync(audioFilePath);
+            return await TranscribeAsync(fileBytes, language, ct);
+        }
+
+        public async Task<string> TranscribeAsync(byte[] audioData, string language, CancellationToken ct = default)
+        {
+            if (audioData == null || audioData.Length == 0)
+            {
+                throw new ArgumentException("Audio data is empty.", nameof(audioData));
+            }
+
             if (string.IsNullOrEmpty(_apiKey))
             {
                 throw new InvalidOperationException("Speechmatics API Key is missing. Check settings.");
             }
 
-            string jobId = await SubmitJobAsync(audioFilePath, language);
+            string jobId = await SubmitJobAsync(audioData, language);
             if (string.IsNullOrEmpty(jobId))
             {
                 throw new Exception("Failed to submit Speechmatics batch job.");
@@ -54,7 +65,7 @@ namespace BF_STT.Services
             return await GetTranscriptAsync(jobId);
         }
 
-        private async Task<string> SubmitJobAsync(string filePath, string language)
+        private async Task<string> SubmitJobAsync(byte[] audioData, string language)
         {
             var url = $"{_baseUrl}/jobs";
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
@@ -73,9 +84,8 @@ namespace BF_STT.Services
             using var content = new MultipartFormDataContent();
             content.Add(new StringContent(configJson, Encoding.UTF8, "application/json"), "config");
 
-            byte[] fileBytes = await File.ReadAllBytesAsync(filePath);
-            var audioContent = new ByteArrayContent(fileBytes);
-            audioContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav"); // assuming wav
+            var audioContent = new ByteArrayContent(audioData);
+            audioContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
             content.Add(audioContent, "data_file", "audio.wav");
 
             request.Content = content;

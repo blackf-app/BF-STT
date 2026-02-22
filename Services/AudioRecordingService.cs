@@ -20,22 +20,25 @@ namespace BF_STT.Services
     public class AudioRecordingService : IDisposable
     {
         private WaveInEvent? _waveIn;
-        private WaveFileWriter? _writer;
-        private string? _currentFilePath;
+        private MemoryStream? _audioMemory;
+        private BinaryWriter? _memWriter;
+        private WaveFormat? _waveFormat;
+        private long _dataChunkSizePosition;
+        private long _riffSizePosition;
         private bool _isRecording;
         
         // Audio processing state
-        private float _volumeMultiplier = 3f; // Default 1.0 to let Deepgram AGC handle levels
+        private float _volumeMultiplier = 6f;
         private float _prevSample = 0;
         private float _prevHpfOutput = 0;
-        private const float HpfAlpha = 0.97f; // High-pass filter alpha for ~80Hz cutoff at 16kHz
+        private const float HpfAlpha = 0.97f;
         private const float SoftClipThreshold = 0.95f;
         
         // Silent detection
         private bool _hasAudio;
         private bool _hasSpeechContent;
         private float _maxPeakLevel;
-        private const float SilenceThreshold = 0.01f; // ~-40dB peak threshold
+        private const float SilenceThreshold = 0.01f;
         
         // VAD (Voice Activity Detection) state
         private bool _isSpeaking;
@@ -43,15 +46,15 @@ namespace BF_STT.Services
         private int _speechFrameCount;
         
         // VAD Constants
-        private const float VadSpeechThreshold = 0.02f; // ~-34dB energy threshold
-        private const int VadSilenceFramesToPause = 10; // 10 frames * 50ms = 500ms
-        private const int VadSpeechFramesToStart = 2;   // 2 frames * 50ms = 100ms
+        private const float VadSpeechThreshold = 0.02f;
+        private const int VadSilenceFramesToPause = 10;
+        private const int VadSpeechFramesToStart = 2;
 
         public event EventHandler<StoppedEventArgs>? RecordingStopped;
         public event EventHandler<float>? AudioLevelUpdated;
         public event EventHandler<bool>? IsSpeakingChanged;
         /// <summary>
-        /// Fired with processed PCM audio data ready to send to Deepgram.
+        /// Fired with processed PCM audio data ready to send to streaming API.
         /// </summary>
         public event EventHandler<AudioDataEventArgs>? AudioDataAvailable;
 
@@ -67,7 +70,7 @@ namespace BF_STT.Services
         public int DeviceNumber { get; set; } = 0;
 
         /// <summary>
-        /// Starts recording. Always writes to a temporary WAV file (for batch mode) 
+        /// Starts recording. Writes audio to an in-memory WAV buffer
         /// AND fires AudioDataAvailable events (for streaming/buffering).
         /// </summary>
         public void StartRecording()
@@ -82,8 +85,6 @@ namespace BF_STT.Services
             // Clean up previous recording
             Dispose();
 
-            _currentFilePath = Path.Combine(Path.GetTempPath(), $"bf_stt_{Guid.NewGuid()}.wav");
-            
             // Reset filter state
             _prevSample = 0;
             _prevHpfOutput = 0;
@@ -102,11 +103,16 @@ namespace BF_STT.Services
             {
                 DeviceNumber = DeviceNumber,
                 WaveFormat = new WaveFormat(16000, 16, 1), // 16kHz, 16-bit, Mono
-                BufferMilliseconds = 50, // balanced latency/stability
+                BufferMilliseconds = 50,
                 NumberOfBuffers = 3
             };
 
-            _writer = new WaveFileWriter(_currentFilePath, _waveIn.WaveFormat);
+            _waveFormat = _waveIn.WaveFormat;
+
+            // Initialize in-memory WAV buffer
+            _audioMemory = new MemoryStream();
+            _memWriter = new BinaryWriter(_audioMemory);
+            WriteWavHeader(_memWriter, _waveFormat);
 
             _waveIn.DataAvailable += OnWaveInDataAvailable;
             _waveIn.RecordingStopped += OnRecordingStopped;
@@ -115,7 +121,54 @@ namespace BF_STT.Services
             _isRecording = true;
         }
 
+        /// <summary>
+        /// Writes a WAV file header to the stream. Reserves space for sizes to be patched later.
+        /// </summary>
+        private void WriteWavHeader(BinaryWriter writer, WaveFormat format)
+        {
+            // RIFF header
+            writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+            _riffSizePosition = writer.BaseStream.Position;
+            writer.Write(0); // placeholder for RIFF chunk size
+            writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
+
+            // fmt sub-chunk
+            writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
+            writer.Write(16); // Sub-chunk size (PCM = 16)
+            writer.Write((short)1); // AudioFormat (PCM = 1)
+            writer.Write((short)format.Channels);
+            writer.Write(format.SampleRate);
+            writer.Write(format.AverageBytesPerSecond);
+            writer.Write((short)format.BlockAlign);
+            writer.Write((short)format.BitsPerSample);
+
+            // data sub-chunk header
+            writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+            _dataChunkSizePosition = writer.BaseStream.Position;
+            writer.Write(0); // placeholder for data chunk size
+        }
+
+        /// <summary>
+        /// Patches the WAV header with the actual data and RIFF sizes.
+        /// </summary>
+        private void FinalizeWavHeader(BinaryWriter writer)
+        {
+            long totalDataBytes = writer.BaseStream.Length - _dataChunkSizePosition - 4;
+
+            // Patch data chunk size
+            writer.BaseStream.Position = _dataChunkSizePosition;
+            writer.Write((int)totalDataBytes);
+
+            // Patch RIFF chunk size (total file size - 8)
+            writer.BaseStream.Position = _riffSizePosition;
+            writer.Write((int)(writer.BaseStream.Length - 8));
+
+            // Seek back to end
+            writer.BaseStream.Position = writer.BaseStream.Length;
+        }
+
         private void OnWaveInDataAvailable(object? sender, WaveInEventArgs e)
+
         {
             float maxSample = 0;
             
@@ -190,45 +243,46 @@ namespace BF_STT.Services
 
             AudioLevelUpdated?.Invoke(this, maxSample);
 
-            // 1. Write to WAV file (always, in case we decide to use Batch mode)
-            if (_writer != null)
+            // 1. Write to in-memory WAV buffer (for batch mode)
+            if (_memWriter != null)
             {
                 try
                 {
-                     _writer.Write(e.Buffer, 0, e.BytesRecorded);
+                    _memWriter.Write(e.Buffer, 0, e.BytesRecorded);
                 }
                 catch (Exception ex)
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error writing to wave file: {ex.Message}");
+                    System.Diagnostics.Debug.WriteLine($"Error writing to memory: {ex.Message}");
                 }
             }
 
-            // 2. Fire event (always, effectively buffering if no subscribers yet, or streaming if subscribed)
-            // Make a copy of the buffer to avoid race conditions
+            // 2. Fire event for streaming
             var copy = new byte[e.BytesRecorded];
             Array.Copy(e.Buffer, copy, e.BytesRecorded);
             AudioDataAvailable?.Invoke(this, new AudioDataEventArgs(copy, e.BytesRecorded));
         }
 
         private bool _discardRecording;
-        private TaskCompletionSource<string>? _stopRecordingTcs;
+        private TaskCompletionSource<byte[]?>? _stopRecordingTcs;
 
-        public Task<string> StopRecordingAsync(bool discard = false)
+        /// <summary>
+        /// Stops recording and returns the complete WAV audio data as a byte array.
+        /// If discard is true, returns null.
+        /// </summary>
+        public Task<byte[]?> StopRecordingAsync(bool discard = false)
         {
-            if (!_isRecording) return Task.FromResult(string.Empty);
+            if (!_isRecording) return Task.FromResult<byte[]?>(null);
 
             _discardRecording = discard;
-            _stopRecordingTcs = new TaskCompletionSource<string>();
+            _stopRecordingTcs = new TaskCompletionSource<byte[]?>();
             
-            // StopRecording() is non-blocking but triggers the RecordingStopped event
             try 
             {
                 _waveIn?.StopRecording();
             }
             catch (Exception)
             {
-                // In case device was disconnected or other error
-                _stopRecordingTcs.TrySetResult(string.Empty);
+                _stopRecordingTcs.TrySetResult(null);
                 return _stopRecordingTcs.Task;
             }
             
@@ -237,22 +291,28 @@ namespace BF_STT.Services
 
         private void OnRecordingStopped(object? sender, StoppedEventArgs e)
         {
-            // Flush and dispose writer ensures all data is written
+            byte[]? audioData = null;
+
             try 
             {
-                if (_writer != null)
+                if (_memWriter != null && _audioMemory != null && !_discardRecording)
                 {
-                    _writer.Flush();
-                    _writer.Dispose();
+                    FinalizeWavHeader(_memWriter);
+                    _memWriter.Flush();
+                    audioData = _audioMemory.ToArray();
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Error closing wave writer: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Error finalizing audio: {ex.Message}");
             }
             finally
             {
-                _writer = null;
+                // Always dispose and clear memory
+                try { _memWriter?.Dispose(); } catch { }
+                _memWriter = null;
+                try { _audioMemory?.Dispose(); } catch { }
+                _audioMemory = null;
             }
 
             _waveIn?.Dispose();
@@ -265,38 +325,10 @@ namespace BF_STT.Services
             }
             else
             {
-                string resultPath = _currentFilePath ?? string.Empty;
-                
-                if (_discardRecording)
-                {
-                    try
-                    {
-                        if (File.Exists(resultPath))
-                        {
-                            File.Delete(resultPath);
-                        }
-                    }
-                    catch { /* Ignore delete errors */ }
-                    resultPath = string.Empty;
-                }
-
-                _stopRecordingTcs?.TrySetResult(resultPath);
+                _stopRecordingTcs?.TrySetResult(_discardRecording ? null : audioData);
             }
 
             RecordingStopped?.Invoke(this, e);
-        }
-
-        /// <summary>
-        /// Call this when switching to Streaming mode to discard the WAV file being written,
-        /// but keep the recording session active (so we don't lose audio context).
-        /// Actually, since we can just discard the file at the end using StopRecordingAsync(discard: true),
-        /// we don't strictly need a special method here.
-        /// But if we want to stop writing to disk to save I/O during streaming, we could close the writer early.
-        /// For simplicity and robustness, we'll keep writing to file until Stop.
-        /// </summary>
-        public void DiscardCurrentRecordingFile()
-        {
-             _discardRecording = true;
         }
 
         /// <summary>
@@ -315,8 +347,10 @@ namespace BF_STT.Services
                 try { _waveIn?.StopRecording(); } catch { }
             }
             
-            try { _writer?.Dispose(); } catch { }
-            _writer = null;
+            try { _memWriter?.Dispose(); } catch { }
+            _memWriter = null;
+            try { _audioMemory?.Dispose(); } catch { }
+            _audioMemory = null;
             try { _waveIn?.Dispose(); } catch { }
             _waveIn = null;
         }

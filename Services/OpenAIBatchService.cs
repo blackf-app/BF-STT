@@ -36,19 +36,28 @@ namespace BF_STT.Services
                 throw new FileNotFoundException("Audio file not found.", audioFilePath);
             }
 
+            byte[] fileBytes = await File.ReadAllBytesAsync(audioFilePath);
+            return await TranscribeAsync(fileBytes, language, ct);
+        }
+
+        public async Task<string> TranscribeAsync(byte[] audioData, string language, CancellationToken ct = default)
+        {
+            if (audioData == null || audioData.Length == 0)
+            {
+                throw new ArgumentException("Audio data is empty.", nameof(audioData));
+            }
+
             if (string.IsNullOrEmpty(_apiKey))
             {
                 throw new InvalidOperationException("OpenAI API Key is missing. Check Settings.");
             }
 
-            using var fileStream = File.OpenRead(audioFilePath);
             using var content = new MultipartFormDataContent();
             
-            var streamContent = new StreamContent(fileStream);
+            var streamContent = new ByteArrayContent(audioData);
             streamContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
-            content.Add(streamContent, "file", Path.GetFileName(audioFilePath));
+            content.Add(streamContent, "file", "audio.wav");
             content.Add(new StringContent(_model), "model");
-            // language is optional but helps performance. It requires ISO-639-1 (e.g., "en", "vi")
             if (!string.IsNullOrWhiteSpace(language))
             {
                 content.Add(new StringContent(language), "language");

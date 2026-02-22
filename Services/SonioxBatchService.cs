@@ -38,14 +38,25 @@ namespace BF_STT.Services
                 throw new FileNotFoundException("Audio file not found.", audioFilePath);
             }
 
+            byte[] fileBytes = await File.ReadAllBytesAsync(audioFilePath);
+            return await TranscribeAsync(fileBytes, language, ct);
+        }
+
+        public async Task<string> TranscribeAsync(byte[] audioData, string language, CancellationToken ct = default)
+        {
+            if (audioData == null || audioData.Length == 0)
+            {
+                throw new ArgumentException("Audio data is empty.", nameof(audioData));
+            }
+
             if (string.IsNullOrEmpty(_apiKey))
             {
                 throw new InvalidOperationException("Soniox API Key is missing. Check Settings.");
             }
 
-            // Upload the file to Soniox File API
+            // Upload the audio data to Soniox File API
             var uploadUrl = $"{_baseUrl}/files";
-            var fileId = await UploadFileAsync(uploadUrl, audioFilePath);
+            var fileId = await UploadDataAsync(uploadUrl, audioData);
 
             if (string.IsNullOrEmpty(fileId))
             {
@@ -72,13 +83,12 @@ namespace BF_STT.Services
             return await GetTranscriptAsync(transcribeUrl, transcriptionId);
         }
 
-        private async Task<string> UploadFileAsync(string url, string filePath)
+        private async Task<string> UploadDataAsync(string url, byte[] audioData)
         {
-            using var fileStream = File.OpenRead(filePath);
             var content = new MultipartFormDataContent();
-            var streamContent = new StreamContent(fileStream);
-            streamContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream"); // or auto-detect
-            content.Add(streamContent, "file", Path.GetFileName(filePath));
+            var byteContent = new ByteArrayContent(audioData);
+            byteContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            content.Add(byteContent, "file", "audio.wav");
 
             var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);

@@ -36,25 +36,31 @@ namespace BF_STT.Services
                 throw new FileNotFoundException("Audio file not found.", audioFilePath);
             }
 
+            byte[] fileBytes = await File.ReadAllBytesAsync(audioFilePath);
+            return await TranscribeAsync(fileBytes, language, ct);
+        }
+
+        public async Task<string> TranscribeAsync(byte[] audioData, string language, CancellationToken ct = default)
+        {
+            if (audioData == null || audioData.Length == 0)
+            {
+                throw new ArgumentException("Audio data is empty.", nameof(audioData));
+            }
+
             if (string.IsNullOrEmpty(_apiKey))
             {
                 throw new InvalidOperationException("Deepgram API Key is missing. Check appsettings.json or DEEPGRAM_API_KEY env var.");
             }
 
-            // Build URL
             var url = $"{_baseUrl}?model={_model}&language={language}&smart_format=true";
-
-            // Read file bytes - do this once
-            byte[] fileBytes = await File.ReadAllBytesAsync(audioFilePath);
 
             int maxRetries = 1;
             for (int i = 0; i <= maxRetries; i++)
             {
-                // Create a new request for each attempt
                 using var request = new HttpRequestMessage(HttpMethod.Post, url);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Token", _apiKey);
                 
-                using var content = new ByteArrayContent(fileBytes);
+                using var content = new ByteArrayContent(audioData);
                 content.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
                 request.Content = content;
 
@@ -82,11 +88,10 @@ namespace BF_STT.Services
                         throw new HttpRequestException($"Deepgram API Error after retry: {ex.Message}", ex);
                     }
                     
-                    // Wait briefly before retry
                     await Task.Delay(500);
                 }
             }
-            return string.Empty; // Should not reach here
+            return string.Empty;
         }
     }
 }

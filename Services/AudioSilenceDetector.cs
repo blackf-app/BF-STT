@@ -32,8 +32,29 @@ namespace BF_STT.Services
 
             try
             {
-                using var fs = File.OpenRead(wavFilePath);
-                using var reader = new BinaryReader(fs);
+                byte[] data = File.ReadAllBytes(wavFilePath);
+                return ContainsSpeech(data);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AudioSilenceDetector] Error reading file: {ex.Message}");
+                return true; // On error, err on the side of sending to API
+            }
+        }
+
+        /// <summary>
+        /// Analyzes in-memory WAV PCM data and returns true if it contains meaningful speech.
+        /// Supports 16-bit PCM WAV files (mono or stereo).
+        /// </summary>
+        public static bool ContainsSpeech(byte[] wavData)
+        {
+            if (wavData == null || wavData.Length < 44) // Minimum WAV header size
+                return false;
+
+            try
+            {
+                using var ms = new MemoryStream(wavData);
+                using var reader = new BinaryReader(ms);
 
                 // --- Parse WAV header ---
                 // RIFF header
@@ -50,7 +71,7 @@ namespace BF_STT.Services
                 short bitsPerSample = 16;
                 bool fmtFound = false;
 
-                while (fs.Position < fs.Length - 8)
+                while (ms.Position < ms.Length - 8)
                 {
                     var chunkId = new string(reader.ReadChars(4));
                     int chunkSize = reader.ReadInt32();
@@ -80,7 +101,7 @@ namespace BF_STT.Services
                     else
                     {
                         // Skip unknown chunks
-                        if (chunkSize > 0 && fs.Position + chunkSize <= fs.Length)
+                        if (chunkSize > 0 && ms.Position + chunkSize <= ms.Length)
                             reader.ReadBytes(chunkSize);
                         else
                             break;

@@ -20,6 +20,9 @@ namespace BF_STT.ViewModels
         private readonly InputInjector _inputInjector;
         private readonly SoundService _soundService;
         private readonly SettingsService _settingsService;
+        private readonly HistoryService _historyService;
+        private bool _isHistoryVisible;
+        private bool _isHistoryAtTop;
         
         private DispatcherTimer _recordingTimer;
         private TimeSpan _recordingDuration;
@@ -37,6 +40,7 @@ namespace BF_STT.ViewModels
         private bool _isHybridDecisionMade;
         private ConcurrentQueue<AudioDataEventArgs> _audioBuffer = new();
         private IntPtr _targetWindowHandle;
+        private bool _shouldAutoSend;
         private const int HybridThresholdMs = 300;
 
         /// <summary>
@@ -54,13 +58,15 @@ namespace BF_STT.ViewModels
             SttProviderRegistry registry,
             InputInjector inputInjector, 
             SoundService soundService,
-            SettingsService settingsService)
+            SettingsService settingsService,
+            HistoryService historyService)
         {
             _audioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             _inputInjector = inputInjector ?? throw new ArgumentNullException(nameof(inputInjector));
             _soundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
+            _historyService = historyService ?? throw new ArgumentNullException(nameof(historyService));
 
             // Initialize per-provider transcript storage
             foreach (var p in _registry.GetAllProviders())
@@ -112,6 +118,16 @@ namespace BF_STT.ViewModels
                 System.Windows.Application.Current.Shutdown();
             });
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
+            ToggleHistoryCommand = new RelayCommand(_ => IsHistoryVisible = !IsHistoryVisible);
+            ClearHistoryCommand = new RelayCommand(_ => _historyService.ClearHistory());
+            CopyHistoryItemCommand = new RelayCommand(item => 
+            {
+                if (item is HistoryItem historyItem)
+                {
+                    System.Windows.Clipboard.SetText(historyItem.Text);
+                    StatusText = "Copied to clipboard.";
+                }
+            });
         }
 
         #endregion
@@ -217,6 +233,40 @@ namespace BF_STT.ViewModels
         public ICommand ResendAudioCommand { get; }
         public ICommand CloseCommand { get; }
         public ICommand OpenSettingsCommand { get; }
+        public ICommand ToggleHistoryCommand { get; }
+        public ICommand ClearHistoryCommand { get; }
+        public ICommand CopyHistoryItemCommand { get; }
+
+        public HistoryService HistoryService => _historyService;
+
+        public bool IsHistoryVisible
+        {
+            get => _isHistoryVisible;
+            set
+            {
+                if (SetProperty(ref _isHistoryVisible, value))
+                {
+                    OnPropertyChanged(nameof(IsHistoryTopVisible));
+                    OnPropertyChanged(nameof(IsHistoryBottomVisible));
+                }
+            }
+        }
+
+        public bool IsHistoryAtTop
+        {
+            get => _isHistoryAtTop;
+            set
+            {
+                if (SetProperty(ref _isHistoryAtTop, value))
+                {
+                    OnPropertyChanged(nameof(IsHistoryTopVisible));
+                    OnPropertyChanged(nameof(IsHistoryBottomVisible));
+                }
+            }
+        }
+
+        public bool IsHistoryTopVisible => IsHistoryVisible && IsHistoryAtTop;
+        public bool IsHistoryBottomVisible => IsHistoryVisible && !IsHistoryAtTop;
 
         #endregion
 
@@ -242,9 +292,13 @@ namespace BF_STT.ViewModels
             Debug.WriteLine("[MainViewModel] UtteranceEnd received.");
         }
 
-        public void OnF3KeyDown()
+        public void OnF3KeyDown() => HandleHotkeyKeyDown(false);
+        public void OnStopAndSendKeyDown() => HandleHotkeyKeyDown(true);
+
+        private void HandleHotkeyKeyDown(bool autoSend)
         {
             _f3DownTime = DateTime.Now;
+            _shouldAutoSend = autoSend;
 
             if (IsRecording)
             {
@@ -273,7 +327,10 @@ namespace BF_STT.ViewModels
             }
         }
 
-        public void OnF3KeyUp()
+        public void OnF3KeyUp() => HandleHotkeyKeyUp();
+        public void OnStopAndSendKeyUp() => HandleHotkeyKeyUp();
+
+        private void HandleHotkeyKeyUp()
         {
             if (IsRecording)
             {
@@ -465,6 +522,10 @@ namespace BF_STT.ViewModels
                     {
                         _inputInjector.CommitCurrentText();
                         await _registry.GetStreamingService(StreamingModeApi).StopAsync();
+                        if (_shouldAutoSend)
+                        {
+                            await _inputInjector.PressEnterAsync(_targetWindowHandle);
+                        }
                     }
                     else
                     {
@@ -560,7 +621,12 @@ namespace BF_STT.ViewModels
 
                     if (!string.IsNullOrWhiteSpace(finalTranscript))
                     {
+                        _historyService.AddEntry(finalTranscript, BatchModeApi);
                         await _inputInjector.InjectTextAsync(finalTranscript, targetWindow);
+                        if (_shouldAutoSend)
+                        {
+                            await _inputInjector.PressEnterAsync(targetWindow);
+                        }
                     }
                 });
             }
@@ -715,6 +781,7 @@ namespace BF_STT.ViewModels
 
                     if (!IsTestMode && e.IsFinal && !string.IsNullOrEmpty(e.Text))
                     {
+                        _historyService.AddEntry(e.Text, StreamingModeApi);
                         await _inputInjector.InjectStreamingTextAsync(
                             e.Text, true, _targetWindowHandle);
                     }
@@ -771,6 +838,7 @@ namespace BF_STT.ViewModels
                 OnPropertyChanged(nameof(IsTestMode));
 
                 _registry.UpdateAllSettings(settings);
+                _historyService.UpdateMaxItems(settings.MaxHistoryItems);
                 
                 StatusText = "Settings updated.";
             }
@@ -831,6 +899,7 @@ namespace BF_STT.ViewModels
             _isBatchProcessing = false;
             _isToggleMode = false;
             _isHybridDecisionMade = false;
+            _shouldAutoSend = false;
             OnPropertyChanged(nameof(IsSending));
             AudioLevel = 0;
             foreach (var p in _registry.GetAllProviders())

@@ -10,10 +10,10 @@
     <Authors>Black Face</Authors>
     <Company>BF Company</Company>
     <Copyright>Copyright (c) 2026 BF Company</Copyright>
-    <Version>1.0.114</Version>
-    <AssemblyVersion>1.0.114</AssemblyVersion>
-    <FileVersion>1.0.114</FileVersion>
-    <InformationalVersion>1.0.114</InformationalVersion>
+    <Version>1.0.127</Version>
+    <AssemblyVersion>1.0.127</AssemblyVersion>
+    <FileVersion>1.0.127</FileVersion>
+    <InformationalVersion>1.0.127</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -45,6 +45,13 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Tests\**" />
+    <EmbeddedResource Remove="Tests\**" />
+    <None Remove="Tests\**" />
+    <Page Remove="Tests\**" />
   </ItemGroup>
 
   <!-- Automatically increment version before build -->

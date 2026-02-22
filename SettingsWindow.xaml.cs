@@ -34,7 +34,9 @@ namespace BF_STT
                 TestMode = _settingsService.CurrentSettings.TestMode,
                 DefaultLanguage = _settingsService.CurrentSettings.DefaultLanguage,
                 HotkeyVirtualKeyCode = _settingsService.CurrentSettings.HotkeyVirtualKeyCode,
-                MicrophoneDeviceNumber = _settingsService.CurrentSettings.MicrophoneDeviceNumber
+                StopAndSendHotkeyVirtualKeyCode = _settingsService.CurrentSettings.StopAndSendHotkeyVirtualKeyCode,
+                MicrophoneDeviceNumber = _settingsService.CurrentSettings.MicrophoneDeviceNumber,
+                MaxHistoryItems = _settingsService.CurrentSettings.MaxHistoryItems
             };
 
             ApiKeyTextBox.Text = _tempSettings.ApiKey;
@@ -43,6 +45,7 @@ namespace BF_STT
             OpenAIApiKeyTextBox.Text = _tempSettings.OpenAIApiKey;
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
             TestModeCheckBox.IsChecked = _tempSettings.TestMode;
+            MaxHistoryLimitTextBox.Text = _tempSettings.MaxHistoryItems.ToString();
 
             // Set ComboBox selection based on current BatchModeApi
             if (_tempSettings.BatchModeApi == "Speechmatics") BatchModeApiComboBox.SelectedIndex = 1;
@@ -96,6 +99,7 @@ namespace BF_STT
             foreach (var hk in hotkeys)
             {
                 HotkeyComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = hk.Key, Tag = hk.Value });
+                StopAndSendHotkeyComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = hk.Key, Tag = hk.Value });
             }
             
             for (int i = 0; i < HotkeyComboBox.Items.Count; i++)
@@ -107,6 +111,16 @@ namespace BF_STT
                 }
             }
             if (HotkeyComboBox.SelectedIndex < 0) HotkeyComboBox.SelectedIndex = 2; // Default F3
+
+            for (int i = 0; i < StopAndSendHotkeyComboBox.Items.Count; i++)
+            {
+                if (StopAndSendHotkeyComboBox.Items[i] is System.Windows.Controls.ComboBoxItem item && (int)item.Tag == _tempSettings.StopAndSendHotkeyVirtualKeyCode)
+                {
+                    StopAndSendHotkeyComboBox.SelectedIndex = i;
+                    break;
+                }
+            }
+            if (StopAndSendHotkeyComboBox.SelectedIndex < 0) StopAndSendHotkeyComboBox.SelectedIndex = 3; // Default F4
         }
 
         private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -154,6 +168,25 @@ namespace BF_STT
             if (HotkeyComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem hotkeyItem && hotkeyItem.Tag is int hvk)
             {
                 _tempSettings.HotkeyVirtualKeyCode = hvk;
+            }
+
+            // Get Stop & Send Hotkey
+            if (StopAndSendHotkeyComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem stopSendHotkeyItem && stopSendHotkeyItem.Tag is int sshvk)
+            {
+                _tempSettings.StopAndSendHotkeyVirtualKeyCode = sshvk;
+            }
+
+            // Validation: Hotkeys must be different
+            if (_tempSettings.HotkeyVirtualKeyCode == _tempSettings.StopAndSendHotkeyVirtualKeyCode)
+            {
+                System.Windows.MessageBox.Show("Phím tắt mặc định và phím tắt 'Dừng & Gửi' không được trùng nhau.", "Cảnh báo", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                return;
+            }
+
+            // Get History Limit
+            if (int.TryParse(MaxHistoryLimitTextBox.Text, out int maxHistory))
+            {
+                _tempSettings.MaxHistoryItems = Math.Clamp(maxHistory, 1, 1000);
             }
 
             _settingsService.SaveSettings(_tempSettings);

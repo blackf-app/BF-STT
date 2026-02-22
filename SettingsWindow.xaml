@@ -68,6 +68,18 @@
                 </Setter.Value>
             </Setter>
         </Style>
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="#333333"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#444444"/>
+            <Setter Property="Padding" Value="5"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Padding" Value="5"/>
+        </Style>
     </Window.Resources>
 
     <Border Background="#1E1E1E" 
@@ -98,68 +110,66 @@
                        Margin="0,0,0,25"
                        HorizontalAlignment="Center"/>
 
-            <StackPanel Grid.Row="1" Margin="0,0,0,10" Orientation="Horizontal" HorizontalAlignment="Left">
-                <StackPanel Margin="0,0,10,0">
-                    <TextBlock Text="Batch Mode API" 
-                               Foreground="#888888" 
-                               FontSize="12" 
-                               Margin="0,0,0,6" 
-                               FontWeight="SemiBold"/>
-                    <ComboBox x:Name="BatchModeApiComboBox" Width="155" Height="30" FontSize="14" Padding="5" 
-                              Background="#333333" Foreground="Black" BorderThickness="1" BorderBrush="#444444">
+            <!-- Row 1: APIs -->
+            <Grid Grid.Row="1" Margin="0,0,0,10" Width="330">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Batch Mode API" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="BatchModeApiComboBox" Height="30">
                         <ComboBoxItem Content="Deepgram"/>
                         <ComboBoxItem Content="Speechmatics"/>
                         <ComboBoxItem Content="Soniox"/>
                         <ComboBoxItem Content="OpenAI Whisper"/>
                     </ComboBox>
                 </StackPanel>
-                
-                <StackPanel>
-                    <TextBlock Text="Streaming API" 
-                               Foreground="#888888" 
-                               FontSize="12" 
-                               Margin="0,0,0,6" 
-                               FontWeight="SemiBold"/>
-                    <ComboBox x:Name="StreamingModeApiComboBox" Width="155" Height="30" FontSize="14" Padding="5" 
-                              Background="#333333" Foreground="Black" BorderThickness="1" BorderBrush="#444444">
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Streaming API" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="StreamingModeApiComboBox" Height="30">
                         <ComboBoxItem Content="Deepgram"/>
                         <ComboBoxItem Content="Speechmatics"/>
                         <ComboBoxItem Content="Soniox"/>
                         <ComboBoxItem Content="OpenAI (Unsupported)"/>
                     </ComboBox>
                 </StackPanel>
-            </StackPanel>
+            </Grid>
 
-            <StackPanel Grid.Row="2" Margin="0,0,0,10" Orientation="Horizontal" HorizontalAlignment="Left">
-                <StackPanel Margin="0,0,10,0">
-                    <TextBlock Text="Microphone" 
-                               Foreground="#888888" 
-                               FontSize="12" 
-                               Margin="0,0,0,6" 
-                               FontWeight="SemiBold"/>
-                    <ComboBox x:Name="MicrophoneComboBox" Width="200" Height="30" FontSize="14" Padding="5" 
-                              Background="#333333" Foreground="Black" BorderThickness="1" BorderBrush="#444444" />
+            <!-- Row 2: Mic and Hotkeys -->
+            <Grid Grid.Row="2" Margin="0,0,0,10" Width="330">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="75"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="75"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Microphone" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="MicrophoneComboBox" Height="30" />
                 </StackPanel>
-                <StackPanel>
-                    <TextBlock Text="Hotkey" 
-                               Foreground="#888888" 
-                               FontSize="12" 
-                               Margin="0,0,0,6" 
-                               FontWeight="SemiBold"/>
-                    <ComboBox x:Name="HotkeyComboBox" Width="110" Height="30" FontSize="14" Padding="5" 
-                              Background="#333333" Foreground="Black" BorderThickness="1" BorderBrush="#444444" />
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="Hotkey" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="HotkeyComboBox" Height="30" />
                 </StackPanel>
-            </StackPanel>
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="Stop &amp; Send" Foreground="#888888" FontSize="11" Margin="0,0,0,7" FontWeight="SemiBold" ToolTip="Stop &amp; Send Hotkey"/>
+                    <ComboBox x:Name="StopAndSendHotkeyComboBox" Height="30" />
+                </StackPanel>
+            </Grid>
 
-            <StackPanel Grid.Row="3" Margin="0,0,0,10" Orientation="Horizontal" HorizontalAlignment="Left">
-                <StackPanel>
-                    <TextBlock Text="Language" 
-                               Foreground="#888888" 
-                               FontSize="12" 
-                               Margin="0,0,0,6" 
-                               FontWeight="SemiBold"/>
-                    <ComboBox x:Name="LanguageComboBox" Width="155" Height="30" FontSize="14" Padding="5" 
-                              Background="#333333" Foreground="Black" BorderThickness="1" BorderBrush="#444444">
+            <!-- Row 3: Language and History -->
+            <Grid Grid.Row="3" Margin="0,0,0,10" Width="330">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="10"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="Language" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                    <ComboBox x:Name="LanguageComboBox" Height="30">
                         <ComboBoxItem Content="vi" Tag="vi"/>
                         <ComboBoxItem Content="en" Tag="en"/>
                         <ComboBoxItem Content="ja" Tag="ja"/>
@@ -169,42 +179,31 @@
                         <ComboBoxItem Content="de" Tag="de"/>
                     </ComboBox>
                 </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="History Limit" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                    <TextBox x:Name="MaxHistoryLimitTextBox" Height="30" Width="Auto" Padding="5,2" VerticalContentAlignment="Center"/>
+                </StackPanel>
+            </Grid>
+
+            <!-- API Keys -->
+            <StackPanel Grid.Row="4" Margin="0,0,0,10" Width="330">
+                <TextBlock Text="Deepgram API Key" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                <TextBox x:Name="ApiKeyTextBox" />
             </StackPanel>
 
-            <StackPanel Grid.Row="4" Margin="0,0,0,10">
-                <TextBlock Text="Deepgram API Key" 
-                           Foreground="#888888" 
-                           FontSize="12" 
-                           Margin="0,0,0,6" 
-                           FontWeight="SemiBold"/>
-                <TextBox x:Name="ApiKeyTextBox" Width="320"/>
+            <StackPanel Grid.Row="5" Margin="0,0,0,10" Width="330">
+                <TextBlock Text="Speechmatics API Key" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                <TextBox x:Name="SpeechmaticsApiKeyTextBox" />
             </StackPanel>
 
-            <StackPanel Grid.Row="5" Margin="0,0,0,10">
-                <TextBlock Text="Speechmatics API Key" 
-                           Foreground="#888888" 
-                           FontSize="12" 
-                           Margin="0,0,0,6" 
-                           FontWeight="SemiBold"/>
-                <TextBox x:Name="SpeechmaticsApiKeyTextBox" Width="320"/>
+            <StackPanel Grid.Row="6" Margin="0,0,0,10" Width="330">
+                <TextBlock Text="Soniox API Key" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                <TextBox x:Name="SonioxApiKeyTextBox" />
             </StackPanel>
 
-            <StackPanel Grid.Row="6" Margin="0,0,0,10">
-                <TextBlock Text="Soniox API Key" 
-                           Foreground="#888888" 
-                           FontSize="12" 
-                           Margin="0,0,0,6" 
-                           FontWeight="SemiBold"/>
-                <TextBox x:Name="SonioxApiKeyTextBox" Width="320"/>
-            </StackPanel>
-
-            <StackPanel Grid.Row="7" Margin="0,0,0,20">
-                <TextBlock Text="OpenAI API Key" 
-                           Foreground="#888888" 
-                           FontSize="12" 
-                           Margin="0,0,0,6" 
-                           FontWeight="SemiBold"/>
-                <TextBox x:Name="OpenAIApiKeyTextBox" Width="320"/>
+            <StackPanel Grid.Row="7" Margin="0,0,0,20" Width="330">
+                <TextBlock Text="OpenAI API Key" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                <TextBox x:Name="OpenAIApiKeyTextBox" />
             </StackPanel>
 
             <CheckBox Grid.Row="8" 

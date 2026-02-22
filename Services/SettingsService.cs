@@ -13,7 +13,9 @@ namespace BF_STT.Services
         public string StreamingModeApi { get; set; } = "Deepgram";
         public string DefaultLanguage { get; set; } = "vi";
         public int HotkeyVirtualKeyCode { get; set; } = 0x72; // VK_F3
+        public int StopAndSendHotkeyVirtualKeyCode { get; set; } = 0x73; // VK_F4
         public int MicrophoneDeviceNumber { get; set; } = 0;
+        public int MaxHistoryItems { get; set; } = 100;
 
         // Legacy for migration
         public string? SelectedApi { get; set; } 

@@ -325,5 +325,27 @@ namespace BF_STT.Services
             _timer.Stop();
             _timer.Tick -= CheckForegroundWindow;
         }
+        /// <summary>
+        /// Simulates an Enter key press in the target window.
+        /// </summary>
+        public async Task PressEnterAsync(IntPtr? targetWindowHandle = null)
+        {
+            var handleToUse = (targetWindowHandle.HasValue && targetWindowHandle.Value != IntPtr.Zero)
+                              ? targetWindowHandle.Value
+                              : _lastExternalWindowHandle;
+
+            if (handleToUse == IntPtr.Zero) return;
+
+            try
+            {
+                EnsureWindowFocused(handleToUse);
+                await Task.Delay(50);
+                System.Windows.Forms.SendKeys.SendWait("{ENTER}");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[InputInjector] PressEnter error: {ex.Message}");
+            }
+        }
     }
 }

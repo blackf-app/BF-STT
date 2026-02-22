@@ -10,6 +10,54 @@ namespace BF_STT
         public MainWindow()
         {
             InitializeComponent();
+            this.DataContextChanged += (s, e) =>
+            {
+                if (e.NewValue is ViewModels.MainViewModel vm)
+                {
+                    vm.PropertyChanged += Vm_PropertyChanged;
+                }
+            };
+            this.SizeChanged += MainWindow_SizeChanged;
+        }
+
+        private void Vm_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(ViewModels.MainViewModel.IsHistoryVisible))
+            {
+                var vm = DataContext as ViewModels.MainViewModel;
+                if (vm == null) return;
+
+                if (vm.IsHistoryVisible)
+                {
+                    // Check space below
+                    var screenHeight = SystemParameters.WorkArea.Height;
+                    var estimatedTotalHeight = this.ActualHeight + 250; // History max height is 250
+                    var currentBottom = this.Top + this.ActualHeight;
+
+                    if (currentBottom + 200 > screenHeight) // If less than 200px room below
+                    {
+                        vm.IsHistoryAtTop = true;
+                    }
+                    else
+                    {
+                        vm.IsHistoryAtTop = false;
+                    }
+                }
+            }
+        }
+
+        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            if (e.HeightChanged)
+            {
+                var vm = DataContext as ViewModels.MainViewModel;
+                if (vm != null && vm.IsHistoryAtTop)
+                {
+                    // If History is at the top, we want the BOTTOM part of the window to remain stationary on screen.
+                    // This applies for both expanding (moving up) and collapsing (moving back down).
+                    this.Top -= e.NewSize.Height - e.PreviousSize.Height;
+                }
+            }
         }
 
         private void Window_Loaded(object sender, RoutedEventArgs e)

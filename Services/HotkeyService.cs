@@ -17,15 +17,22 @@ namespace BF_STT.Services
         private IntPtr _hookId = IntPtr.Zero;
         private readonly Action _onKeyDown;
         private readonly Action _onKeyUp;
+        private readonly Action _onStopAndSendKeyDown;
+        private readonly Action _onStopAndSendKeyUp;
         private readonly SettingsService _settingsService;
 
         private bool _isHotkeyTracking = false;
+        private bool _isStopAndSendHotkeyTracking = false;
 
-        public HotkeyService(SettingsService settingsService, Action onKeyDown, Action onKeyUp)
+        public HotkeyService(SettingsService settingsService, 
+            Action onKeyDown, Action onKeyUp,
+            Action onStopAndSendKeyDown, Action onStopAndSendKeyUp)
         {
             _settingsService = settingsService;
             _onKeyDown = onKeyDown;
             _onKeyUp = onKeyUp;
+            _onStopAndSendKeyDown = onStopAndSendKeyDown;
+            _onStopAndSendKeyUp = onStopAndSendKeyUp;
             _proc = HookCallback;
             _hookId = SetHook(_proc);
         }
@@ -46,7 +53,9 @@ namespace BF_STT.Services
             if (nCode >= 0)
             {
                 int vkCode = Marshal.ReadInt32(lParam);
-                if (vkCode == _settingsService.CurrentSettings.HotkeyVirtualKeyCode)
+                var settings = _settingsService.CurrentSettings;
+
+                if (vkCode == settings.HotkeyVirtualKeyCode)
                 {
                     if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN)
                     {
@@ -63,6 +72,27 @@ namespace BF_STT.Services
                         {
                             _isHotkeyTracking = false;
                             System.Windows.Application.Current?.Dispatcher.BeginInvoke(_onKeyUp);
+                        }
+                        return (IntPtr)1; // Swallow key stroke
+                    }
+                }
+                else if (vkCode == settings.StopAndSendHotkeyVirtualKeyCode)
+                {
+                    if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN)
+                    {
+                        if (!_isStopAndSendHotkeyTracking)
+                        {
+                            _isStopAndSendHotkeyTracking = true;
+                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(_onStopAndSendKeyDown);
+                        }
+                        return (IntPtr)1; // Swallow key stroke
+                    }
+                    else if (wParam == (IntPtr)WM_KEYUP || wParam == (IntPtr)WM_SYSKEYUP)
+                    {
+                        if (_isStopAndSendHotkeyTracking)
+                        {
+                            _isStopAndSendHotkeyTracking = false;
+                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(_onStopAndSendKeyUp);
                         }
                         return (IntPtr)1; // Swallow key stroke
                     }

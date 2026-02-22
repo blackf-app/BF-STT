@@ -26,7 +26,7 @@ namespace BF_STT
             if (!createdNew)
             {
                 // App is already running
-                System.Windows.MessageBox.Show("Ứng dụng hiện đang chạy.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                System.Windows.MessageBox.Show("Ứng dụng hiện đang chạy.", "Thông báo", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
                 Shutdown();
                 return;
             }
@@ -43,6 +43,7 @@ namespace BF_STT
             _audioService = new AudioRecordingService();
             _inputInjector = new InputInjector();
             var soundService = new SoundService();
+            var historyService = new HistoryService(settings.MaxHistoryItems);
 
             // Build provider registry
             _registry = new SttProviderRegistry();
@@ -88,14 +89,17 @@ namespace BF_STT
                 _registry,
                 _inputInjector,
                 soundService,
-                settingsService
+                settingsService,
+                historyService
             );
 
             // Set up Global Hotkey
             _hotkeyService = new HotkeyService(
                 settingsService,
                 onKeyDown: () => mainViewModel.OnF3KeyDown(),
-                onKeyUp: () => mainViewModel.OnF3KeyUp()
+                onKeyUp: () => mainViewModel.OnF3KeyUp(),
+                onStopAndSendKeyDown: () => mainViewModel.OnStopAndSendKeyDown(),
+                onStopAndSendKeyUp: () => mainViewModel.OnStopAndSendKeyUp()
             );
 
             var mainWindow = new MainWindow

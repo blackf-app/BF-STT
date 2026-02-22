@@ -28,6 +28,47 @@
         </ContextMenu>
 
         <local:LevelToScaleConverter x:Key="LevelToScaleConverter"/>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+
+        <DataTemplate x:Key="HistoryTemplate">
+            <Border Background="#2D2D30" CornerRadius="5" Margin="2,0,2,2" MaxHeight="250">
+                <DockPanel LastChildFill="True">
+                    <Grid DockPanel.Dock="Top" Margin="5">
+                        <TextBlock Text="History" Foreground="#AAAAAA" FontSize="10" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <Button HorizontalAlignment="Right" Command="{Binding ClearHistoryCommand}" Padding="5,1" Background="Transparent" ToolTip="Clear All">
+                            <TextBlock Text="&#xE74D;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                        </Button>
+                    </Grid>
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding HistoryService.History}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border BorderBrush="#444444" BorderThickness="0,0,0,1" Padding="5,3">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="{Binding Timestamp, StringFormat='{}{0:HH:mm:ss}'}" Foreground="#888888" FontSize="9"/>
+                                                <TextBlock Text="{Binding Text}" Foreground="White" FontSize="11" TextWrapping="Wrap" Margin="0,1,0,0"/>
+                                            </StackPanel>
+                                            <Button Grid.Column="1" VerticalAlignment="Center" 
+                                                    Command="{Binding DataContext.CopyHistoryItemCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}}"
+                                                    CommandParameter="{Binding}"
+                                                    Padding="4,2" Margin="5,0,0,0"
+                                                    Background="#3E3E42" ToolTip="Copy to Clipboard">
+                                                <TextBlock Text="&#xE8C8;" FontFamily="Segoe MDL2 Assets" FontSize="10"/>
+                                            </Button>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </DataTemplate>
 
         <Style TargetType="Button">
             <Setter Property="Background" Value="#333333"/>
@@ -68,12 +109,18 @@
             </ContextMenu>
         </Grid.ContextMenu>
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/> <!-- Buttons & Visualizer -->
-            <RowDefinition Height="Auto"/> <!-- Status -->
+            <RowDefinition Height="Auto"/> <!-- Row 0: History Top -->
+            <RowDefinition Height="Auto"/> <!-- Row 1: Controls -->
+            <RowDefinition Height="Auto"/> <!-- Row 2: Status -->
+            <RowDefinition Height="Auto"/> <!-- Row 3: History Bottom -->
         </Grid.RowDefinitions>
 
+        <!-- Top History -->
+        <ContentControl Grid.Row="0" Content="{Binding}" ContentTemplate="{StaticResource HistoryTemplate}" 
+                        Visibility="{Binding IsHistoryTopVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
         <!-- Controls Row -->
-        <Grid Grid.Row="0" Margin="0,0,0,2">
+        <Grid Grid.Row="1" Margin="0,0,0,2">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                 <!-- Visualizer Area (Moved to left of buttons) -->
                 <Grid Width="18" Height="20" Margin="2,0,2,0" VerticalAlignment="Center" Visibility="{Binding IsRecording, Converter={StaticResource BooleanToVisibilityConverter}}">
@@ -138,8 +185,13 @@
                     </Button>
                     
                     <!-- Resend (Refresh/Upload Icon) -->
-                    <Button Command="{Binding ResendAudioCommand}" ToolTip="Re-Send Audio" Background="#007ACC">
+                    <Button Command="{Binding ResendAudioCommand}" ToolTip="Re-Send Audio" Background="#007ACC" Margin="3,2">
                         <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets"/> 
+                    </Button>
+
+                    <!-- History (History Icon) -->
+                    <Button Command="{Binding ToggleHistoryCommand}" ToolTip="Show/Hide History" Background="#444444" Margin="3,2">
+                        <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets"/>
                     </Button>
                 </StackPanel>
             </StackPanel>
@@ -235,7 +287,12 @@
         </Border>
 
         <!-- Status (Very small) -->
-        <TextBlock Grid.Row="1" Text="{Binding StatusText}" Foreground="#AAAAAA" FontSize="10" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" MaxWidth="150" ToolTip="{Binding StatusText}"/>
+        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Foreground="#AAAAAA" FontSize="10" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" MaxWidth="150" ToolTip="{Binding StatusText}" Margin="5,0,0,2"/>
+
+        <!-- Bottom History -->
+        <ContentControl Grid.Row="3" Content="{Binding}" ContentTemplate="{StaticResource HistoryTemplate}" 
+                        Visibility="{Binding IsHistoryBottomVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
         
         <tb:TaskbarIcon x:Name="MyNotifyIcon"
                         ToolTipText="BF-STT"

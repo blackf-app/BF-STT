@@ -31,6 +31,9 @@ namespace BF_STT
                 return;
             }
 
+            // Clean up old temp WAV files from previous sessions
+            TempFileCleanupService.CleanupOldTempFiles();
+
             // Prevent implicit shutdown when SettingsWindow closes
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
@@ -84,11 +87,18 @@ namespace BF_STT
                 settings = settingsService.CurrentSettings;
             }
 
-            var mainViewModel = new MainViewModel(
+            // Build recording coordinator (owns all recording/streaming/batch logic)
+            var coordinator = new RecordingCoordinator(
                 _audioService,
                 _registry,
                 _inputInjector,
                 soundService,
+                settingsService,
+                historyService
+            );
+
+            var mainViewModel = new MainViewModel(
+                coordinator,
                 settingsService,
                 historyService
             );

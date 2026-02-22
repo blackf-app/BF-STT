@@ -78,6 +78,9 @@ namespace BF_STT.Services
 
             if (string.IsNullOrEmpty(text) || handleToUse == IntPtr.Zero) return;
 
+            var currentForeground = GetForegroundWindow();
+            bool shouldRestoreFocus = currentForeground != IntPtr.Zero && currentForeground != handleToUse;
+
             // Backup current clipboard content
             WpfIDataObject? clipboardBackup = null;
             try
@@ -116,6 +119,11 @@ namespace BF_STT.Services
                 if (attached)
                 {
                     AttachThreadInput(currentThreadId, targetThreadId, false);
+                }
+
+                if (shouldRestoreFocus)
+                {
+                    EnsureWindowFocused(currentForeground);
                 }
 
                 // Restore original clipboard content
@@ -160,6 +168,9 @@ namespace BF_STT.Services
                                   : _lastExternalWindowHandle;
 
                 if (handleToUse == IntPtr.Zero) return;
+
+                var currentForeground = GetForegroundWindow();
+                bool shouldRestoreFocus = currentForeground != IntPtr.Zero && currentForeground != handleToUse;
 
                 // Build the full text: committed segments + current (interim or final) segment
                 var fullText = _committedText + currentSegmentText;
@@ -233,6 +244,13 @@ namespace BF_STT.Services
                 catch (Exception ex)
                 {
                     Debug.WriteLine($"[InputInjector] Streaming inject error: {ex.Message}");
+                }
+                finally
+                {
+                    if (shouldRestoreFocus)
+                    {
+                        EnsureWindowFocused(currentForeground);
+                    }
                 }
             }
             finally
@@ -336,6 +354,9 @@ namespace BF_STT.Services
 
             if (handleToUse == IntPtr.Zero) return;
 
+            var currentForeground = GetForegroundWindow();
+            bool shouldRestoreFocus = currentForeground != IntPtr.Zero && currentForeground != handleToUse;
+
             try
             {
                 EnsureWindowFocused(handleToUse);
@@ -345,6 +366,13 @@ namespace BF_STT.Services
             catch (Exception ex)
             {
                 Debug.WriteLine($"[InputInjector] PressEnter error: {ex.Message}");
+            }
+            finally
+            {
+                if (shouldRestoreFocus)
+                {
+                    EnsureWindowFocused(currentForeground);
+                }
             }
         }
     }

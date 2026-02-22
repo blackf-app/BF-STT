@@ -18,7 +18,7 @@
         Loaded="Window_Loaded"
         Deactivated="Window_Deactivated"
         MouseLeftButtonDown="Window_MouseLeftButtonDown"
-        d:DataContext="{d:DesignInstance Type=vm:MainViewModel, IsDesignTimeCreatable=False}" WindowStartupLocation="CenterScreen">
+        d:DataContext="{d:DesignInstance Type=vm:MainViewModel, IsDesignTimeCreatable=False}" WindowStartupLocation="Manual">
 
     <Window.Resources>
         <ContextMenu x:Key="TrayMenu">
@@ -76,13 +76,13 @@
             <Setter Property="BorderThickness" Value="0"/>
             <Setter Property="Padding" Value="6,4"/>
             <Setter Property="Margin" Value="3,2"/>
-            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontSize" Value="12"/>
             <Setter Property="FontFamily" Value="Segoe UI Symbol"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="5" Padding="{TemplateBinding Padding}">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
                             <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
                         </Border>
                         <ControlTemplate.Triggers>
@@ -100,7 +100,7 @@
         </Style>
     </Window.Resources>
 
-    <Grid Margin="2" Background="Transparent">
+    <Grid Margin="0" Background="Transparent">
         <Grid.ContextMenu>
             <ContextMenu>
                 <MenuItem Header="Settings" Command="{Binding Path=PlacementTarget.DataContext.OpenSettingsCommand, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type ContextMenu}}}"/>
@@ -110,8 +110,8 @@
         </Grid.ContextMenu>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Row 0: History Top -->
-            <RowDefinition Height="Auto"/> <!-- Row 1: Controls -->
-            <RowDefinition Height="Auto"/> <!-- Row 2: Status -->
+            <RowDefinition Height="Auto"/> <!-- Row 1: Controls & Status -->
+            <RowDefinition Height="Auto"/> <!-- Row 2: Transcripts -->
             <RowDefinition Height="Auto"/> <!-- Row 3: History Bottom -->
         </Grid.RowDefinitions>
 
@@ -120,22 +120,26 @@
                         Visibility="{Binding IsHistoryTopVisible, Converter={StaticResource BooleanToVisibilityConverter}}"/>
 
         <!-- Controls Row -->
-        <Grid Grid.Row="1" Margin="0,0,0,2">
+        <Border Grid.Row="1" Background="#1E1E1E" Padding="5,2">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <!-- Visualizer Area (Moved to left of buttons) -->
-                <Grid Width="18" Height="20" Margin="2,0,2,0" VerticalAlignment="Center" Visibility="{Binding IsRecording, Converter={StaticResource BooleanToVisibilityConverter}}">
+                <!-- Status (Compact side) -->
+                <TextBlock Text="{Binding StatusText}" Foreground="#AAAAAA" FontSize="11" VerticalAlignment="Center" 
+                           Margin="8,0" MaxWidth="150" TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusText}"/>
+
+                <!-- Visualizer Area -->
+                <Grid Width="20" Height="24" Margin="3,0" VerticalAlignment="Center" Visibility="{Binding IsRecording, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Border Width="1.5" Height="7" Margin="0.3,0" Background="#CC3300" CornerRadius="0.7" RenderTransformOrigin="0.5,0.5">
+                        <Border Width="1.8" Height="9" Margin="0.3,0" Background="#CC3300" CornerRadius="0.9" RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
                                 <ScaleTransform ScaleY="{Binding AudioLevel, ConverterParameter=0.8, Converter={StaticResource LevelToScaleConverter}}"/>
                             </Border.RenderTransform>
                         </Border>
-                        <Border Width="2" Height="10" Margin="0.3,0" Background="#CC3300" CornerRadius="1" RenderTransformOrigin="0.5,0.5">
+                        <Border Width="2.2" Height="14" Margin="0.3,0" Background="#CC3300" CornerRadius="1.1" RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
                                 <ScaleTransform ScaleY="{Binding AudioLevel, ConverterParameter=1.5, Converter={StaticResource LevelToScaleConverter}}"/>
                             </Border.RenderTransform>
                         </Border>
-                        <Border Width="1.5" Height="7" Margin="0.3,0" Background="#CC3300" CornerRadius="0.7" RenderTransformOrigin="0.5,0.5">
+                        <Border Width="1.8" Height="9" Margin="0.3,0" Background="#CC3300" CornerRadius="0.9" RenderTransformOrigin="0.5,0.5">
                             <Border.RenderTransform>
                                 <ScaleTransform ScaleY="{Binding AudioLevel, ConverterParameter=0.8, Converter={StaticResource LevelToScaleConverter}}"/>
                             </Border.RenderTransform>
@@ -144,23 +148,23 @@
                 </Grid>
 
                 <!-- API Selection -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="5,0,5,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="3,0">
                     <ComboBox ItemsSource="{Binding AvailableApis}" SelectedItem="{Binding BatchModeApi}"
                               ToolTip="Batch API"
-                              VerticalAlignment="Center" Margin="0,2,2,2" Width="68" Height="22"
-                              Background="#333333" Foreground="Black" BorderThickness="0" FontSize="10" />
+                              VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="0,2,2,2" Width="75" Height="30"
+                              Background="#333333" Foreground="Black" BorderThickness="0" FontSize="11" />
                     <ComboBox ItemsSource="{Binding AvailableApis}" SelectedItem="{Binding StreamingModeApi}"
                               ToolTip="Streaming API"
-                              VerticalAlignment="Center" Margin="2,2,0,2" Width="68" Height="22"
-                              Background="#333333" Foreground="Black" BorderThickness="0" FontSize="10" />
+                              VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="2,2,0,2" Width="75" Height="30"
+                              Background="#333333" Foreground="Black" BorderThickness="0" FontSize="11" />
                 </StackPanel>
 
                 <!-- Buttons -->
-                <StackPanel Orientation="Horizontal">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <!-- Start Recording / Cancel Recording -->
                     <Button Command="{Binding StartRecordingCommand}" ToolTip="Start / Cancel Recording">
                         <Button.Content>
-                            <TextBlock Text="&#xE720;" FontFamily="Segoe MDL2 Assets"/> <!-- Microphone -->
+                            <TextBlock Text="&#xE720;" FontFamily="Segoe MDL2 Assets" FontSize="14"/> <!-- Microphone -->
                         </Button.Content>
                         <Button.Style>
                             <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
@@ -170,7 +174,7 @@
                                         <Setter Property="ToolTip" Value="Cancel Recording (Discard)"/>
                                         <Setter Property="Content">
                                             <Setter.Value>
-                                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets"/> <!-- X Icon for Cancel -->
+                                                <TextBlock Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="14"/> <!-- X Icon for Cancel -->
                                             </Setter.Value> 
                                         </Setter>
                                     </DataTrigger>
@@ -181,24 +185,24 @@
                     
                     <!-- Stop & Send (Stop Icon) -->
                     <Button Command="{Binding StopRecordingCommand}" ToolTip="Stop &amp; Send" Background="#CC3300">
-                        <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets"/> 
+                        <TextBlock Text="&#xE769;" FontFamily="Segoe MDL2 Assets" FontSize="14"/> 
                     </Button>
                     
                     <!-- Resend (Refresh/Upload Icon) -->
                     <Button Command="{Binding ResendAudioCommand}" ToolTip="Re-Send Audio" Background="#007ACC" Margin="3,2">
-                        <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets"/> 
+                        <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets" FontSize="14"/> 
                     </Button>
 
                     <!-- History (History Icon) -->
                     <Button Command="{Binding ToggleHistoryCommand}" ToolTip="Show/Hide History" Background="#444444" Margin="3,2">
-                        <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets"/>
+                        <TextBlock Text="&#xE81C;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
                     </Button>
                 </StackPanel>
             </StackPanel>
-        </Grid>
+        </Border>
 
         <!-- Transcript Area (Hidden typically, shown in Test Mode) -->
-        <Border Grid.Row="1" Background="#252526" CornerRadius="5" Padding="5">
+        <Border Grid.Row="2" Background="#252526" CornerRadius="5" Padding="5">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Collapsed"/>
@@ -285,9 +289,6 @@
                 </Grid>
             </Grid>
         </Border>
-
-        <!-- Status (Very small) -->
-        <TextBlock Grid.Row="2" Text="{Binding StatusText}" Foreground="#AAAAAA" FontSize="10" HorizontalAlignment="Left" TextTrimming="CharacterEllipsis" MaxWidth="150" ToolTip="{Binding StatusText}" Margin="5,0,0,2"/>
 
         <!-- Bottom History -->
         <ContentControl Grid.Row="3" Content="{Binding}" ContentTemplate="{StaticResource HistoryTemplate}" 

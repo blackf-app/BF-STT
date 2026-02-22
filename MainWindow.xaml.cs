@@ -29,19 +29,9 @@ namespace BF_STT
 
                 if (vm.IsHistoryVisible)
                 {
-                    // Check space below
-                    var screenHeight = SystemParameters.WorkArea.Height;
-                    var estimatedTotalHeight = this.ActualHeight + 250; // History max height is 250
-                    var currentBottom = this.Top + this.ActualHeight;
-
-                    if (currentBottom + 200 > screenHeight) // If less than 200px room below
-                    {
-                        vm.IsHistoryAtTop = true;
-                    }
-                    else
-                    {
-                        vm.IsHistoryAtTop = false;
-                    }
+                    // Since the window is now anchored to the bottom of the screen,
+                    // any expansion (like history) should always go UPWARDS.
+                    vm.IsHistoryAtTop = true;
                 }
             }
         }
@@ -50,12 +40,16 @@ namespace BF_STT
         {
             if (e.HeightChanged)
             {
-                var vm = DataContext as ViewModels.MainViewModel;
-                if (vm != null && vm.IsHistoryAtTop)
+                // Always keep the bottom of the window anchored to the bottom of the screen
+                var screenWidth = SystemParameters.PrimaryScreenWidth;
+                var screenHeight = SystemParameters.PrimaryScreenHeight;
+                double left = (screenWidth - e.NewSize.Width) / 2;
+                double top = screenHeight - e.NewSize.Height;
+
+                var hwnd = new WindowInteropHelper(this).Handle;
+                if (hwnd != IntPtr.Zero)
                 {
-                    // If History is at the top, we want the BOTTOM part of the window to remain stationary on screen.
-                    // This applies for both expanding (moving up) and collapsing (moving back down).
-                    this.Top -= e.NewSize.Height - e.PreviousSize.Height;
+                    SetWindowPos(hwnd, HWND_TOPMOST, (int)left, (int)top, (int)e.NewSize.Width, (int)e.NewSize.Height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
                 }
             }
         }
@@ -70,10 +64,18 @@ namespace BF_STT
             timer.Tick += (s, args) => ForceTopmost();
             timer.Start();
 
-            // Position at top-center
+            // Initial Position calculation
             var screenWidth = SystemParameters.PrimaryScreenWidth;
-            this.Left = (screenWidth - this.ActualWidth) / 2;
-            this.Top = 10;
+            var screenHeight = SystemParameters.PrimaryScreenHeight;
+            double left = (screenWidth - this.ActualWidth) / 2;
+            double top = screenHeight - this.ActualHeight;
+
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd != IntPtr.Zero)
+            {
+                // Set position using Win32 for precise placement overlapping taskbar
+                SetWindowPos(hwnd, HWND_TOPMOST, (int)left, (int)top, (int)this.ActualWidth, (int)this.ActualHeight, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+            }
             
             try 
             {

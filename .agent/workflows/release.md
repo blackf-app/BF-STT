@@ -39,10 +39,22 @@ $exePath = "publish/BF-STT.exe"
 
 Write-Host "Releasing version: $version" -ForegroundColor Cyan
 
+# Prepare Release Notes from Git History
+$lastTag = git describe --tags --abbrev=0 2>$null
+if ($lastTag) {
+    $releaseNotes = git log "$lastTag..HEAD" --pretty=format:"- %s"
+} else {
+    $releaseNotes = git log -n 5 --pretty=format:"- %s"
+}
+
+if ([string]::IsNullOrWhiteSpace($releaseNotes)) {
+    $releaseNotes = "Manual release for version $version"
+}
+
 # Create and push git tag
 git tag $tagName
 git push origin $tagName
 
 # Create GitHub Release and upload the .exe
-gh release create $tagName $exePath --title "Release $tagName" --notes "Automated release for version $version"
+gh release create $tagName $exePath --title "Release $tagName" --notes "$releaseNotes"
 ```

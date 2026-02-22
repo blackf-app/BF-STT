@@ -66,6 +66,13 @@ namespace BF_STT.ViewModels
                     StatusText = "Copied to clipboard.";
                 }
             });
+            SendHistoryItemCommand = new RelayCommand(async item =>
+            {
+                if (item is HistoryItem historyItem)
+                {
+                    await _coordinator.SendHistoryItemAsync(historyItem);
+                }
+            });
         }
 
         #endregion
@@ -169,6 +176,7 @@ namespace BF_STT.ViewModels
         public ICommand ToggleHistoryCommand { get; }
         public ICommand ClearHistoryCommand { get; }
         public ICommand CopyHistoryItemCommand { get; }
+        public ICommand SendHistoryItemCommand { get; }
 
         public HistoryService HistoryService => _historyService;
 

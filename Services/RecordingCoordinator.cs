@@ -750,6 +750,17 @@ namespace BF_STT.Services
             }
         }
 
+        public async Task SendHistoryItemAsync(HistoryItem item)
+        {
+            if (item == null) return;
+            
+            FireStatusChanged("Sending history item...");
+            // Use the last known external window handle (the one focused before clicking the app)
+            var handleToUse = InputInjector.LastExternalWindowHandle;
+            await InputInjector.InjectTextAsync(item.Text, handleToUse);
+            FireStatusChanged("Sent.");
+        }
+
         public void CleanupLastFile()
         {
             _lastAudioData = null;

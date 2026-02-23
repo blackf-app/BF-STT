@@ -19,15 +19,17 @@ namespace BF_STT.Services.STT
 
         /// <summary>
         /// Registers a provider with its batch and streaming services.
+        /// If streamingService is null, a no-op fallback is used (batch-only provider).
         /// </summary>
         public void Register(
             string name,
             IBatchSttService batchService,
-            IStreamingSttService streamingService,
+            IStreamingSttService? streamingService,
             Func<AppSettings, string> getApiKey,
             Func<AppSettings, string> getModel)
         {
-            _providers[name] = new SttProviderEntry(name, batchService, streamingService, getApiKey, getModel);
+            var streaming = streamingService ?? NullStreamingService.Instance;
+            _providers[name] = new SttProviderEntry(name, batchService, streaming, getApiKey, getModel, streamingService != null);
         }
 
         /// <summary>
@@ -118,6 +120,7 @@ namespace BF_STT.Services.STT
         IBatchSttService BatchService,
         IStreamingSttService StreamingService,
         Func<AppSettings, string> GetApiKey,
-        Func<AppSettings, string> GetModel
+        Func<AppSettings, string> GetModel,
+        bool SupportsStreaming
     );
 }

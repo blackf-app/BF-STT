@@ -1,15 +1,10 @@
 ﻿using BF_STT.Services.Audio;
 using BF_STT.Services.STT;
-using BF_STT.Services.STT.Abstractions;
-using BF_STT.Services.STT.Providers.Deepgram;
-using BF_STT.Services.STT.Providers.OpenAI;
-using BF_STT.Services.STT.Providers.Soniox;
-using BF_STT.Services.STT.Providers.Speechmatics;
 using BF_STT.Services.Workflow;
 using BF_STT.Services.Platform;
 using BF_STT.Services.Infrastructure;
 using BF_STT.ViewModels;
-using System.IO;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -20,12 +15,8 @@ namespace BF_STT
 {
     public partial class App : System.Windows.Application
     {
-        // Track all disposable services for proper cleanup
+        private IServiceProvider? _serviceProvider;
         private HotkeyService? _hotkeyService;
-        private HttpClient? _httpClient;
-        private AudioRecordingService? _audioService;
-        private SttProviderRegistry? _registry;
-        private InputInjector? _inputInjector;
         private static Mutex? _mutex;
 
         private void Application_Startup(object sender, StartupEventArgs e)
@@ -48,43 +39,16 @@ namespace BF_STT
             // Prevent implicit shutdown when SettingsWindow closes
             ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-            // Initialize Settings Service
-            var settingsService = new SettingsService();
+            // Build all services via DI container
+            _serviceProvider = ServiceRegistration.Configure();
+
+            var settingsService = _serviceProvider.GetRequiredService<SettingsService>();
             var settings = settingsService.CurrentSettings;
-
-            // Build services
-            _httpClient = new HttpClient();
-            _audioService = new AudioRecordingService();
-            _inputInjector = new InputInjector();
-            var soundService = new SoundService();
-            var historyService = new HistoryService(settings.MaxHistoryItems);
-
-            // Build provider registry
-            _registry = new SttProviderRegistry();
-
-            var deepgramBatch = new DeepgramService(_httpClient, settings.ApiKey, settings.BaseUrl, settings.Model);
-            var deepgramStreaming = new DeepgramStreamingService(settings.ApiKey, settings.StreamingUrl, settings.Model);
-            _registry.Register("Deepgram", deepgramBatch, deepgramStreaming,
-                s => s.ApiKey, s => s.Model);
-
-            var speechmaticsBatch = new SpeechmaticsBatchService(_httpClient, settings.SpeechmaticsApiKey, settings.SpeechmaticsBaseUrl);
-            var speechmaticsStreaming = new SpeechmaticsStreamingService(settings.SpeechmaticsApiKey, settings.SpeechmaticsStreamingUrl);
-            _registry.Register("Speechmatics", speechmaticsBatch, speechmaticsStreaming,
-                s => s.SpeechmaticsApiKey, s => s.SpeechmaticsModel);
-
-            var sonioxBatch = new SonioxBatchService(_httpClient, settings.SonioxApiKey, settings.SonioxBaseUrl);
-            var sonioxStreaming = new SonioxStreamingService(settings.SonioxApiKey, settings.SonioxStreamingUrl);
-            _registry.Register("Soniox", sonioxBatch, sonioxStreaming,
-                s => s.SonioxApiKey, s => s.SonioxModel);
-
-            var openaiBatch = new OpenAIBatchService(_httpClient, settings.OpenAIApiKey, settings.OpenAIBaseUrl);
-            var openaiStreaming = new OpenAIStreamingService(settings.OpenAIApiKey);
-            _registry.Register("OpenAI", openaiBatch, openaiStreaming,
-                s => s.OpenAIApiKey, s => s.OpenAIModel);
+            var registry = _serviceProvider.GetRequiredService<SttProviderRegistry>();
 
             // Check API Key on startup using registry
-            bool missingKey = _registry.ValidateApiKey(settings.BatchModeApi, settings) != null
-                           || _registry.ValidateApiKey(settings.StreamingModeApi, settings) != null;
+            bool missingKey = registry.ValidateApiKey(settings.BatchModeApi, settings) != null
+                           || registry.ValidateApiKey(settings.StreamingModeApi, settings) != null;
 
             if (missingKey)
             {
@@ -98,21 +62,7 @@ namespace BF_STT
                 settings = settingsService.CurrentSettings;
             }
 
-            // Build recording coordinator (owns all recording/streaming/batch logic)
-            var coordinator = new RecordingCoordinator(
-                _audioService,
-                _registry,
-                _inputInjector,
-                soundService,
-                settingsService,
-                historyService
-            );
-
-            var mainViewModel = new MainViewModel(
-                coordinator,
-                settingsService,
-                historyService
-            );
+            var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
 
             // Set up Global Hotkey
             _hotkeyService = new HotkeyService(
@@ -131,13 +81,14 @@ namespace BF_STT
             mainWindow.Show();
 
             // Check for updates in background
-            if (_httpClient != null && settings.AutoCheckUpdate)
+            var httpClient = _serviceProvider.GetRequiredService<HttpClient>();
+            if (settings.AutoCheckUpdate)
             {
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        var updateService = new UpdateService(_httpClient);
+                        var updateService = new UpdateService(httpClient);
                         var release = await updateService.CheckForUpdateAsync();
                         if (release != null)
                         {
@@ -172,24 +123,15 @@ namespace BF_STT
 
         protected override void OnExit(ExitEventArgs e)
         {
-            // Dispose all services in reverse order of creation
+            // Dispose hotkey service
             _hotkeyService?.Dispose();
-            _inputInjector?.Dispose();
 
-            // Dispose all streaming services registered in the registry
-            if (_registry != null)
+            // Dispose all services via the DI container
+            if (_serviceProvider is IDisposable disposable)
             {
-                foreach (var provider in _registry.GetAllProviders())
-                {
-                    if (provider.StreamingService is IDisposable disposable)
-                    {
-                        disposable.Dispose();
-                    }
-                }
+                disposable.Dispose();
             }
 
-            _audioService?.Dispose();
-            _httpClient?.Dispose();
             _mutex?.Dispose();
             
             base.OnExit(e);

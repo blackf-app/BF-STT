@@ -2,16 +2,12 @@ using BF_STT.Models;
 using BF_STT.Services.Audio;
 using BF_STT.Services.STT;
 using BF_STT.Services.STT.Abstractions;
-using BF_STT.Services.STT.Filters;
 using BF_STT.Services.Workflow.States;
 using BF_STT.Services.Platform;
 using BF_STT.Services.Infrastructure;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -21,6 +17,7 @@ namespace BF_STT.Services.Workflow
     /// <summary>
     /// Coordinates the full recording lifecycle using the State Pattern.
     /// States: Idle → HybridPending → (BatchRecording | Streaming) → Processing → Idle
+    /// Delegates batch processing to BatchProcessor and streaming to StreamingManager.
     /// Fires events to let the ViewModel update UI state.
     /// </summary>
     public class RecordingCoordinator
@@ -33,6 +30,8 @@ namespace BF_STT.Services.Workflow
         internal readonly SoundService SoundService;
         internal readonly SettingsService SettingsService;
         internal readonly HistoryService HistoryService;
+        internal readonly BatchProcessor BatchProcessor;
+        internal readonly StreamingManager StreamingManager;
 
         #endregion
 
@@ -51,9 +50,6 @@ namespace BF_STT.Services.Workflow
 
         /// <summary>Last recorded audio bytes for Resend feature.</summary>
         private byte[]? _lastAudioData;
-
-        /// <summary>Audio buffer for hybrid pending state.</summary>
-        private ConcurrentQueue<AudioDataEventArgs> _audioBuffer = new();
 
         private DispatcherTimer _recordingTimer;
         private DispatcherTimer _hybridTimer;
@@ -145,7 +141,9 @@ namespace BF_STT.Services.Workflow
             InputInjector inputInjector,
             SoundService soundService,
             SettingsService settingsService,
-            HistoryService historyService)
+            HistoryService historyService,
+            BatchProcessor batchProcessor,
+            StreamingManager streamingManager)
         {
             AudioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
             Registry = registry ?? throw new ArgumentNullException(nameof(registry));
@@ -153,6 +151,8 @@ namespace BF_STT.Services.Workflow
             SoundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
             SettingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             HistoryService = historyService ?? throw new ArgumentNullException(nameof(historyService));
+            BatchProcessor = batchProcessor ?? throw new ArgumentNullException(nameof(batchProcessor));
+            StreamingManager = streamingManager ?? throw new ArgumentNullException(nameof(streamingManager));
 
             _currentState = IdleState.Instance;
 
@@ -174,13 +174,26 @@ namespace BF_STT.Services.Workflow
             // Wire audio data to current state
             AudioService.AudioDataAvailable += OnAudioDataAvailable;
 
-            // Wire streaming events for all providers
-            foreach (var provider in Registry.GetAllProviders())
+            // Wire streaming events via StreamingManager
+            StreamingManager.WireProviderEvents();
+
+            // Bubble events from BatchProcessor
+            BatchProcessor.StatusChanged += s => StatusChanged?.Invoke(s);
+            BatchProcessor.TranscriptChanged += t => TranscriptChanged?.Invoke(t);
+            BatchProcessor.ProviderTranscriptChanged += (name, text) =>
             {
-                provider.StreamingService.TranscriptReceived += OnTranscriptReceived;
-                provider.StreamingService.UtteranceEndReceived += OnUtteranceEndReceived;
-                provider.StreamingService.Error += OnStreamingError;
-            }
+                _providerTranscripts[name] = text;
+                ProviderTranscriptChanged?.Invoke(name, text);
+            };
+
+            // Bubble events from StreamingManager
+            StreamingManager.StatusChanged += s => StatusChanged?.Invoke(s);
+            StreamingManager.TranscriptChanged += t => TranscriptChanged?.Invoke(t);
+            StreamingManager.ProviderTranscriptChanged += (name, text) =>
+            {
+                _providerTranscripts[name] = text;
+                ProviderTranscriptChanged?.Invoke(name, text);
+            };
 
             _recordingTimer = new DispatcherTimer
             {
@@ -243,7 +256,6 @@ namespace BF_STT.Services.Workflow
         {
             if (IsRecording)
             {
-                // If already recording, treat as cancel
                 CancelRecording();
             }
             else if (State == RecordingStateEnum.Idle || State == RecordingStateEnum.Failed)
@@ -275,11 +287,10 @@ namespace BF_STT.Services.Workflow
             TargetWindowHandle = InputInjector.LastExternalWindowHandle;
             InputInjector.ResetStreamingState();
 
-            // Clear previous audio data
             _lastAudioData = null;
             CommandsInvalidated?.Invoke();
 
-            ClearAudioBuffer();
+            StreamingManager.ClearBuffer();
 
             if (IsTestMode)
             {
@@ -309,7 +320,7 @@ namespace BF_STT.Services.Workflow
 
                 if (isKeyTrigger)
                 {
-                    FireStatusChanged("..."); // Pending hybrid decision
+                    FireStatusChanged("...");
                     _hybridTimer.Start();
                     TransitionTo(HybridPendingState.Instance);
                 }
@@ -327,7 +338,7 @@ namespace BF_STT.Services.Workflow
             }
         }
 
-        /// <summary>Enters streaming mode — starts WebSocket connections and flushes buffered audio.</summary>
+        /// <summary>Enters streaming mode — delegates to StreamingManager.</summary>
         internal async void EnterStreamingMode()
         {
             _hybridTimer.Stop();
@@ -336,38 +347,7 @@ namespace BF_STT.Services.Workflow
             PlayStartSound();
             FireStatusChanged("Streaming... 00:00");
 
-            try
-            {
-                var language = SettingsService.CurrentSettings.DefaultLanguage;
-                if (IsTestMode)
-                {
-                    var startTasks = Registry.GetAllProviders()
-                        .Select(p => p.StreamingService.StartAsync(language));
-                    await Task.WhenAll(startTasks);
-
-                    // Flush buffer to all WebSockets
-                    while (_audioBuffer.TryDequeue(out var args))
-                    {
-                        var sendTasks = Registry.GetAllProviders()
-                            .Select(p => p.StreamingService.SendAudioAsync(args.Buffer, args.BytesRecorded));
-                        await Task.WhenAll(sendTasks);
-                    }
-                }
-                else
-                {
-                    var activeStreaming = Registry.GetStreamingService(StreamingModeApi);
-                    await activeStreaming.StartAsync(language);
-
-                    while (_audioBuffer.TryDequeue(out var args))
-                    {
-                        await activeStreaming.SendAudioAsync(args.Buffer, args.BytesRecorded);
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                FireStatusChanged($"Stream Error: {ex.Message}");
-            }
+            await StreamingManager.EnterStreamingAsync(IsTestMode, StreamingModeApi);
         }
 
         /// <summary>Stops recording and sends audio to batch API for processing.</summary>
@@ -396,7 +376,7 @@ namespace BF_STT.Services.Workflow
                         }
                         else
                         {
-                            _ = ProcessBatchRecordingAsync(audioData, TargetWindowHandle);
+                            _ = ProcessBatchAsync(audioData, TargetWindowHandle);
                         }
                     }
                     else
@@ -428,27 +408,13 @@ namespace BF_STT.Services.Workflow
                 _recordingTimer.Stop();
                 _hybridTimer.Stop();
 
-                // Discard the recording file — streaming doesn't need it
                 await AudioService.StopRecordingAsync(discard: true);
 
                 SoundService.PlayStopSound();
 
                 FireStatusChanged("Finalizing Stream...");
-                if (!IsTestMode)
-                {
-                    InputInjector.CommitCurrentText();
-                    await Registry.GetStreamingService(StreamingModeApi).StopAsync();
-                    if (ShouldAutoSend)
-                    {
-                        await InputInjector.PressEnterAsync(TargetWindowHandle);
-                    }
-                }
-                else
-                {
-                    var stopTasks = Registry.GetAllProviders()
-                        .Select(p => p.StreamingService.StopAsync());
-                    await Task.WhenAll(stopTasks);
-                }
+                await StreamingManager.StopAndFinalizeAsync(
+                    IsTestMode, ShouldAutoSend, TargetWindowHandle, StreamingModeApi);
 
                 FireStatusChanged("Done.");
                 TransitionTo(IdleState.Instance);
@@ -472,16 +438,7 @@ namespace BF_STT.Services.Workflow
 
                 if (State == RecordingStateEnum.Streaming || State == RecordingStateEnum.HybridPending)
                 {
-                    if (IsTestMode)
-                    {
-                        var cancelTasks = Registry.GetAllProviders()
-                            .Select(p => p.StreamingService.CancelAsync());
-                        await Task.WhenAll(cancelTasks);
-                    }
-                    else
-                    {
-                        await Registry.GetStreamingService(StreamingModeApi).CancelAsync();
-                    }
+                    await StreamingManager.CancelStreamingAsync(IsTestMode, StreamingModeApi);
                 }
 
                 SoundService.PlayStopSound();
@@ -497,11 +454,8 @@ namespace BF_STT.Services.Workflow
 
         internal void PlayStartSound() => SoundService.PlayStartSound();
         internal void StopHybridTimer() => _hybridTimer.Stop();
-        internal void ClearAudioBuffer()
-        {
-            while (_audioBuffer.TryDequeue(out _)) { }
-        }
-        internal void EnqueueAudioBuffer(AudioDataEventArgs e) => _audioBuffer.Enqueue(e);
+        internal void ClearAudioBuffer() => StreamingManager.ClearBuffer();
+        internal void EnqueueAudioBuffer(AudioDataEventArgs e) => StreamingManager.EnqueueAudioBuffer(e);
         internal void FireStatusChanged(string status) => StatusChanged?.Invoke(status);
 
         #endregion
@@ -521,56 +475,13 @@ namespace BF_STT.Services.Workflow
 
         #endregion
 
-        #region Batch Processing
+        #region Batch Processing (delegates to BatchProcessor)
 
-        private async Task ProcessBatchRecordingAsync(byte[] audioData, IntPtr targetWindow)
+        private async Task ProcessBatchAsync(byte[] audioData, IntPtr targetWindow)
         {
-            var sw = Stopwatch.StartNew();
             try
             {
-                if (!AudioSilenceDetector.ContainsSpeech(audioData))
-                {
-                    sw.Stop();
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        FireStatusChanged("Silent — skipped.");
-                        TranscriptChanged?.Invoke(string.Empty);
-                    });
-                    return;
-                }
-
-                var activeBatch = Registry.GetBatchService(BatchModeApi);
-                var language = SettingsService.CurrentSettings.DefaultLanguage;
-                var transcript = await activeBatch.TranscribeAsync(audioData, language);
-                sw.Stop();
-
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
-                {
-                    if (HallucinationFilter.IsHallucination(transcript))
-                    {
-                        FireStatusChanged($"Hallucination — skipped. ({sw.ElapsedMilliseconds}ms)");
-                        TranscriptChanged?.Invoke(string.Empty);
-                        return;
-                    }
-
-                    var finalTranscript = FormatTranscript(transcript);
-                    TranscriptChanged?.Invoke(finalTranscript);
-                    FireStatusChanged($"Done. ({sw.ElapsedMilliseconds}ms)");
-
-                    if (!string.IsNullOrWhiteSpace(finalTranscript))
-                    {
-                        HistoryService.AddEntry(finalTranscript, BatchModeApi);
-                        await InputInjector.InjectTextAsync(finalTranscript, targetWindow, ShouldAutoSend);
-                    }
-                });
-            }
-            catch (Exception ex)
-            {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                {
-                    FireStatusChanged($"Error: {ex.Message}");
-                    TranscriptChanged?.Invoke("Failed to get transcript.");
-                });
+                await BatchProcessor.ProcessAsync(audioData, targetWindow, BatchModeApi, ShouldAutoSend);
             }
             finally
             {
@@ -583,60 +494,9 @@ namespace BF_STT.Services.Workflow
 
         private async Task ProcessBatchTestModeAsync(byte[] audioData)
         {
-            // Pre-API: silence detection on in-memory WAV data
-            if (!AudioSilenceDetector.ContainsSpeech(audioData))
-            {
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                {
-                    FireStatusChanged("Silent — skipped.");
-                    foreach (var p in Registry.GetAllProviders())
-                    {
-                        SetProviderTranscript(p.Name, "[Skipped] Silent audio");
-                    }
-                });
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                {
-                    TransitionTo(IdleState.Instance);
-                });
-                return;
-            }
-
-            var language = SettingsService.CurrentSettings.DefaultLanguage;
-
-            // Create independent tasks for each provider
-            var providerTasks = Registry.GetAllProviders().Select(provider => Task.Run(async () =>
-            {
-                var sw = Stopwatch.StartNew();
-                try
-                {
-                    var result = await provider.BatchService.TranscribeAsync(audioData, language);
-                    sw.Stop();
-                    var label = HallucinationFilter.IsHallucination(result) ? "[Hallucination]" : "";
-                    var formatted = label == "" ? FormatTranscript(result) : $"{label} {result}";
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        SetProviderTranscript(provider.Name, $"[{sw.ElapsedMilliseconds}ms]\n{formatted}");
-                    });
-                }
-                catch (Exception ex)
-                {
-                    sw.Stop();
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-                    {
-                        SetProviderTranscript(provider.Name, $"[{sw.ElapsedMilliseconds}ms] Failed: {ex.Message}");
-                    });
-                }
-            })).ToArray();
-
-            var overallSw = Stopwatch.StartNew();
             try
             {
-                await Task.WhenAll(providerTasks);
-                overallSw.Stop();
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                {
-                    FireStatusChanged($"Done. ({overallSw.ElapsedMilliseconds}ms)");
-                });
+                await BatchProcessor.ProcessTestModeAsync(audioData);
             }
             finally
             {
@@ -649,63 +509,11 @@ namespace BF_STT.Services.Workflow
 
         #endregion
 
-        #region Audio & Streaming Events
+        #region Audio Events
 
         private void OnAudioDataAvailable(object? sender, AudioDataEventArgs e)
         {
             _currentState.HandleAudioData(this, e);
-        }
-
-        private void OnTranscriptReceived(object? sender, TranscriptEventArgs e)
-        {
-            System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
-            {
-                try
-                {
-                    if (!string.IsNullOrEmpty(e.Text))
-                    {
-                        if (IsTestMode)
-                        {
-                            foreach (var provider in Registry.GetAllProviders())
-                            {
-                                if (sender == provider.StreamingService)
-                                {
-                                    SetProviderTranscript(provider.Name, e.Text);
-                                    break;
-                                }
-                            }
-                        }
-                        else
-                        {
-                            TranscriptChanged?.Invoke(e.Text);
-                        }
-                    }
-
-                    if (!IsTestMode && e.IsFinal && !string.IsNullOrEmpty(e.Text))
-                    {
-                        HistoryService.AddEntry(e.Text, StreamingModeApi);
-                        await InputInjector.InjectStreamingTextAsync(
-                            e.Text, true, TargetWindowHandle);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"[Coordinator] Streaming inject error: {ex.Message}");
-                }
-            });
-        }
-
-        private void OnUtteranceEndReceived(object? sender, EventArgs e)
-        {
-            Debug.WriteLine("[Coordinator] UtteranceEnd received.");
-        }
-
-        private void OnStreamingError(object? sender, string errorMessage)
-        {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
-                FireStatusChanged($"Stream error: {errorMessage}");
-            });
         }
 
         #endregion
@@ -753,7 +561,7 @@ namespace BF_STT.Services.Workflow
             }
             else
             {
-                _ = ProcessBatchRecordingAsync(_lastAudioData, TargetWindowHandle);
+                _ = ProcessBatchAsync(_lastAudioData, TargetWindowHandle);
             }
         }
 
@@ -762,7 +570,6 @@ namespace BF_STT.Services.Workflow
             if (item == null) return;
             
             FireStatusChanged("Sending history item...");
-            // Use the last known external window handle (the one focused before clicking the app)
             var handleToUse = InputInjector.LastExternalWindowHandle;
             await InputInjector.InjectTextAsync(item.Text, handleToUse);
             FireStatusChanged("Sent.");
@@ -776,13 +583,6 @@ namespace BF_STT.Services.Workflow
         #endregion
 
         #region Utilities
-
-        private string FormatTranscript(string transcript)
-        {
-            if (string.IsNullOrWhiteSpace(transcript)) return string.Empty;
-            var trimmed = transcript.TrimEnd();
-            return trimmed.EndsWith(".") ? trimmed + " " : trimmed + ". ";
-        }
 
         private void RecordingTimer_Tick(object? sender, EventArgs e)
         {
@@ -812,7 +612,7 @@ namespace BF_STT.Services.Workflow
                 SetProviderTranscript(p.Name, string.Empty);
             }
             TranscriptChanged?.Invoke(string.Empty);
-            ClearAudioBuffer();
+            StreamingManager.ClearBuffer();
         }
 
         #endregion

@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace BF_STT.Models
+namespace BF_STT.Services.STT.Providers.Deepgram
 {
     public class DeepgramResponse
     {

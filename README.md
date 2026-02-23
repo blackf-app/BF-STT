@@ -70,10 +70,58 @@ Cảm nhận sự linh hoạt tối đa với cơ chế nhận diện hành vi n
 ### 📂 Cấu trúc dự án
 
 - `Services/`: Chứa toàn bộ logic xử lý STT, Audio, Hotkey và Registry.
-- `Services/States/`: Triển khai State Machine cho quy trình ghi âm.
+- `Services/Workflow/`: Triển khai State Machine và xử lý Batch/Streaming.
+- `Services/STT/Providers/`: Các provider STT (Deepgram, Speechmatics, Soniox, OpenAI).
 - `ViewModels/`: Logic giao diện theo mô hình MVVM.
-- `Models/`: Các cấu trúc dữ liệu cho API Response và Cấu hình.
+- `Models/`: Các cấu trúc dữ liệu dùng chung (HistoryItem, TranscriptEventArgs).
 - `Scripts/`: Các script Powershell hỗ trợ tăng phiên bản và build tự động.
+
+---
+
+### 🔌 Hướng dẫn thêm STT API mới
+
+Để tích hợp một provider STT mới, thực hiện **3 bước** sau:
+
+#### Bước 1: Tạo Batch Service (bắt buộc)
+
+Tạo thư mục `Services/STT/Providers/<TenProvider>/` và kế thừa `BaseBatchSttService`:
+
+```csharp
+public class MyProviderService : BaseBatchSttService
+{
+    public MyProviderService(HttpClient httpClient, string apiKey, string baseUrl)
+        : base(httpClient, apiKey, baseUrl, "https://api.myprovider.com/v1/transcribe", "default-model")
+    { }
+
+    protected override async Task<string> TranscribeCore(byte[] audioData, string language, CancellationToken ct)
+    {
+        // Chỉ cần implement logic gọi API ở đây
+        // Base class đã xử lý: validate input, đọc file, UpdateSettings
+    }
+}
+```
+
+> **Streaming là tùy chọn.** Nếu provider không hỗ trợ streaming, truyền `null` ở Bước 2 — hệ thống sẽ tự dùng `NullStreamingService`. Nếu có hỗ trợ, implement `IStreamingSttService`.
+
+#### Bước 2: Đăng ký Provider trong DI Container
+
+Mở `Services/Infrastructure/ServiceRegistration.cs` và thêm vào trong factory của `SttProviderRegistry`:
+
+```csharp
+// Batch + Streaming
+var myBatch = new MyProviderService(httpClient, settings.MyProviderApiKey, settings.MyProviderBaseUrl);
+var myStreaming = new MyProviderStreamingService(settings.MyProviderApiKey);
+registry.Register("MyProvider", myBatch, myStreaming,
+    s => s.MyProviderApiKey, s => s.MyProviderModel);
+
+// Batch only (truyền null cho streaming)
+registry.Register("MyProvider", myBatch, null,
+    s => s.MyProviderApiKey, s => s.MyProviderModel);
+```
+
+#### Bước 3: Thêm Settings
+
+Thêm các trường API Key/Model vào class `AppSettings` trong `SettingsService.cs` và cập nhật UI trong `SettingsWindow.xaml`.
 
 ---
 

@@ -1,75 +1,35 @@
-using BF_STT.Models;
-using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Threading.Tasks;
-using System;
 
 using BF_STT.Services.STT.Abstractions;
 
 namespace BF_STT.Services.STT.Providers.OpenAI
 {
-    public class OpenAIBatchService : IBatchSttService
+    public class OpenAIBatchService : BaseBatchSttService
     {
-        private readonly HttpClient _httpClient;
-        private string _apiKey;
-        private readonly string _baseUrl;
-        private string _model;
-
         public OpenAIBatchService(HttpClient httpClient, string apiKey, string baseUrl)
+            : base(httpClient, apiKey, baseUrl, "https://api.openai.com/v1/audio/transcriptions", "whisper-1")
+        { }
+
+        protected override async Task<string> TranscribeCore(byte[] audioData, string language, CancellationToken ct)
         {
-            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-            _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
-            _baseUrl = string.IsNullOrWhiteSpace(baseUrl) ? "https://api.openai.com/v1/audio/transcriptions" : baseUrl;
-            _model = "whisper-1";
-        }
-
-        public void UpdateSettings(string apiKey, string model)
-        {
-            _apiKey = apiKey;
-            if (!string.IsNullOrWhiteSpace(model)) _model = model;
-        }
-
-        public async Task<string> TranscribeAsync(string audioFilePath, string language, CancellationToken ct = default)
-        {
-            if (string.IsNullOrEmpty(audioFilePath) || !File.Exists(audioFilePath))
-            {
-                throw new FileNotFoundException("Audio file not found.", audioFilePath);
-            }
-
-            byte[] fileBytes = await File.ReadAllBytesAsync(audioFilePath);
-            return await TranscribeAsync(fileBytes, language, ct);
-        }
-
-        public async Task<string> TranscribeAsync(byte[] audioData, string language, CancellationToken ct = default)
-        {
-            if (audioData == null || audioData.Length == 0)
-            {
-                throw new ArgumentException("Audio data is empty.", nameof(audioData));
-            }
-
-            if (string.IsNullOrEmpty(_apiKey))
-            {
-                throw new InvalidOperationException("OpenAI API Key is missing. Check Settings.");
-            }
-
             using var content = new MultipartFormDataContent();
             
             var streamContent = new ByteArrayContent(audioData);
             streamContent.Headers.ContentType = new MediaTypeHeaderValue("audio/wav");
             content.Add(streamContent, "file", "audio.wav");
-            content.Add(new StringContent(_model), "model");
+            content.Add(new StringContent(Model), "model");
             if (!string.IsNullOrWhiteSpace(language))
             {
                 content.Add(new StringContent(language), "language");
             }
 
-            var request = new HttpRequestMessage(HttpMethod.Post, _baseUrl);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            var request = new HttpRequestMessage(HttpMethod.Post, BaseUrl);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
             request.Content = content;
 
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await HttpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await response.Content.ReadAsStringAsync();

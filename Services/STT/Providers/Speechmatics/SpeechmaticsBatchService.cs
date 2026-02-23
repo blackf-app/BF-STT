@@ -1,6 +1,3 @@
-using BF_STT.Models;
-using System.Diagnostics;
-using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -10,48 +7,20 @@ using BF_STT.Services.STT.Abstractions;
 
 namespace BF_STT.Services.STT.Providers.Speechmatics
 {
-    public class SpeechmaticsBatchService : IBatchSttService
+    public class SpeechmaticsBatchService : BaseBatchSttService
     {
-        private readonly HttpClient _httpClient;
-        private string _apiKey;
-        private readonly string _baseUrl;
-
         public SpeechmaticsBatchService(HttpClient httpClient, string apiKey, string baseUrl)
+            : base(httpClient, apiKey, baseUrl?.TrimEnd('/') ?? "", "https://asr.api.speechmatics.com/v2", "")
+        { }
+
+        public override void UpdateSettings(string apiKey, string model)
         {
-            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-            _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
-            
-            _baseUrl = string.IsNullOrWhiteSpace(baseUrl) ? "https://asr.api.speechmatics.com/v2" : baseUrl.TrimEnd('/');
+            ApiKey = apiKey;
+            // Speechmatics doesn't use a model field in the same way
         }
 
-        public void UpdateSettings(string apiKey, string model)
+        protected override async Task<string> TranscribeCore(byte[] audioData, string language, CancellationToken ct)
         {
-            _apiKey = apiKey;
-        }
-
-        public async Task<string> TranscribeAsync(string audioFilePath, string language, CancellationToken ct = default)
-        {
-            if (string.IsNullOrEmpty(audioFilePath) || !File.Exists(audioFilePath))
-            {
-                throw new FileNotFoundException("Audio file not found.", audioFilePath);
-            }
-
-            byte[] fileBytes = await File.ReadAllBytesAsync(audioFilePath);
-            return await TranscribeAsync(fileBytes, language, ct);
-        }
-
-        public async Task<string> TranscribeAsync(byte[] audioData, string language, CancellationToken ct = default)
-        {
-            if (audioData == null || audioData.Length == 0)
-            {
-                throw new ArgumentException("Audio data is empty.", nameof(audioData));
-            }
-
-            if (string.IsNullOrEmpty(_apiKey))
-            {
-                throw new InvalidOperationException("Speechmatics API Key is missing. Check settings.");
-            }
-
             string jobId = await SubmitJobAsync(audioData, language);
             if (string.IsNullOrEmpty(jobId))
             {
@@ -69,9 +38,9 @@ namespace BF_STT.Services.STT.Providers.Speechmatics
 
         private async Task<string> SubmitJobAsync(byte[] audioData, string language)
         {
-            var url = $"{_baseUrl}/jobs";
+            var url = $"{BaseUrl}/jobs";
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
 
             var configJson = JsonSerializer.Serialize(new
             {
@@ -92,7 +61,7 @@ namespace BF_STT.Services.STT.Providers.Speechmatics
 
             request.Content = content;
 
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await HttpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
@@ -107,7 +76,7 @@ namespace BF_STT.Services.STT.Providers.Speechmatics
 
         private async Task<bool> WaitForJobCompletionAsync(string jobId)
         {
-            var url = $"{_baseUrl}/jobs/{jobId}";
+            var url = $"{BaseUrl}/jobs/{jobId}";
             
             // Poll for up to 60 seconds
             for (int i = 0; i < 60; i++)
@@ -115,9 +84,9 @@ namespace BF_STT.Services.STT.Providers.Speechmatics
                 await Task.Delay(1000); // 1 second polling interval
 
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
 
-                using var response = await _httpClient.SendAsync(request);
+                using var response = await HttpClient.SendAsync(request);
                 if (response.IsSuccessStatusCode)
                 {
                     var json = await response.Content.ReadAsStringAsync();
@@ -138,12 +107,12 @@ namespace BF_STT.Services.STT.Providers.Speechmatics
 
         private async Task<string> GetTranscriptAsync(string jobId)
         {
-            var url = $"{_baseUrl}/jobs/{jobId}/transcript?format=txt";
+            var url = $"{BaseUrl}/jobs/{jobId}/transcript?format=txt";
             
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
 
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await HttpClient.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
             return await response.Content.ReadAsStringAsync();

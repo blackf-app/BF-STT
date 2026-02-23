@@ -1,63 +1,22 @@
-using BF_STT.Models;
-using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
-using System.Threading.Tasks;
-using System;
 using System.Linq;
-using System.Threading;
 
 using BF_STT.Services.STT.Abstractions;
 
 namespace BF_STT.Services.STT.Providers.Soniox
 {
-    public class SonioxBatchService : IBatchSttService
+    public class SonioxBatchService : BaseBatchSttService
     {
-        private readonly HttpClient _httpClient;
-        private string _apiKey;
-        private readonly string _baseUrl;
-        private string _model;
-
         public SonioxBatchService(HttpClient httpClient, string apiKey, string baseUrl)
+            : base(httpClient, apiKey, baseUrl, "https://api.soniox.com/v1", "stt-async-v4")
+        { }
+
+        protected override async Task<string> TranscribeCore(byte[] audioData, string language, CancellationToken ct)
         {
-            _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-            _apiKey = apiKey ?? throw new ArgumentNullException(nameof(apiKey));
-            _baseUrl = string.IsNullOrWhiteSpace(baseUrl) ? "https://api.soniox.com/v1" : baseUrl;
-            _model = "stt-async-v4"; // Correct default model for Soniox async/files APIs
-        }
-
-        public void UpdateSettings(string apiKey, string model)
-        {
-            _apiKey = apiKey;
-            if (!string.IsNullOrWhiteSpace(model)) _model = model;
-        }
-
-        public async Task<string> TranscribeAsync(string audioFilePath, string language, CancellationToken ct = default)
-        {
-            if (string.IsNullOrEmpty(audioFilePath) || !File.Exists(audioFilePath))
-            {
-                throw new FileNotFoundException("Audio file not found.", audioFilePath);
-            }
-
-            byte[] fileBytes = await File.ReadAllBytesAsync(audioFilePath);
-            return await TranscribeAsync(fileBytes, language, ct);
-        }
-
-        public async Task<string> TranscribeAsync(byte[] audioData, string language, CancellationToken ct = default)
-        {
-            if (audioData == null || audioData.Length == 0)
-            {
-                throw new ArgumentException("Audio data is empty.", nameof(audioData));
-            }
-
-            if (string.IsNullOrEmpty(_apiKey))
-            {
-                throw new InvalidOperationException("Soniox API Key is missing. Check Settings.");
-            }
-
             // Upload the audio data to Soniox File API
-            var uploadUrl = $"{_baseUrl}/files";
+            var uploadUrl = $"{BaseUrl}/files";
             var fileId = await UploadDataAsync(uploadUrl, audioData);
 
             if (string.IsNullOrEmpty(fileId))
@@ -66,7 +25,7 @@ namespace BF_STT.Services.STT.Providers.Soniox
             }
 
             // Create transcription job
-            var transcribeUrl = $"{_baseUrl}/transcriptions";
+            var transcribeUrl = $"{BaseUrl}/transcriptions";
             var transcriptionId = await CreateTranscriptionAsync(transcribeUrl, fileId, language);
 
             if (string.IsNullOrEmpty(transcriptionId))
@@ -93,10 +52,10 @@ namespace BF_STT.Services.STT.Providers.Soniox
             content.Add(byteContent, "file", "audio.wav");
 
             var request = new HttpRequestMessage(HttpMethod.Post, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
             request.Content = content;
 
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await HttpClient.SendAsync(request);
             var json = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -124,7 +83,7 @@ namespace BF_STT.Services.STT.Providers.Soniox
             var requestBody = new
             {
                 file_id = fileId,
-                model = _model,
+                model = Model,
                 transcription_config = new
                 {
                     language = language
@@ -132,10 +91,10 @@ namespace BF_STT.Services.STT.Providers.Soniox
             };
             
             var request = new HttpRequestMessage(HttpMethod.Post, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
             request.Content = new StringContent(JsonSerializer.Serialize(requestBody), System.Text.Encoding.UTF8, "application/json");
 
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await HttpClient.SendAsync(request);
             var json = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
@@ -167,9 +126,9 @@ namespace BF_STT.Services.STT.Providers.Soniox
             for (int i = 0; i < maxAttempts; i++)
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, url);
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
                 
-                using var response = await _httpClient.SendAsync(request);
+                using var response = await HttpClient.SendAsync(request);
                 var json = await response.Content.ReadAsStringAsync();
 
                 if (!response.IsSuccessStatusCode)
@@ -217,9 +176,9 @@ namespace BF_STT.Services.STT.Providers.Soniox
         {
             var url = $"{baseUrl}/{transcriptionId}/transcript";
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
 
-            using var response = await _httpClient.SendAsync(request);
+            using var response = await HttpClient.SendAsync(request);
             var json = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)

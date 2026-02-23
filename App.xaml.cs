@@ -3,6 +3,8 @@ using BF_STT.ViewModels;
 using System.IO;
 using System.Net.Http;
 using System.Threading;
+using System.Threading.Tasks;
+using System.Diagnostics;
 using System.Windows;
 
 namespace BF_STT
@@ -118,6 +120,41 @@ namespace BF_STT
             };
 
             mainWindow.Show();
+
+            // Check for updates in background
+            if (_httpClient != null)
+            {
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        var updateService = new UpdateService(_httpClient);
+                        var release = await updateService.CheckForUpdateAsync();
+                        if (release != null)
+                        {
+                            await Dispatcher.InvokeAsync(() =>
+                            {
+                                var result = System.Windows.MessageBox.Show(
+                                    $"Đã có phiên bản mới ({release.Version}). Bạn có muốn cập nhật ngay không?\n\n" +
+                                    "Ứng dụng sẽ tự động tải về, cài đặt và khởi động lại.",
+                                    "Cập Nhật Có Sẵn",
+                                    System.Windows.MessageBoxButton.YesNo,
+                                    System.Windows.MessageBoxImage.Information);
+
+                                if (result == System.Windows.MessageBoxResult.Yes)
+                                {
+                                    // Start update process
+                                    _ = updateService.DownloadAndInstallUpdateAsync(release.DownloadUrl);
+                                }
+                            });
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"Update check background error: {ex.Message}");
+                    }
+                });
+            }
             
             // Restore normal shutdown behavior
             MainWindow = mainWindow;

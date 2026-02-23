@@ -205,5 +205,26 @@ namespace BF_STT
             DialogResult = false;
             Close();
         }
+
+        private void OpenConfigFolderButton_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string appDataPath = System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.ApplicationData), "BF-STT");
+                if (System.IO.Directory.Exists(appDataPath))
+                {
+                    System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo()
+                    {
+                        FileName = appDataPath,
+                        UseShellExecute = true,
+                        Verb = "open"
+                    });
+                }
+            }
+            catch (System.Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Không thể mở thư mục: {ex.Message}", "Lỗi", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        }
     }
 }

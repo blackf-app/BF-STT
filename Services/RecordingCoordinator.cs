@@ -549,11 +549,7 @@ namespace BF_STT.Services
                     if (!string.IsNullOrWhiteSpace(finalTranscript))
                     {
                         HistoryService.AddEntry(finalTranscript, BatchModeApi);
-                        await InputInjector.InjectTextAsync(finalTranscript, targetWindow);
-                        if (ShouldAutoSend)
-                        {
-                            await InputInjector.PressEnterAsync(targetWindow);
-                        }
+                        await InputInjector.InjectTextAsync(finalTranscript, targetWindow, ShouldAutoSend);
                     }
                 });
             }

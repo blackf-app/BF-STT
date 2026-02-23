@@ -123,7 +123,7 @@ namespace BF_STT.Services
         /// Injects text into the specified window (or last active external window) by simulating Ctrl+V.
         /// Backs up and restores the user's clipboard content to avoid data loss.
         /// </summary>
-        public async Task InjectTextAsync(string text, IntPtr? targetWindowHandle = null)
+        public async Task InjectTextAsync(string text, IntPtr? targetWindowHandle = null, bool autoSend = false)
         {
             // Use the explicit target if provided and valid (non-zero), otherwise fallback to the last known external window
             var handleToUse = (targetWindowHandle.HasValue && targetWindowHandle.Value != IntPtr.Zero) 
@@ -167,6 +167,14 @@ namespace BF_STT.Services
 
                 // Short delay — SendInput is near-instant
                 await Task.Delay(30);
+
+                if (autoSend)
+                {
+                    // Small delay to allow target app (like Zalo/Electron) to process the paste
+                    await Task.Delay(50);
+                    SimulateEnter();
+                    await Task.Delay(30);
+                }
             }
             finally
             {
@@ -177,6 +185,7 @@ namespace BF_STT.Services
 
                 if (shouldRestoreFocus)
                 {
+                    // Ensure the focus is restored back if necessary
                     EnsureWindowFocused(currentForeground);
                 }
 

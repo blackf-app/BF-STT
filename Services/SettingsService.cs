@@ -8,6 +8,7 @@ namespace BF_STT.Services
     {
         // General
         public bool StartWithWindows { get; set; }
+        public bool AutoCheckUpdate { get; set; } = true;
         public bool TestMode { get; set; } = false;
         public string BatchModeApi { get; set; } = "Deepgram";
         public string StreamingModeApi { get; set; } = "Deepgram";

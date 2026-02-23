@@ -100,6 +100,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <TextBlock Grid.Row="0" 
@@ -213,12 +214,18 @@
                       HorizontalAlignment="Left"/>
 
             <CheckBox Grid.Row="9" 
+                      x:Name="AutoCheckUpdateCheckBox" 
+                      Content="Tự động kiểm tra phiên bản mới" 
+                      Margin="0,0,0,10"
+                      HorizontalAlignment="Left"/>
+
+            <CheckBox Grid.Row="10" 
                       x:Name="StartWithWindowsCheckBox" 
                       Content="Start with Windows" 
                       Margin="0,0,0,30"
                       HorizontalAlignment="Left"/>
 
-            <StackPanel Grid.Row="10" 
+            <StackPanel Grid.Row="11" 
                         Orientation="Horizontal" 
                         HorizontalAlignment="Center">
                 <Button Content="Save" 

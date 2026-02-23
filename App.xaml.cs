@@ -122,7 +122,7 @@ namespace BF_STT
             mainWindow.Show();
 
             // Check for updates in background
-            if (_httpClient != null)
+            if (_httpClient != null && settings.AutoCheckUpdate)
             {
                 _ = Task.Run(async () =>
                 {

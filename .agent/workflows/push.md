@@ -9,7 +9,7 @@ Follow these steps to push your changes with an AI-generated commit message:
 git add -A
 ```
 
-2. Generate a concise and descriptive commit message based on the staged changes (DO NOT use prefixes like "feat:", "fix:", etc.). I will review the `git diff --cached` output to understand the context of your work.
+2. Generate a concise and descriptive commit message based on the staged changes (DO NOT use prefixes like "feat:", "fix:", etc.). Ignore changes related to version increments or README updates in the generated message. I will review the `git diff --cached` output to understand the context of your work.
 
 3. Commit the changes with the generated message.
 ```powershell

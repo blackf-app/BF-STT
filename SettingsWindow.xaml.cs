@@ -19,6 +19,7 @@ namespace BF_STT
                 SpeechmaticsApiKey = _settingsService.CurrentSettings.SpeechmaticsApiKey,
                 SonioxApiKey = _settingsService.CurrentSettings.SonioxApiKey,
                 StartWithWindows = _settingsService.CurrentSettings.StartWithWindows,
+                AutoCheckUpdate = _settingsService.CurrentSettings.AutoCheckUpdate,
                 StreamingUrl = _settingsService.CurrentSettings.StreamingUrl,
                 Model = _settingsService.CurrentSettings.Model,
                 SpeechmaticsBaseUrl = _settingsService.CurrentSettings.SpeechmaticsBaseUrl,
@@ -44,6 +45,7 @@ namespace BF_STT
             SonioxApiKeyTextBox.Text = _tempSettings.SonioxApiKey;
             OpenAIApiKeyTextBox.Text = _tempSettings.OpenAIApiKey;
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
+            AutoCheckUpdateCheckBox.IsChecked = _tempSettings.AutoCheckUpdate;
             TestModeCheckBox.IsChecked = _tempSettings.TestMode;
             MaxHistoryLimitTextBox.Text = _tempSettings.MaxHistoryItems.ToString();
 
@@ -138,6 +140,7 @@ namespace BF_STT
             _tempSettings.SonioxApiKey = SonioxApiKeyTextBox.Text;
             _tempSettings.OpenAIApiKey = OpenAIApiKeyTextBox.Text;
             _tempSettings.StartWithWindows = StartWithWindowsCheckBox.IsChecked ?? false;
+            _tempSettings.AutoCheckUpdate = AutoCheckUpdateCheckBox.IsChecked ?? false;
             _tempSettings.TestMode = TestModeCheckBox.IsChecked ?? false;
             
             // Get Batch API from ComboBox

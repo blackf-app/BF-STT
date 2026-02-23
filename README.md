@@ -129,9 +129,10 @@ Thêm các trường API Key/Model vào class `AppSettings` trong `SettingsServi
 
 **BF-STT** được thiết kế để mang lại trải nghiệm nhập liệu tự nhiên và mạnh mẽ nhất cho người dùng Windows.
 
+- **Tác giả và Ý tưởng hệ thống:** Black Face
+- **Hỗ trợ phát triển bởi:** Antigravity AI
 - **Phiên bản hiện tại:** Tự động cập nhật qua Build Workflow.
 - **Cập nhật mới nhất:** 24/02/2026
-- **Phát triển bởi:** Antigravity AI
 
 ---
 *Copyright © 2026. All rights reserved.*

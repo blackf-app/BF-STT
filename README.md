@@ -28,13 +28,18 @@ Cảm nhận sự linh hoạt tối đa với cơ chế nhận diện hành vi n
 - **Auto-Typing:** Giả lập bàn phím siêu tốc để nhập văn bản vào ứng dụng đích.
 - **Clipboard Protection:** Tự động sao lưu dữ liệu Clipboard cũ của bạn và khôi phục lại sau khi gõ xong, đảm bảo bạn không bị mất dữ liệu quan trọng đang lưu trong bộ nhớ tạm.
 
+#### 🔹 6. Lọc nhiễu thông minh (RNNoise Suppression)
+- Tích hợp công nghệ lọc nhiễu dựa trên mạng thần kinh nhân tạo (**RNNoise**).
+- **Lợi ích:** Loại bỏ hiệu quả tiếng quạt, điều hòa, tiếng ồn trắng và tiếng gõ bàn phím. Giúp AI nhận diện giọng nói sạch hơn, từ đó giảm thiểu tối đa hiện tượng "ảo giác" (tự bịa chữ) khi môi trường ồn.
+- **Tùy chọn linh hoạt:** Có thể bật/tắt trong Settings. Bật khi môi trường ồn để tăng độ chính xác, hoặc tắt khi sử dụng micro chuyên nghiệp để giữ độ trung thực cao nhất của giọng nói.
+
 ---
 
 ### 🛠 Công nghệ & Kiến trúc
 
 - **Framework:** .NET 8 (C#) với WPF hiện đại.
 - **Quản lý trạng thái:** Sử dụng **State Pattern** (Idle, Pending, Batch, Streaming, Processing) để đảm bảo luồng xử lý chặt chẽ và ổn định.
-- **Audio Engine:** NAudio xử lý luồng âm thanh PCM 16kHz, Mono.
+- **Audio Engine:** NAudio xử lý luồng âm thanh PCM 16kHz. Khi bật Noise Suppression, hệ thống tự động ghi âm ở 48kHz để tối ưu cho RNNoise trước khi Downsample về 16kHz.
 - **Dọn dẹp tự động:** Hệ thống tự động xóa các file ghi âm tạm thời sau mỗi phiên làm việc để giải phóng dung lượng ổ cứng.
 - **Single Instance:** Đảm bảo chỉ có một bản chạy duy nhất thông qua cơ chế Mutex hệ thống.
 
@@ -51,7 +56,8 @@ Cảm nhận sự linh hoạt tối đa với cơ chế nhận diện hành vi n
 1. Mở **Settings** (biểu tượng bánh răng) hoặc chuột phải vào icon khay hệ thống.
 2. Nhập các **API Key** cần thiết (Deepgram được khuyến nghị cho tốc độ nhanh nhất).
 3. Thiết lập **Hotkeys** và **Microphone** đầu vào.
-4. Bật **Start with Windows** nếu muốn ứng dụng luôn sẵn sàng.
+4. Bật/Tắt **Noise Suppression** tùy theo môi trường làm việc.
+5. Bật **Start with Windows** nếu muốn ứng dụng luôn sẵn sàng.
 
 #### 3. Thao tác nhanh
 - **F3 (Tap):** Bắt đầu/Kết thúc ghi âm (Batch).
@@ -76,7 +82,7 @@ Cảm nhận sự linh hoạt tối đa với cơ chế nhận diện hành vi n
 **BF-STT** được thiết kế để mang lại trải nghiệm nhập liệu tự nhiên và mạnh mẽ nhất cho người dùng Windows.
 
 - **Phiên bản hiện tại:** Tự động cập nhật qua Build Workflow.
-- **Cập nhật mới nhất:** 22/02/2026
+- **Cập nhật mới nhất:** 24/02/2026
 - **Phát triển bởi:** Antigravity AI
 
 ---

@@ -34,6 +34,10 @@ namespace BF_STT.Services
         private const float HpfAlpha = 0.97f;
         private const float SoftClipThreshold = 0.95f;
         
+        // Noise Suppression
+        private NoiseSuppressionService? _noiseService;
+        public bool EnableNoiseSuppression { get; set; }
+        
         // Silent detection
         private bool _hasAudio;
         private bool _hasSpeechContent;
@@ -99,15 +103,21 @@ namespace BF_STT.Services
             _silenceFrameCount = 0;
             _speechFrameCount = 0;
 
+            int sampleRate = EnableNoiseSuppression ? 48000 : 16000;
+            if (EnableNoiseSuppression && _noiseService == null)
+            {
+                _noiseService = new NoiseSuppressionService();
+            }
+
             _waveIn = new WaveInEvent
             {
                 DeviceNumber = DeviceNumber,
-                WaveFormat = new WaveFormat(16000, 16, 1), // 16kHz, 16-bit, Mono
+                WaveFormat = new WaveFormat(sampleRate, 16, 1), // 48kHz if NS enabled, else 16kHz
                 BufferMilliseconds = 50,
                 NumberOfBuffers = 3
             };
 
-            _waveFormat = _waveIn.WaveFormat;
+            _waveFormat = new WaveFormat(16000, 16, 1); // Always 16kHz for the output buffer/file
 
             // Initialize in-memory WAV buffer
             _audioMemory = new MemoryStream();
@@ -170,64 +180,89 @@ namespace BF_STT.Services
         private void OnWaveInDataAvailable(object? sender, WaveInEventArgs e)
 
         {
-            float maxSample = 0;
-            
-            // Process samples in-place
-            for (int i = 0; i < e.BytesRecorded; i += 2)
+            // 1. Convert to float to apply filters
+            int sampleCount = e.BytesRecorded / 2;
+            short[] shortBuffer = new short[sampleCount];
+            for (int i = 0; i < sampleCount; i++)
             {
-                // 1. Convert to float
-                short rawSample = BitConverter.ToInt16(e.Buffer, i);
-                float sample = rawSample;
+                shortBuffer[i] = BitConverter.ToInt16(e.Buffer, i * 2);
+            }
 
-                // 2. High-Pass Filter (DC Offset Removal & Rumble Filter)
+            // Apply existing filters (HPF, Gain, Soft Clipping)
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float sample = shortBuffer[i];
                 float hpfOut = HpfAlpha * (_prevHpfOutput + sample - _prevSample);
-                
-                // Update filter state
                 _prevSample = sample;
                 _prevHpfOutput = hpfOut;
 
-                // 3. Apply Gain
                 float amplified = hpfOut * _volumeMultiplier;
-
-                // 4. Soft Clipping (Tanh Limiter)
                 float normalized = amplified / short.MaxValue;
                 float softClipped = (float)Math.Tanh(normalized); 
                 float finalFloat = softClipped * short.MaxValue;
 
-                // Clamp strictly to short range
                 if (finalFloat > short.MaxValue) finalFloat = short.MaxValue;
                 if (finalFloat < short.MinValue) finalFloat = short.MinValue;
 
-                short finalSample = (short)finalFloat;
+                shortBuffer[i] = (short)finalFloat;
+            }
 
-                // Track peak for UI visualization
-                float absSample = Math.Abs(finalFloat / short.MaxValue);
+            // Apply Noise Suppression and Downsample if needed
+            byte[] finalBuffer;
+            int finalBytesRecorded;
+
+            if (EnableNoiseSuppression && _noiseService != null)
+            {
+                // Denoise at 48kHz
+                _noiseService.Process(shortBuffer, sampleCount);
+
+                // Downsample 3:1 (48kHz -> 16kHz)
+                int downsampledCount = sampleCount / 3;
+                short[] downsampledBuffer = new short[downsampledCount];
+                for (int i = 0; i < downsampledCount; i++)
+                {
+                    downsampledBuffer[i] = shortBuffer[i * 3];
+                }
+
+                finalBytesRecorded = downsampledCount * 2;
+                finalBuffer = new byte[finalBytesRecorded];
+                Buffer.BlockCopy(downsampledBuffer, 0, finalBuffer, 0, finalBytesRecorded);
+            }
+            else
+            {
+                finalBytesRecorded = e.BytesRecorded;
+                finalBuffer = new byte[finalBytesRecorded];
+                Buffer.BlockCopy(shortBuffer, 0, finalBuffer, 0, finalBytesRecorded);
+            }
+
+            // Process final 16kHz data for VAD and Level
+            float maxSample = 0;
+            int finalSampleCount = finalBytesRecorded / 2;
+            for (int i = 0; i < finalSampleCount; i++)
+            {
+                short sample = BitConverter.ToInt16(finalBuffer, i * 2);
+                float absSample = Math.Abs((float)sample / short.MaxValue);
                 if (absSample > maxSample) maxSample = absSample;
-
-                // Write back to buffer
-                byte[] bytes = BitConverter.GetBytes(finalSample);
-                e.Buffer[i] = bytes[0];
-                e.Buffer[i + 1] = bytes[1];
             }
 
             // Track peak for silent detection
             if (maxSample > _maxPeakLevel) _maxPeakLevel = maxSample;
             if (_maxPeakLevel > SilenceThreshold) _hasAudio = true;
 
-        // 5. VAD Logic
-        if (maxSample > VadSpeechThreshold)
-        {
-            _speechFrameCount++;
-            _silenceFrameCount = 0;
-            
-            if (!_isSpeaking && _speechFrameCount >= VadSpeechFramesToStart)
+            // 5. VAD Logic
+            if (maxSample > VadSpeechThreshold)
             {
-                _isSpeaking = true;
-                _hasSpeechContent = true;
-                IsSpeakingChanged?.Invoke(this, true);
-                System.Diagnostics.Debug.WriteLine("[AudioRecording] VAD: Speech Started");
+                _speechFrameCount++;
+                _silenceFrameCount = 0;
+                
+                if (!_isSpeaking && _speechFrameCount >= VadSpeechFramesToStart)
+                {
+                    _isSpeaking = true;
+                    _hasSpeechContent = true;
+                    IsSpeakingChanged?.Invoke(this, true);
+                    System.Diagnostics.Debug.WriteLine($"[AudioRecording] VAD: Speech Started (Peak: {maxSample:F4})");
+                }
             }
-        }
             else
             {
                 _silenceFrameCount++;
@@ -248,7 +283,7 @@ namespace BF_STT.Services
             {
                 try
                 {
-                    _memWriter.Write(e.Buffer, 0, e.BytesRecorded);
+                    _memWriter.Write(finalBuffer, 0, finalBytesRecorded);
                 }
                 catch (Exception ex)
                 {
@@ -257,9 +292,7 @@ namespace BF_STT.Services
             }
 
             // 2. Fire event for streaming
-            var copy = new byte[e.BytesRecorded];
-            Array.Copy(e.Buffer, copy, e.BytesRecorded);
-            AudioDataAvailable?.Invoke(this, new AudioDataEventArgs(copy, e.BytesRecorded));
+            AudioDataAvailable?.Invoke(this, new AudioDataEventArgs(finalBuffer, finalBytesRecorded));
         }
 
         private bool _discardRecording;
@@ -351,8 +384,10 @@ namespace BF_STT.Services
             _memWriter = null;
             try { _audioMemory?.Dispose(); } catch { }
             _audioMemory = null;
-            try { _waveIn?.Dispose(); } catch { }
+            _waveIn?.Dispose();
             _waveIn = null;
+            _noiseService?.Dispose();
+            _noiseService = null;
         }
     }
 }

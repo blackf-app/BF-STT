@@ -43,6 +43,9 @@ namespace BF_STT.Services
         public string OpenAIApiKey { get; set; } = "";
         public string OpenAIBaseUrl { get; set; } = "https://api.openai.com/v1/audio/transcriptions";
         public string OpenAIModel { get; set; } = "whisper-1";
+
+        // Noise Suppression
+        public bool EnableNoiseSuppression { get; set; } = false;
     }
 
     public class SettingsService

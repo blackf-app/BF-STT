@@ -37,7 +37,8 @@ namespace BF_STT
                 HotkeyVirtualKeyCode = _settingsService.CurrentSettings.HotkeyVirtualKeyCode,
                 StopAndSendHotkeyVirtualKeyCode = _settingsService.CurrentSettings.StopAndSendHotkeyVirtualKeyCode,
                 MicrophoneDeviceNumber = _settingsService.CurrentSettings.MicrophoneDeviceNumber,
-                MaxHistoryItems = _settingsService.CurrentSettings.MaxHistoryItems
+                MaxHistoryItems = _settingsService.CurrentSettings.MaxHistoryItems,
+                EnableNoiseSuppression = _settingsService.CurrentSettings.EnableNoiseSuppression
             };
 
             ApiKeyTextBox.Text = _tempSettings.ApiKey;
@@ -47,6 +48,7 @@ namespace BF_STT
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
             AutoCheckUpdateCheckBox.IsChecked = _tempSettings.AutoCheckUpdate;
             TestModeCheckBox.IsChecked = _tempSettings.TestMode;
+            NoiseSuppressionCheckBox.IsChecked = _tempSettings.EnableNoiseSuppression;
             MaxHistoryLimitTextBox.Text = _tempSettings.MaxHistoryItems.ToString();
 
             // Set ComboBox selection based on current BatchModeApi
@@ -142,6 +144,7 @@ namespace BF_STT
             _tempSettings.StartWithWindows = StartWithWindowsCheckBox.IsChecked ?? false;
             _tempSettings.AutoCheckUpdate = AutoCheckUpdateCheckBox.IsChecked ?? false;
             _tempSettings.TestMode = TestModeCheckBox.IsChecked ?? false;
+            _tempSettings.EnableNoiseSuppression = NoiseSuppressionCheckBox.IsChecked ?? false;
             
             // Get Batch API from ComboBox
             if (BatchModeApiComboBox.SelectedIndex == 3) _tempSettings.BatchModeApi = "OpenAI";

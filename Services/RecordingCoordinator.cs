@@ -291,6 +291,7 @@ namespace BF_STT.Services
             try
             {
                 AudioService.DeviceNumber = SettingsService.CurrentSettings.MicrophoneDeviceNumber;
+                AudioService.EnableNoiseSuppression = SettingsService.CurrentSettings.EnableNoiseSuppression;
                 AudioService.StartRecording();
 
                 _recordingDuration = TimeSpan.Zero;

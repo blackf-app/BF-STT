@@ -23,13 +23,19 @@ gh auth status
 ```
 
 // turbo
-3. Build the application (This will automatically increment version and publish to ./publish)
+3. Increment version
 ```powershell
-dotnet publish -c Release -o ./publish
+powershell -ExecutionPolicy Bypass -File "scripts/increment_version.ps1" -csprojPath "BF-STT.csproj"
 ```
 
 // turbo
-4. Get the new Version and Create Release
+4. Build the application (Published to ./publish)
+```powershell
+dotnet publish -c Release -o ./publish /p:IsAutoPublishing=true
+```
+
+// turbo
+5. Get the new Version and Create Release
 ```powershell
 # Extract version from .csproj
 [xml]$doc = Get-Content "BF-STT.csproj"
@@ -42,9 +48,9 @@ Write-Host "Releasing version: $version" -ForegroundColor Cyan
 # Prepare Release Notes from Git History
 $lastTag = git describe --tags --abbrev=0 2>$null
 if ($lastTag) {
-    $releaseNotes = git log "$lastTag..HEAD" --pretty=format:"- %s"
+    $releaseNotes = (git log "$lastTag..HEAD" --pretty=format:"- %s") -join "`n"
 } else {
-    $releaseNotes = git log -n 5 --pretty=format:"- %s"
+    $releaseNotes = (git log -n 5 --pretty=format:"- %s") -join "`n"
 }
 
 if ([string]::IsNullOrWhiteSpace($releaseNotes)) {

@@ -1,4 +1,13 @@
-﻿using BF_STT.Services;
+﻿using BF_STT.Services.Audio;
+using BF_STT.Services.STT;
+using BF_STT.Services.STT.Abstractions;
+using BF_STT.Services.STT.Providers.Deepgram;
+using BF_STT.Services.STT.Providers.OpenAI;
+using BF_STT.Services.STT.Providers.Soniox;
+using BF_STT.Services.STT.Providers.Speechmatics;
+using BF_STT.Services.Workflow;
+using BF_STT.Services.Platform;
+using BF_STT.Services.Infrastructure;
 using BF_STT.ViewModels;
 using System.IO;
 using System.Net.Http;

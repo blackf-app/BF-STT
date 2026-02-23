@@ -24,6 +24,60 @@ namespace BF_STT.Services
         [DllImport("kernel32.dll")]
         private static extern uint GetCurrentThreadId();
 
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        #region SendInput Structs
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct INPUT
+        {
+            public uint type;
+            public INPUTUNION U;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        private struct INPUTUNION
+        {
+            [FieldOffset(0)]
+            public MOUSEINPUT mi; // Must be present — largest union member defines struct size
+            [FieldOffset(0)]
+            public KEYBDINPUT ki;
+        }
+
+        // Required in the union to ensure correct struct size (32 bytes on x64).
+        // Without this, Marshal.SizeOf<INPUT>() returns 32 instead of 40,
+        // causing SendInput to silently fail.
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct KEYBDINPUT
+        {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public IntPtr dwExtraInfo;
+        }
+
+        private const uint INPUT_KEYBOARD = 1;
+        private const uint KEYEVENTF_KEYUP = 0x0002;
+        private const ushort VK_CONTROL = 0x11;
+        private const ushort VK_RETURN = 0x0D;
+        private const ushort VK_BACK = 0x08;
+        private const ushort VK_V = 0x56;
+
+        #endregion
+
         private IntPtr _lastExternalWindowHandle;
         private readonly DispatcherTimer _timer;
         private readonly int _myProcessId;
@@ -105,14 +159,14 @@ namespace BF_STT.Services
                 SetForegroundWindow(handleToUse);
 
                 // Give it a moment to gain focus (non-blocking)
-                await Task.Delay(100);
+                await Task.Delay(30);
 
-                // Set our text and paste
+                // Set our text and paste via SendInput (faster than SendKeys)
                 WpfClipboard.SetText(text);
-                System.Windows.Forms.SendKeys.SendWait("^v");
+                SimulateCtrlV();
 
-                // Small delay to let the paste complete before restoring clipboard
-                await Task.Delay(50);
+                // Short delay — SendInput is near-instant
+                await Task.Delay(30);
             }
             finally
             {
@@ -213,21 +267,19 @@ namespace BF_STT.Services
                     // Ensure target window is focused
                     EnsureWindowFocused(handleToUse);
 
-                    // Delete characters that need to be replaced
+                    // Delete characters that need to be replaced via SendInput
                     if (charsToDelete > 0)
                     {
-                        // Send Backspace keys to delete old characters
-                        string backspaces = new string('\b', charsToDelete);
-                        System.Windows.Forms.SendKeys.SendWait(backspaces);
-                        await Task.Delay(10);
+                        SimulateBackspace(charsToDelete);
+                        await Task.Delay(5);
                     }
 
-                    // Insert new characters via clipboard (for Unicode/Vietnamese support)
+                    // Insert new characters via clipboard + SendInput (for Unicode/Vietnamese support)
                     if (!string.IsNullOrEmpty(charsToAdd))
                     {
                         WpfClipboard.SetText(charsToAdd);
-                        System.Windows.Forms.SendKeys.SendWait("^v");
-                        await Task.Delay(10);
+                        SimulateCtrlV();
+                        await Task.Delay(5);
                     }
 
                     _lastInjectedText = fullText;
@@ -338,6 +390,80 @@ namespace BF_STT.Services
             WpfClipboard.SetDataObject(backup, true); // true = persist after app exits
         }
 
+        #region SendInput Helpers
+
+        /// <summary>
+        /// Simulates Ctrl+V keystroke using SendInput API (much faster than SendKeys.SendWait).
+        /// </summary>
+        private void SimulateCtrlV()
+        {
+            var inputs = new INPUT[4];
+
+            // Ctrl down
+            inputs[0].type = INPUT_KEYBOARD;
+            inputs[0].U.ki.wVk = VK_CONTROL;
+
+            // V down
+            inputs[1].type = INPUT_KEYBOARD;
+            inputs[1].U.ki.wVk = VK_V;
+
+            // V up
+            inputs[2].type = INPUT_KEYBOARD;
+            inputs[2].U.ki.wVk = VK_V;
+            inputs[2].U.ki.dwFlags = KEYEVENTF_KEYUP;
+
+            // Ctrl up
+            inputs[3].type = INPUT_KEYBOARD;
+            inputs[3].U.ki.wVk = VK_CONTROL;
+            inputs[3].U.ki.dwFlags = KEYEVENTF_KEYUP;
+
+            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        }
+
+        /// <summary>
+        /// Simulates multiple Backspace key presses using SendInput API.
+        /// </summary>
+        private void SimulateBackspace(int count)
+        {
+            if (count <= 0) return;
+
+            var inputs = new INPUT[count * 2]; // Each key needs down + up
+            for (int i = 0; i < count; i++)
+            {
+                // Key down
+                inputs[i * 2].type = INPUT_KEYBOARD;
+                inputs[i * 2].U.ki.wVk = VK_BACK;
+
+                // Key up
+                inputs[i * 2 + 1].type = INPUT_KEYBOARD;
+                inputs[i * 2 + 1].U.ki.wVk = VK_BACK;
+                inputs[i * 2 + 1].U.ki.dwFlags = KEYEVENTF_KEYUP;
+            }
+
+            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        }
+
+        /// <summary>
+        /// Simulates an Enter key press using SendInput API.
+        /// </summary>
+        private void SimulateEnter()
+        {
+            var inputs = new INPUT[2];
+
+            // Enter down
+            inputs[0].type = INPUT_KEYBOARD;
+            inputs[0].U.ki.wVk = VK_RETURN;
+
+            // Enter up
+            inputs[1].type = INPUT_KEYBOARD;
+            inputs[1].U.ki.wVk = VK_RETURN;
+            inputs[1].U.ki.dwFlags = KEYEVENTF_KEYUP;
+
+            SendInput((uint)inputs.Length, inputs, Marshal.SizeOf<INPUT>());
+        }
+
+        #endregion
+
         public void Dispose()
         {
             _timer.Stop();
@@ -345,6 +471,7 @@ namespace BF_STT.Services
         }
         /// <summary>
         /// Simulates an Enter key press in the target window.
+        /// Uses AttachThreadInput for reliable focus switching.
         /// </summary>
         public async Task PressEnterAsync(IntPtr? targetWindowHandle = null)
         {
@@ -357,11 +484,27 @@ namespace BF_STT.Services
             var currentForeground = GetForegroundWindow();
             bool shouldRestoreFocus = currentForeground != IntPtr.Zero && currentForeground != handleToUse;
 
+            uint currentThreadId = GetCurrentThreadId();
+            uint targetThreadId = GetWindowThreadProcessId(handleToUse, out uint _);
+            bool attached = false;
+
             try
             {
-                EnsureWindowFocused(handleToUse);
-                await Task.Delay(50);
-                System.Windows.Forms.SendKeys.SendWait("{ENTER}");
+                if (currentThreadId != targetThreadId)
+                {
+                    attached = AttachThreadInput(currentThreadId, targetThreadId, true);
+                }
+
+                SetForegroundWindow(handleToUse);
+
+                // Wait and verify focus actually switched (up to 150ms)
+                for (int i = 0; i < 5; i++)
+                {
+                    await Task.Delay(30);
+                    if (GetForegroundWindow() == handleToUse) break;
+                }
+
+                SimulateEnter();
             }
             catch (Exception ex)
             {
@@ -369,6 +512,11 @@ namespace BF_STT.Services
             }
             finally
             {
+                if (attached)
+                {
+                    AttachThreadInput(currentThreadId, targetThreadId, false);
+                }
+
                 if (shouldRestoreFocus)
                 {
                     EnsureWindowFocused(currentForeground);

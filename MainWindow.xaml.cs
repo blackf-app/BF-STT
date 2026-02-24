@@ -40,17 +40,34 @@ namespace BF_STT
         {
             if (e.HeightChanged)
             {
-                // Always keep the bottom of the window anchored to the bottom of the screen
-                var screenWidth = SystemParameters.PrimaryScreenWidth;
-                var screenHeight = SystemParameters.PrimaryScreenHeight;
-                double left = (screenWidth - e.NewSize.Width) / 2;
-                double top = screenHeight - e.NewSize.Height;
-
                 var hwnd = new WindowInteropHelper(this).Handle;
-                if (hwnd != IntPtr.Zero)
+                if (hwnd == IntPtr.Zero) return;
+
+                double left;
+                double top;
+
+                if (e.PreviousSize.Height == 0)
                 {
-                    SetWindowPos(hwnd, HWND_TOPMOST, (int)left, (int)top, (int)e.NewSize.Width, (int)e.NewSize.Height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                    // Startup positioning: Center horizontally, Bottom of screen
+                    var screenWidth = SystemParameters.PrimaryScreenWidth;
+                    var screenHeight = SystemParameters.PrimaryScreenHeight;
+                    left = (screenWidth - e.NewSize.Width) / 2;
+                    top = screenHeight - e.NewSize.Height;
                 }
+                else
+                {
+                    // Subsequent changes (like history toggle): 
+                    // Maintain current horizontal position and adjust Top to keep bottom edge stationary.
+                    left = this.Left;
+                    top = this.Top - (e.NewSize.Height - e.PreviousSize.Height);
+                }
+
+                // Use Win32 to set position/size precisely (especially if overlapping taskbar)
+                SetWindowPos(hwnd, HWND_TOPMOST, (int)left, (int)top, (int)e.NewSize.Width, (int)e.NewSize.Height, SWP_NOACTIVATE | SWP_SHOWWINDOW);
+                
+                // Update WPF properties to match Win32 position
+                this.Left = left;
+                this.Top = top;
             }
         }
 
@@ -75,6 +92,10 @@ namespace BF_STT
             {
                 // Set position using Win32 for precise placement overlapping taskbar
                 SetWindowPos(hwnd, HWND_TOPMOST, (int)left, (int)top, (int)this.ActualWidth, (int)this.ActualHeight, SWP_SHOWWINDOW | SWP_NOACTIVATE);
+                
+                // Sync WPF properties to match Win32 position
+                this.Left = left;
+                this.Top = top;
             }
             
             try 

@@ -487,7 +487,12 @@ namespace BF_STT.Services.Workflow
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    TransitionTo(IdleState.Instance);
+                    // Only transition to Idle if still in Processing state.
+                    // A new recording may have already started while batch was running.
+                    if (State == RecordingStateEnum.Processing)
+                    {
+                        TransitionTo(IdleState.Instance);
+                    }
                 });
             }
         }
@@ -502,7 +507,12 @@ namespace BF_STT.Services.Workflow
             {
                 System.Windows.Application.Current.Dispatcher.Invoke(() =>
                 {
-                    TransitionTo(IdleState.Instance);
+                    // Only transition to Idle if still in Processing state.
+                    // A new recording may have already started while batch was running.
+                    if (State == RecordingStateEnum.Processing)
+                    {
+                        TransitionTo(IdleState.Instance);
+                    }
                 });
             }
         }

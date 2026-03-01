@@ -6,6 +6,8 @@ using BF_STT.Services.STT.Providers.OpenAI;
 using BF_STT.Services.STT.Providers.Soniox;
 using BF_STT.Services.STT.Providers.ElevenLabs;
 using BF_STT.Services.STT.Providers.Google;
+using BF_STT.Services.STT.Providers.AssemblyAI;
+using BF_STT.Services.STT.Providers.Azure;
 using BF_STT.Services.STT.Providers.Speechmatics;
 using BF_STT.Services.Workflow;
 using BF_STT.ViewModels;
@@ -79,6 +81,17 @@ namespace BF_STT.Services.Infrastructure
                 var googleBatch = new GoogleBatchService(httpClient, settings.GoogleApiKey, settings.GoogleBaseUrl, settings.GoogleModel);
                 registry.Register("Google", googleBatch, null,
                     s => s.GoogleApiKey, s => s.GoogleModel);
+
+                // AssemblyAI
+                var assemblyAIBatch = new AssemblyAIBatchService(httpClient, settings.AssemblyAIApiKey, settings.AssemblyAIBaseUrl, settings.AssemblyAIModel);
+                var assemblyAIStreaming = new AssemblyAIStreamingService(settings.AssemblyAIApiKey, settings.AssemblyAIStreamingUrl, settings.AssemblyAIModel);
+                registry.Register("AssemblyAI", assemblyAIBatch, assemblyAIStreaming,
+                    s => s.AssemblyAIApiKey, s => s.AssemblyAIModel);
+
+                // Azure (batch only — streaming requires SDK)
+                var azureBatch = new AzureBatchService(httpClient, settings.AzureApiKey, settings.AzureBaseUrl, settings.AzureModel);
+                registry.Register("Azure", azureBatch, null,
+                    s => s.AzureApiKey, s => s.AzureModel);
 
                 return registry;
             });

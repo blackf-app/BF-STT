@@ -55,6 +55,17 @@ namespace BF_STT.Services.Infrastructure
         public string GoogleBaseUrl { get; set; } = "https://speech.googleapis.com/v1/speech:recognize";
         public string GoogleModel { get; set; } = "default";
 
+        // AssemblyAI
+        public string AssemblyAIApiKey { get; set; } = "";
+        public string AssemblyAIBaseUrl { get; set; } = "https://api.assemblyai.com";
+        public string AssemblyAIStreamingUrl { get; set; } = "wss://streaming.assemblyai.com/v3/ws";
+        public string AssemblyAIModel { get; set; } = "best";
+
+        // Azure
+        public string AzureApiKey { get; set; } = "";
+        public string AzureBaseUrl { get; set; } = "eastus";
+        public string AzureModel { get; set; } = "";
+
         // Noise Suppression
         public bool EnableNoiseSuppression { get; set; } = false;
     }

@@ -235,6 +235,10 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="5"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     
                     <!-- Deepgram -->
@@ -310,6 +314,34 @@
                     <DockPanel Grid.Column="10">
                         <TextBlock DockPanel.Dock="Top" Text="Google" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
                         <TextBox Text="{Binding GoogleTranscript}" 
+                                 Background="Transparent" 
+                                 Foreground="White" 
+                                 BorderThickness="1" BorderBrush="#444444"
+                                 FontSize="10" 
+                                 TextWrapping="Wrap" 
+                                 IsReadOnly="True"
+                                 Height="80" Width="80"
+                                 VerticalScrollBarVisibility="Auto"/>
+                    </DockPanel>
+
+                    <!-- AssemblyAI -->
+                    <DockPanel Grid.Column="12">
+                        <TextBlock DockPanel.Dock="Top" Text="AssemblyAI" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                        <TextBox Text="{Binding AssemblyAITranscript}" 
+                                 Background="Transparent" 
+                                 Foreground="White" 
+                                 BorderThickness="1" BorderBrush="#444444"
+                                 FontSize="10" 
+                                 TextWrapping="Wrap" 
+                                 IsReadOnly="True"
+                                 Height="80" Width="80"
+                                 VerticalScrollBarVisibility="Auto"/>
+                    </DockPanel>
+
+                    <!-- Azure -->
+                    <DockPanel Grid.Column="14">
+                        <TextBlock DockPanel.Dock="Top" Text="Azure" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                        <TextBox Text="{Binding AzureTranscript}" 
                                  Background="Transparent" 
                                  Foreground="White" 
                                  BorderThickness="1" BorderBrush="#444444"

@@ -80,7 +80,7 @@ namespace BF_STT.ViewModels
 
         #region Properties
 
-        public ObservableCollection<string> AvailableApis { get; } = new ObservableCollection<string> { "Deepgram", "Speechmatics", "Soniox", "OpenAI", "ElevenLabs", "Google" };
+        public ObservableCollection<string> AvailableApis { get; } = new ObservableCollection<string> { "Deepgram", "Speechmatics", "Soniox", "OpenAI", "ElevenLabs", "Google", "AssemblyAI", "Azure" };
 
         public string BatchModeApi
         {
@@ -152,6 +152,18 @@ namespace BF_STT.ViewModels
         public string GoogleTranscript
         {
             get => _coordinator.GetProviderTranscript("Google");
+            set => OnPropertyChanged();
+        }
+
+        public string AssemblyAITranscript
+        {
+            get => _coordinator.GetProviderTranscript("AssemblyAI");
+            set => OnPropertyChanged();
+        }
+
+        public string AzureTranscript
+        {
+            get => _coordinator.GetProviderTranscript("Azure");
             set => OnPropertyChanged();
         }
 

@@ -37,6 +37,13 @@ namespace BF_STT
                 GoogleApiKey = _settingsService.CurrentSettings.GoogleApiKey,
                 GoogleBaseUrl = _settingsService.CurrentSettings.GoogleBaseUrl,
                 GoogleModel = _settingsService.CurrentSettings.GoogleModel,
+                AssemblyAIApiKey = _settingsService.CurrentSettings.AssemblyAIApiKey,
+                AssemblyAIBaseUrl = _settingsService.CurrentSettings.AssemblyAIBaseUrl,
+                AssemblyAIStreamingUrl = _settingsService.CurrentSettings.AssemblyAIStreamingUrl,
+                AssemblyAIModel = _settingsService.CurrentSettings.AssemblyAIModel,
+                AzureApiKey = _settingsService.CurrentSettings.AzureApiKey,
+                AzureBaseUrl = _settingsService.CurrentSettings.AzureBaseUrl,
+                AzureModel = _settingsService.CurrentSettings.AzureModel,
                 BatchModeApi = _settingsService.CurrentSettings.BatchModeApi,
                 StreamingModeApi = _settingsService.CurrentSettings.StreamingModeApi,
                 TestMode = _settingsService.CurrentSettings.TestMode,
@@ -54,6 +61,9 @@ namespace BF_STT
             OpenAIApiKeyTextBox.Text = _tempSettings.OpenAIApiKey;
             ElevenLabsApiKeyTextBox.Text = _tempSettings.ElevenLabsApiKey;
             GoogleApiKeyTextBox.Text = _tempSettings.GoogleApiKey;
+            AssemblyAIApiKeyTextBox.Text = _tempSettings.AssemblyAIApiKey;
+            AzureApiKeyTextBox.Text = _tempSettings.AzureApiKey;
+            AzureRegionTextBox.Text = _tempSettings.AzureBaseUrl;
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
             AutoCheckUpdateCheckBox.IsChecked = _tempSettings.AutoCheckUpdate;
             TestModeCheckBox.IsChecked = _tempSettings.TestMode;
@@ -66,6 +76,8 @@ namespace BF_STT
             else if (_tempSettings.BatchModeApi == "OpenAI") BatchModeApiComboBox.SelectedIndex = 3;
             else if (_tempSettings.BatchModeApi == "ElevenLabs") BatchModeApiComboBox.SelectedIndex = 4;
             else if (_tempSettings.BatchModeApi == "Google") BatchModeApiComboBox.SelectedIndex = 5;
+            else if (_tempSettings.BatchModeApi == "AssemblyAI") BatchModeApiComboBox.SelectedIndex = 6;
+            else if (_tempSettings.BatchModeApi == "Azure") BatchModeApiComboBox.SelectedIndex = 7;
             else BatchModeApiComboBox.SelectedIndex = 0;
 
             // Set ComboBox selection based on current StreamingModeApi
@@ -74,6 +86,8 @@ namespace BF_STT
             else if (_tempSettings.StreamingModeApi == "OpenAI") StreamingModeApiComboBox.SelectedIndex = 3;
             else if (_tempSettings.StreamingModeApi == "ElevenLabs") StreamingModeApiComboBox.SelectedIndex = 4;
             else if (_tempSettings.StreamingModeApi == "Google") StreamingModeApiComboBox.SelectedIndex = 5;
+            else if (_tempSettings.StreamingModeApi == "AssemblyAI") StreamingModeApiComboBox.SelectedIndex = 6;
+            else if (_tempSettings.StreamingModeApi == "Azure") StreamingModeApiComboBox.SelectedIndex = 7;
             else StreamingModeApiComboBox.SelectedIndex = 0;
 
             // Set Language ComboBox
@@ -156,13 +170,18 @@ namespace BF_STT
             _tempSettings.OpenAIApiKey = OpenAIApiKeyTextBox.Text;
             _tempSettings.ElevenLabsApiKey = ElevenLabsApiKeyTextBox.Text;
             _tempSettings.GoogleApiKey = GoogleApiKeyTextBox.Text;
+            _tempSettings.AssemblyAIApiKey = AssemblyAIApiKeyTextBox.Text;
+            _tempSettings.AzureApiKey = AzureApiKeyTextBox.Text;
+            _tempSettings.AzureBaseUrl = AzureRegionTextBox.Text;
             _tempSettings.StartWithWindows = StartWithWindowsCheckBox.IsChecked ?? false;
             _tempSettings.AutoCheckUpdate = AutoCheckUpdateCheckBox.IsChecked ?? false;
             _tempSettings.TestMode = TestModeCheckBox.IsChecked ?? false;
             _tempSettings.EnableNoiseSuppression = NoiseSuppressionCheckBox.IsChecked ?? false;
             
             // Get Batch API from ComboBox
-            if (BatchModeApiComboBox.SelectedIndex == 5) _tempSettings.BatchModeApi = "Google";
+            if (BatchModeApiComboBox.SelectedIndex == 7) _tempSettings.BatchModeApi = "Azure";
+            else if (BatchModeApiComboBox.SelectedIndex == 6) _tempSettings.BatchModeApi = "AssemblyAI";
+            else if (BatchModeApiComboBox.SelectedIndex == 5) _tempSettings.BatchModeApi = "Google";
             else if (BatchModeApiComboBox.SelectedIndex == 4) _tempSettings.BatchModeApi = "ElevenLabs";
             else if (BatchModeApiComboBox.SelectedIndex == 3) _tempSettings.BatchModeApi = "OpenAI";
             else if (BatchModeApiComboBox.SelectedIndex == 2) _tempSettings.BatchModeApi = "Soniox";
@@ -170,7 +189,9 @@ namespace BF_STT
             else _tempSettings.BatchModeApi = "Deepgram";
 
             // Get Streaming API from ComboBox
-            if (StreamingModeApiComboBox.SelectedIndex == 5) _tempSettings.StreamingModeApi = "Google";
+            if (StreamingModeApiComboBox.SelectedIndex == 7) _tempSettings.StreamingModeApi = "Azure";
+            else if (StreamingModeApiComboBox.SelectedIndex == 6) _tempSettings.StreamingModeApi = "AssemblyAI";
+            else if (StreamingModeApiComboBox.SelectedIndex == 5) _tempSettings.StreamingModeApi = "Google";
             else if (StreamingModeApiComboBox.SelectedIndex == 4) _tempSettings.StreamingModeApi = "ElevenLabs";
             else if (StreamingModeApiComboBox.SelectedIndex == 3) _tempSettings.StreamingModeApi = "OpenAI";
             else if (StreamingModeApiComboBox.SelectedIndex == 2) _tempSettings.StreamingModeApi = "Soniox";

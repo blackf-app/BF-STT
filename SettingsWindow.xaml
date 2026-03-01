@@ -104,6 +104,8 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Margin="0,0,0,25">
@@ -140,6 +142,8 @@
                         <ComboBoxItem Content="OpenAI Whisper"/>
                         <ComboBoxItem Content="ElevenLabs"/>
                         <ComboBoxItem Content="Google"/>
+                        <ComboBoxItem Content="AssemblyAI"/>
+                        <ComboBoxItem Content="Azure"/>
                     </ComboBox>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
@@ -151,6 +155,8 @@
                         <ComboBoxItem Content="OpenAI (Unsupported)"/>
                         <ComboBoxItem Content="ElevenLabs"/>
                         <ComboBoxItem Content="Google (Unsupported)"/>
+                        <ComboBoxItem Content="AssemblyAI"/>
+                        <ComboBoxItem Content="Azure (Unsupported)"/>
                     </ComboBox>
                 </StackPanel>
             </Grid>
@@ -229,36 +235,54 @@
                 <TextBox x:Name="ElevenLabsApiKeyTextBox" />
             </StackPanel>
 
-            <StackPanel Grid.Row="9" Margin="0,0,0,20" Width="330">
+            <StackPanel Grid.Row="9" Margin="0,0,0,10" Width="330">
                 <TextBlock Text="Google API Key" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
                 <TextBox x:Name="GoogleApiKeyTextBox" />
             </StackPanel>
 
-            <CheckBox Grid.Row="10" 
+            <StackPanel Grid.Row="10" Margin="0,0,0,10" Width="330">
+                <TextBlock Text="AssemblyAI API Key" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                <TextBox x:Name="AssemblyAIApiKeyTextBox" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="11" Margin="0,0,0,20" Width="330">
+                <TextBlock Text="Azure Speech Key" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="10"/>
+                        <ColumnDefinition Width="100"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="AzureApiKeyTextBox" Grid.Column="0" />
+                    <TextBox x:Name="AzureRegionTextBox" Grid.Column="2" ToolTip="Region (e.g. eastus)" />
+                </Grid>
+            </StackPanel>
+
+            <CheckBox Grid.Row="12" 
                       x:Name="TestModeCheckBox" 
                       Content="Test Mode (Run both APIs simultaneously)" 
                       Margin="0,0,0,10"
                       HorizontalAlignment="Left"/>
 
-            <CheckBox Grid.Row="11" 
+            <CheckBox Grid.Row="13" 
                       x:Name="AutoCheckUpdateCheckBox" 
                       Content="Tự động kiểm tra phiên bản mới" 
                       Margin="0,0,0,10"
                       HorizontalAlignment="Left"/>
 
-            <CheckBox Grid.Row="12" 
+            <CheckBox Grid.Row="14" 
                       x:Name="NoiseSuppressionCheckBox" 
                       Content="Noise Suppression (RNNoise)" 
                       Margin="0,0,0,10"
                       HorizontalAlignment="Left"/>
 
-            <CheckBox Grid.Row="13" 
+            <CheckBox Grid.Row="15" 
                       x:Name="StartWithWindowsCheckBox" 
                       Content="Start with Windows" 
                       Margin="0,0,0,30"
                       HorizontalAlignment="Left"/>
 
-            <StackPanel Grid.Row="14" 
+            <StackPanel Grid.Row="16" 
                         Orientation="Horizontal" 
                         HorizontalAlignment="Center">
                 <Button Content="Save" 

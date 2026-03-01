@@ -125,6 +125,18 @@ namespace BF_STT.Services.Infrastructure
                 catch { /* Ignore errors in fallback */ }
             }
 
+            // Guard against null/empty API selections (can happen from JSON deserialization)
+            if (string.IsNullOrEmpty(CurrentSettings.BatchModeApi))
+            {
+                CurrentSettings.BatchModeApi = "Deepgram";
+                needsFix = true;
+            }
+            if (string.IsNullOrEmpty(CurrentSettings.StreamingModeApi))
+            {
+                CurrentSettings.StreamingModeApi = "Deepgram";
+                needsFix = true;
+            }
+
             // Migrate SelectedApi to BatchModeApi and StreamingModeApi
             if (!string.IsNullOrEmpty(CurrentSettings.SelectedApi))
             {

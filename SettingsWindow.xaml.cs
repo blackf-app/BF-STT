@@ -55,6 +55,7 @@ namespace BF_STT
                 EnableNoiseSuppression = _settingsService.CurrentSettings.EnableNoiseSuppression
             };
 
+            // Load API Keys
             ApiKeyTextBox.Text = _tempSettings.ApiKey;
             SpeechmaticsApiKeyTextBox.Text = _tempSettings.SpeechmaticsApiKey;
             SonioxApiKeyTextBox.Text = _tempSettings.SonioxApiKey;
@@ -64,31 +65,13 @@ namespace BF_STT
             AssemblyAIApiKeyTextBox.Text = _tempSettings.AssemblyAIApiKey;
             AzureApiKeyTextBox.Text = _tempSettings.AzureApiKey;
             AzureRegionTextBox.Text = _tempSettings.AzureBaseUrl;
+
+            // Load Checkboxes
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
             AutoCheckUpdateCheckBox.IsChecked = _tempSettings.AutoCheckUpdate;
             TestModeCheckBox.IsChecked = _tempSettings.TestMode;
             NoiseSuppressionCheckBox.IsChecked = _tempSettings.EnableNoiseSuppression;
             MaxHistoryLimitTextBox.Text = _tempSettings.MaxHistoryItems.ToString();
-
-            // Set ComboBox selection based on current BatchModeApi
-            if (_tempSettings.BatchModeApi == "Speechmatics") BatchModeApiComboBox.SelectedIndex = 1;
-            else if (_tempSettings.BatchModeApi == "Soniox") BatchModeApiComboBox.SelectedIndex = 2;
-            else if (_tempSettings.BatchModeApi == "OpenAI") BatchModeApiComboBox.SelectedIndex = 3;
-            else if (_tempSettings.BatchModeApi == "ElevenLabs") BatchModeApiComboBox.SelectedIndex = 4;
-            else if (_tempSettings.BatchModeApi == "Google") BatchModeApiComboBox.SelectedIndex = 5;
-            else if (_tempSettings.BatchModeApi == "AssemblyAI") BatchModeApiComboBox.SelectedIndex = 6;
-            else if (_tempSettings.BatchModeApi == "Azure") BatchModeApiComboBox.SelectedIndex = 7;
-            else BatchModeApiComboBox.SelectedIndex = 0;
-
-            // Set ComboBox selection based on current StreamingModeApi
-            if (_tempSettings.StreamingModeApi == "Speechmatics") StreamingModeApiComboBox.SelectedIndex = 1;
-            else if (_tempSettings.StreamingModeApi == "Soniox") StreamingModeApiComboBox.SelectedIndex = 2;
-            else if (_tempSettings.StreamingModeApi == "OpenAI") StreamingModeApiComboBox.SelectedIndex = 3;
-            else if (_tempSettings.StreamingModeApi == "ElevenLabs") StreamingModeApiComboBox.SelectedIndex = 4;
-            else if (_tempSettings.StreamingModeApi == "Google") StreamingModeApiComboBox.SelectedIndex = 5;
-            else if (_tempSettings.StreamingModeApi == "AssemblyAI") StreamingModeApiComboBox.SelectedIndex = 6;
-            else if (_tempSettings.StreamingModeApi == "Azure") StreamingModeApiComboBox.SelectedIndex = 7;
-            else StreamingModeApiComboBox.SelectedIndex = 0;
 
             // Set Language ComboBox
             for (int i = 0; i < LanguageComboBox.Items.Count; i++)
@@ -164,6 +147,7 @@ namespace BF_STT
 
         private void SaveButton_Click(object sender, RoutedEventArgs e)
         {
+            // Save API Keys
             _tempSettings.ApiKey = ApiKeyTextBox.Text;
             _tempSettings.SpeechmaticsApiKey = SpeechmaticsApiKeyTextBox.Text;
             _tempSettings.SonioxApiKey = SonioxApiKeyTextBox.Text;
@@ -173,30 +157,12 @@ namespace BF_STT
             _tempSettings.AssemblyAIApiKey = AssemblyAIApiKeyTextBox.Text;
             _tempSettings.AzureApiKey = AzureApiKeyTextBox.Text;
             _tempSettings.AzureBaseUrl = AzureRegionTextBox.Text;
+
+            // Save Checkboxes
             _tempSettings.StartWithWindows = StartWithWindowsCheckBox.IsChecked ?? false;
             _tempSettings.AutoCheckUpdate = AutoCheckUpdateCheckBox.IsChecked ?? false;
             _tempSettings.TestMode = TestModeCheckBox.IsChecked ?? false;
             _tempSettings.EnableNoiseSuppression = NoiseSuppressionCheckBox.IsChecked ?? false;
-            
-            // Get Batch API from ComboBox
-            if (BatchModeApiComboBox.SelectedIndex == 7) _tempSettings.BatchModeApi = "Azure";
-            else if (BatchModeApiComboBox.SelectedIndex == 6) _tempSettings.BatchModeApi = "AssemblyAI";
-            else if (BatchModeApiComboBox.SelectedIndex == 5) _tempSettings.BatchModeApi = "Google";
-            else if (BatchModeApiComboBox.SelectedIndex == 4) _tempSettings.BatchModeApi = "ElevenLabs";
-            else if (BatchModeApiComboBox.SelectedIndex == 3) _tempSettings.BatchModeApi = "OpenAI";
-            else if (BatchModeApiComboBox.SelectedIndex == 2) _tempSettings.BatchModeApi = "Soniox";
-            else if (BatchModeApiComboBox.SelectedIndex == 1) _tempSettings.BatchModeApi = "Speechmatics";
-            else _tempSettings.BatchModeApi = "Deepgram";
-
-            // Get Streaming API from ComboBox
-            if (StreamingModeApiComboBox.SelectedIndex == 7) _tempSettings.StreamingModeApi = "Azure";
-            else if (StreamingModeApiComboBox.SelectedIndex == 6) _tempSettings.StreamingModeApi = "AssemblyAI";
-            else if (StreamingModeApiComboBox.SelectedIndex == 5) _tempSettings.StreamingModeApi = "Google";
-            else if (StreamingModeApiComboBox.SelectedIndex == 4) _tempSettings.StreamingModeApi = "ElevenLabs";
-            else if (StreamingModeApiComboBox.SelectedIndex == 3) _tempSettings.StreamingModeApi = "OpenAI";
-            else if (StreamingModeApiComboBox.SelectedIndex == 2) _tempSettings.StreamingModeApi = "Soniox";
-            else if (StreamingModeApiComboBox.SelectedIndex == 1) _tempSettings.StreamingModeApi = "Speechmatics";
-            else _tempSettings.StreamingModeApi = "Deepgram";
 
             // Get Language from ComboBox
             if (LanguageComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem langItem)

@@ -46,19 +46,45 @@ namespace BF_STT
             var settings = settingsService.CurrentSettings;
             var registry = _serviceProvider.GetRequiredService<SttProviderRegistry>();
 
-            // Check API Key on startup using registry
-            bool missingKey = registry.ValidateApiKey(settings.BatchModeApi, settings) != null
-                           || registry.ValidateApiKey(settings.StreamingModeApi, settings) != null;
+            // Auto-select APIs with valid keys. Since API selection is now done
+            // from MainWindow dropdowns (filtered by configured keys), we auto-fix
+            // invalid selections on startup instead of forcing SettingsWindow.
+            var allProviders = registry.GetAllProviders();
 
-            if (missingKey)
+            // Fix BatchModeApi if current selection has no key
+            if (registry.ValidateApiKey(settings.BatchModeApi, settings) != null)
+            {
+                var firstValid = allProviders.FirstOrDefault(p => !string.IsNullOrWhiteSpace(p.GetApiKey(settings)));
+                if (firstValid != null)
+                {
+                    settings.BatchModeApi = firstValid.Name;
+                }
+            }
+
+            // Fix StreamingModeApi if current selection has no key or doesn't support streaming
+            if (registry.ValidateApiKey(settings.StreamingModeApi, settings) != null
+                || allProviders.FirstOrDefault(p => p.Name.Equals(settings.StreamingModeApi, StringComparison.OrdinalIgnoreCase))?.SupportsStreaming != true)
+            {
+                var firstValidStreaming = allProviders.FirstOrDefault(p => p.SupportsStreaming && !string.IsNullOrWhiteSpace(p.GetApiKey(settings)));
+                if (firstValidStreaming != null)
+                {
+                    settings.StreamingModeApi = firstValidStreaming.Name;
+                }
+            }
+
+            // Save auto-corrected selections
+            settingsService.SaveSettings(settings);
+
+            // If absolutely no API keys are configured, force SettingsWindow
+            bool hasAnyKey = allProviders.Any(p => !string.IsNullOrWhiteSpace(p.GetApiKey(settings)));
+            if (!hasAnyKey)
             {
                 var settingsWindow = new SettingsWindow(settingsService);
                 if (settingsWindow.ShowDialog() != true)
                 {
-                    Shutdown(); // Exit if user cancels without saving
+                    Shutdown();
                     return;
                 }
-                // Reload settings after save
                 settings = settingsService.CurrentSettings;
             }
 

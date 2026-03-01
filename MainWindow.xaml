@@ -157,11 +157,11 @@
 
                 <!-- API Selection -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="3,0">
-                    <ComboBox ItemsSource="{Binding AvailableApis}" SelectedItem="{Binding BatchModeApi}"
+                    <ComboBox ItemsSource="{Binding ConfiguredBatchApis}" SelectedItem="{Binding BatchModeApi}"
                               ToolTip="Batch API"
                               VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="0,2,2,2" Width="75" Height="30"
                               Background="#333333" Foreground="Black" BorderThickness="0" FontSize="11" />
-                    <ComboBox ItemsSource="{Binding AvailableApis}" SelectedItem="{Binding StreamingModeApi}"
+                    <ComboBox ItemsSource="{Binding ConfiguredStreamingApis}" SelectedItem="{Binding StreamingModeApi}"
                               ToolTip="Streaming API"
                               VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="2,2,0,2" Width="75" Height="30"
                               Background="#333333" Foreground="Black" BorderThickness="0" FontSize="11" />

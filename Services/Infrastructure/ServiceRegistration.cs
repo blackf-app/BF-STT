@@ -4,6 +4,7 @@ using BF_STT.Services.STT;
 using BF_STT.Services.STT.Providers.Deepgram;
 using BF_STT.Services.STT.Providers.OpenAI;
 using BF_STT.Services.STT.Providers.Soniox;
+using BF_STT.Services.STT.Providers.ElevenLabs;
 using BF_STT.Services.STT.Providers.Speechmatics;
 using BF_STT.Services.Workflow;
 using BF_STT.ViewModels;
@@ -66,6 +67,12 @@ namespace BF_STT.Services.Infrastructure
                 var openaiBatch = new OpenAIBatchService(httpClient, settings.OpenAIApiKey, settings.OpenAIBaseUrl);
                 registry.Register("OpenAI", openaiBatch, null,
                     s => s.OpenAIApiKey, s => s.OpenAIModel);
+
+                // ElevenLabs
+                var elevenLabsBatch = new ElevenLabsBatchService(httpClient, settings.ElevenLabsApiKey, settings.ElevenLabsBaseUrl, settings.ElevenLabsModel);
+                var elevenLabsStreaming = new ElevenLabsStreamingService(settings.ElevenLabsApiKey, settings.ElevenLabsStreamingUrl, settings.ElevenLabsModel);
+                registry.Register("ElevenLabs", elevenLabsBatch, elevenLabsStreaming,
+                    s => s.ElevenLabsApiKey, s => s.ElevenLabsModel);
 
                 return registry;
             });

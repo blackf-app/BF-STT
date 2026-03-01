@@ -44,6 +44,12 @@ namespace BF_STT.Services.Infrastructure
         public string OpenAIBaseUrl { get; set; } = "https://api.openai.com/v1/audio/transcriptions";
         public string OpenAIModel { get; set; } = "whisper-1";
 
+        // ElevenLabs
+        public string ElevenLabsApiKey { get; set; } = "";
+        public string ElevenLabsBaseUrl { get; set; } = "https://api.elevenlabs.io/v1/speech-to-text";
+        public string ElevenLabsStreamingUrl { get; set; } = "wss://api.elevenlabs.io/v1/speech-to-text/streaming";
+        public string ElevenLabsModel { get; set; } = "scribe_v2";
+
         // Noise Suppression
         public bool EnableNoiseSuppression { get; set; } = false;
     }

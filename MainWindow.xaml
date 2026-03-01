@@ -231,6 +231,8 @@
                         <ColumnDefinition Width="*"/>
                         <ColumnDefinition Width="5"/>
                         <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="5"/>
+                        <ColumnDefinition Width="*"/>
                     </Grid.ColumnDefinitions>
                     
                     <!-- Deepgram -->
@@ -278,6 +280,20 @@
                     <DockPanel Grid.Column="6">
                         <TextBlock DockPanel.Dock="Top" Text="OpenAI" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
                         <TextBox Text="{Binding OpenAITranscript}" 
+                                 Background="Transparent" 
+                                 Foreground="White" 
+                                 BorderThickness="1" BorderBrush="#444444"
+                                 FontSize="10" 
+                                 TextWrapping="Wrap" 
+                                 IsReadOnly="True"
+                                 Height="80" Width="80"
+                                 VerticalScrollBarVisibility="Auto"/>
+                    </DockPanel>
+
+                    <!-- ElevenLabs -->
+                    <DockPanel Grid.Column="8">
+                        <TextBlock DockPanel.Dock="Top" Text="ElevenLabs" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                        <TextBox Text="{Binding ElevenLabsTranscript}" 
                                  Background="Transparent" 
                                  Foreground="White" 
                                  BorderThickness="1" BorderBrush="#444444"

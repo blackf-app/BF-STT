@@ -80,7 +80,7 @@ namespace BF_STT.ViewModels
 
         #region Properties
 
-        public ObservableCollection<string> AvailableApis { get; } = new ObservableCollection<string> { "Deepgram", "Speechmatics", "Soniox", "OpenAI" };
+        public ObservableCollection<string> AvailableApis { get; } = new ObservableCollection<string> { "Deepgram", "Speechmatics", "Soniox", "OpenAI", "ElevenLabs" };
 
         public string BatchModeApi
         {
@@ -140,6 +140,12 @@ namespace BF_STT.ViewModels
         public string OpenAITranscript
         {
             get => _coordinator.GetProviderTranscript("OpenAI");
+            set => OnPropertyChanged();
+        }
+
+        public string ElevenLabsTranscript
+        {
+            get => _coordinator.GetProviderTranscript("ElevenLabs");
             set => OnPropertyChanged();
         }
 

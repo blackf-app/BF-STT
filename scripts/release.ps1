@@ -71,8 +71,6 @@ if ($bugfixes.Count -gt 0) { $notes += "### Bug Fixes`n" + ($bugfixes -join "`n"
 if ($improvements.Count -gt 0) { $notes += "### Improvements`n" + ($improvements -join "`n") + "`n`n" }
 if ($others.Count -gt 0) { $notes += "### Other Changes`n" + ($others -join "`n") + "`n`n" }
 
-$notes += "*Built with Love by BF-STT Auto-Release Tool*"
-
 # Save notes temp for gh cli
 $tempFile = [System.IO.Path]::GetTempFileName()
 [System.IO.File]::WriteAllText($tempFile, $notes)

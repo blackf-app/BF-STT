@@ -50,6 +50,11 @@ namespace BF_STT.Services.Infrastructure
         public string ElevenLabsStreamingUrl { get; set; } = "wss://api.elevenlabs.io/v1/speech-to-text/streaming";
         public string ElevenLabsModel { get; set; } = "scribe_v2";
 
+        // Google
+        public string GoogleApiKey { get; set; } = "";
+        public string GoogleBaseUrl { get; set; } = "https://speech.googleapis.com/v1/speech:recognize";
+        public string GoogleModel { get; set; } = "default";
+
         // Noise Suppression
         public bool EnableNoiseSuppression { get; set; } = false;
     }

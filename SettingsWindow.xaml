@@ -103,6 +103,7 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
             <Grid Grid.Row="0" Margin="0,0,0,25">
@@ -138,6 +139,7 @@
                         <ComboBoxItem Content="Soniox"/>
                         <ComboBoxItem Content="OpenAI Whisper"/>
                         <ComboBoxItem Content="ElevenLabs"/>
+                        <ComboBoxItem Content="Google"/>
                     </ComboBox>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
@@ -148,6 +150,7 @@
                         <ComboBoxItem Content="Soniox"/>
                         <ComboBoxItem Content="OpenAI (Unsupported)"/>
                         <ComboBoxItem Content="ElevenLabs"/>
+                        <ComboBoxItem Content="Google (Unsupported)"/>
                     </ComboBox>
                 </StackPanel>
             </Grid>
@@ -221,36 +224,41 @@
                 <TextBox x:Name="OpenAIApiKeyTextBox" />
             </StackPanel>
 
-            <StackPanel Grid.Row="8" Margin="0,0,0,20" Width="330">
+            <StackPanel Grid.Row="8" Margin="0,0,0,10" Width="330">
                 <TextBlock Text="ElevenLabs API Key" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
                 <TextBox x:Name="ElevenLabsApiKeyTextBox" />
             </StackPanel>
 
-            <CheckBox Grid.Row="9" 
+            <StackPanel Grid.Row="9" Margin="0,0,0,20" Width="330">
+                <TextBlock Text="Google API Key" Foreground="#888888" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                <TextBox x:Name="GoogleApiKeyTextBox" />
+            </StackPanel>
+
+            <CheckBox Grid.Row="10" 
                       x:Name="TestModeCheckBox" 
                       Content="Test Mode (Run both APIs simultaneously)" 
                       Margin="0,0,0,10"
                       HorizontalAlignment="Left"/>
 
-            <CheckBox Grid.Row="10" 
+            <CheckBox Grid.Row="11" 
                       x:Name="AutoCheckUpdateCheckBox" 
                       Content="Tự động kiểm tra phiên bản mới" 
                       Margin="0,0,0,10"
                       HorizontalAlignment="Left"/>
 
-            <CheckBox Grid.Row="11" 
+            <CheckBox Grid.Row="12" 
                       x:Name="NoiseSuppressionCheckBox" 
                       Content="Noise Suppression (RNNoise)" 
                       Margin="0,0,0,10"
                       HorizontalAlignment="Left"/>
 
-            <CheckBox Grid.Row="12" 
+            <CheckBox Grid.Row="13" 
                       x:Name="StartWithWindowsCheckBox" 
                       Content="Start with Windows" 
                       Margin="0,0,0,30"
                       HorizontalAlignment="Left"/>
 
-            <StackPanel Grid.Row="13" 
+            <StackPanel Grid.Row="14" 
                         Orientation="Horizontal" 
                         HorizontalAlignment="Center">
                 <Button Content="Save" 

@@ -5,6 +5,7 @@ using BF_STT.Services.STT.Providers.Deepgram;
 using BF_STT.Services.STT.Providers.OpenAI;
 using BF_STT.Services.STT.Providers.Soniox;
 using BF_STT.Services.STT.Providers.ElevenLabs;
+using BF_STT.Services.STT.Providers.Google;
 using BF_STT.Services.STT.Providers.Speechmatics;
 using BF_STT.Services.Workflow;
 using BF_STT.ViewModels;
@@ -73,6 +74,11 @@ namespace BF_STT.Services.Infrastructure
                 var elevenLabsStreaming = new ElevenLabsStreamingService(settings.ElevenLabsApiKey, settings.ElevenLabsStreamingUrl, settings.ElevenLabsModel);
                 registry.Register("ElevenLabs", elevenLabsBatch, elevenLabsStreaming,
                     s => s.ElevenLabsApiKey, s => s.ElevenLabsModel);
+
+                // Google (batch only — no native streaming support)
+                var googleBatch = new GoogleBatchService(httpClient, settings.GoogleApiKey, settings.GoogleBaseUrl, settings.GoogleModel);
+                registry.Register("Google", googleBatch, null,
+                    s => s.GoogleApiKey, s => s.GoogleModel);
 
                 return registry;
             });

@@ -34,6 +34,9 @@ namespace BF_STT
                 ElevenLabsBaseUrl = _settingsService.CurrentSettings.ElevenLabsBaseUrl,
                 ElevenLabsStreamingUrl = _settingsService.CurrentSettings.ElevenLabsStreamingUrl,
                 ElevenLabsModel = _settingsService.CurrentSettings.ElevenLabsModel,
+                GoogleApiKey = _settingsService.CurrentSettings.GoogleApiKey,
+                GoogleBaseUrl = _settingsService.CurrentSettings.GoogleBaseUrl,
+                GoogleModel = _settingsService.CurrentSettings.GoogleModel,
                 BatchModeApi = _settingsService.CurrentSettings.BatchModeApi,
                 StreamingModeApi = _settingsService.CurrentSettings.StreamingModeApi,
                 TestMode = _settingsService.CurrentSettings.TestMode,
@@ -50,6 +53,7 @@ namespace BF_STT
             SonioxApiKeyTextBox.Text = _tempSettings.SonioxApiKey;
             OpenAIApiKeyTextBox.Text = _tempSettings.OpenAIApiKey;
             ElevenLabsApiKeyTextBox.Text = _tempSettings.ElevenLabsApiKey;
+            GoogleApiKeyTextBox.Text = _tempSettings.GoogleApiKey;
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
             AutoCheckUpdateCheckBox.IsChecked = _tempSettings.AutoCheckUpdate;
             TestModeCheckBox.IsChecked = _tempSettings.TestMode;
@@ -61,6 +65,7 @@ namespace BF_STT
             else if (_tempSettings.BatchModeApi == "Soniox") BatchModeApiComboBox.SelectedIndex = 2;
             else if (_tempSettings.BatchModeApi == "OpenAI") BatchModeApiComboBox.SelectedIndex = 3;
             else if (_tempSettings.BatchModeApi == "ElevenLabs") BatchModeApiComboBox.SelectedIndex = 4;
+            else if (_tempSettings.BatchModeApi == "Google") BatchModeApiComboBox.SelectedIndex = 5;
             else BatchModeApiComboBox.SelectedIndex = 0;
 
             // Set ComboBox selection based on current StreamingModeApi
@@ -68,6 +73,7 @@ namespace BF_STT
             else if (_tempSettings.StreamingModeApi == "Soniox") StreamingModeApiComboBox.SelectedIndex = 2;
             else if (_tempSettings.StreamingModeApi == "OpenAI") StreamingModeApiComboBox.SelectedIndex = 3;
             else if (_tempSettings.StreamingModeApi == "ElevenLabs") StreamingModeApiComboBox.SelectedIndex = 4;
+            else if (_tempSettings.StreamingModeApi == "Google") StreamingModeApiComboBox.SelectedIndex = 5;
             else StreamingModeApiComboBox.SelectedIndex = 0;
 
             // Set Language ComboBox
@@ -149,20 +155,23 @@ namespace BF_STT
             _tempSettings.SonioxApiKey = SonioxApiKeyTextBox.Text;
             _tempSettings.OpenAIApiKey = OpenAIApiKeyTextBox.Text;
             _tempSettings.ElevenLabsApiKey = ElevenLabsApiKeyTextBox.Text;
+            _tempSettings.GoogleApiKey = GoogleApiKeyTextBox.Text;
             _tempSettings.StartWithWindows = StartWithWindowsCheckBox.IsChecked ?? false;
             _tempSettings.AutoCheckUpdate = AutoCheckUpdateCheckBox.IsChecked ?? false;
             _tempSettings.TestMode = TestModeCheckBox.IsChecked ?? false;
             _tempSettings.EnableNoiseSuppression = NoiseSuppressionCheckBox.IsChecked ?? false;
             
             // Get Batch API from ComboBox
-            if (BatchModeApiComboBox.SelectedIndex == 4) _tempSettings.BatchModeApi = "ElevenLabs";
+            if (BatchModeApiComboBox.SelectedIndex == 5) _tempSettings.BatchModeApi = "Google";
+            else if (BatchModeApiComboBox.SelectedIndex == 4) _tempSettings.BatchModeApi = "ElevenLabs";
             else if (BatchModeApiComboBox.SelectedIndex == 3) _tempSettings.BatchModeApi = "OpenAI";
             else if (BatchModeApiComboBox.SelectedIndex == 2) _tempSettings.BatchModeApi = "Soniox";
             else if (BatchModeApiComboBox.SelectedIndex == 1) _tempSettings.BatchModeApi = "Speechmatics";
             else _tempSettings.BatchModeApi = "Deepgram";
 
             // Get Streaming API from ComboBox
-            if (StreamingModeApiComboBox.SelectedIndex == 4) _tempSettings.StreamingModeApi = "ElevenLabs";
+            if (StreamingModeApiComboBox.SelectedIndex == 5) _tempSettings.StreamingModeApi = "Google";
+            else if (StreamingModeApiComboBox.SelectedIndex == 4) _tempSettings.StreamingModeApi = "ElevenLabs";
             else if (StreamingModeApiComboBox.SelectedIndex == 3) _tempSettings.StreamingModeApi = "OpenAI";
             else if (StreamingModeApiComboBox.SelectedIndex == 2) _tempSettings.StreamingModeApi = "Soniox";
             else if (StreamingModeApiComboBox.SelectedIndex == 1) _tempSettings.StreamingModeApi = "Speechmatics";

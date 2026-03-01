@@ -65,13 +65,13 @@ foreach ($line in ($logs -split "`n")) {
     else { $others += "- $clean" }
 }
 
-$notes = "## 🚀 Release $tagName`n`n"
-if ($features.Count -gt 0) { $notes += "### ✨ New Features`n" + ($features -join "`n") + "`n`n" }
-if ($bugfixes.Count -gt 0) { $notes += "### 🐛 Bug Fixes`n" + ($bugfixes -join "`n") + "`n`n" }
-if ($improvements.Count -gt 0) { $notes += "### 🛠️ Improvements`n" + ($improvements -join "`n") + "`n`n" }
-if ($others.Count -gt 0) { $notes += "### 📝 Other Changes`n" + ($others -join "`n") + "`n`n" }
+$notes = "## Release $tagName`n`n"
+if ($features.Count -gt 0) { $notes += "### New Features`n" + ($features -join "`n") + "`n`n" }
+if ($bugfixes.Count -gt 0) { $notes += "### Bug Fixes`n" + ($bugfixes -join "`n") + "`n`n" }
+if ($improvements.Count -gt 0) { $notes += "### Improvements`n" + ($improvements -join "`n") + "`n`n" }
+if ($others.Count -gt 0) { $notes += "### Other Changes`n" + ($others -join "`n") + "`n`n" }
 
-$notes += "*Built with ❤️ by BF-STT Auto-Release Tool*"
+$notes += "*Built with Love by BF-STT Auto-Release Tool*"
 
 # Save notes temp for gh cli
 $tempFile = [System.IO.Path]::GetTempFileName()

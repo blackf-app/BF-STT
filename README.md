@@ -21,7 +21,8 @@ Cơ chế nhận diện hành vi nhấn phím cực kỳ linh hoạt:
 #### 🔹 4. Quản lý Âm thanh & Xử lý Nâng cao
 - **Phản hồi âm thanh (Audio Feedback):** Hệ thống tiếng "Beep" thông minh thông báo trạng thái Bắt đầu/Kết thúc ghi âm.
 - **Lọc nhiễu thông minh (RNNoise Suppression):** Tích hợp công nghệ lọc nhiễu dựa trên AI. Hệ thống tự động ghi âm ở 48kHz để tối ưu cho RNNoise trước khi xử lý, giúp loại bỏ tiếng quạt, bàn phím và tiếng ồn môi trường.
-- **Tự động phát hiện khoảng lặng (VAD):** Tự động dừng ghi âm hoặc tạm dừng stream khi bạn ngừng nói.
+- **Tự động điều chỉnh âm lượng (Auto Gain Control - AGC):** Tự động khuếch đại tín hiệu micro yếu (lên đến x30) và chống vỡ tiếng (soft-clipping) khi nói quá to, giúp STT hoạt động ổn định trên mọi loại microphone.
+- **Phát hiện giọng nói cải tiến (VAD):** Sử dụng năng lượng trung bình (RMS) thay vì peak level để nhận diện chính xác giọng nói, giảm thiểu kích hoạt nhầm bởi tiếng ồn đột ngột hoặc tiếng gõ phím.
 - **Gửi lại âm thanh (Resend Audio):** Thử lại đoạn âm thanh vừa thu với một API khác chỉ với 1-click (Hotkey: `Ctrl + Resend Icon`).
 
 #### 🔹 5. Giao diện Hiện đại & Tiện ích
@@ -35,7 +36,7 @@ Cơ chế nhận diện hành vi nhấn phím cực kỳ linh hoạt:
 
 - **Framework:** .NET 8 (C#) với WPF hiện đại, hỗ trợ hiệu ứng hiển thị mượt mà.
 - **Quản lý trạng thái:** Sử dụng **State Pattern** (Idle, Pending, Batch, Streaming, Processing, Failed) để đảm bảo luồng xử lý ổn định.
-- **Audio Engine:** NAudio xử lý luồng âm thanh PCM. Tự động xử lý Downsampling và Gain control.
+- **Audio Engine:** NAudio xử lý luồng âm thanh PCM. Tự động xử lý Downsampling, lọc High-Pass (HPF), và Auto Gain Control (AGC).
 - **Bảo mật:** Lưu trữ cấu hình an toàn trong Registry và file cấu hình cục bộ.
 - **Single Instance:** Ngăn chặn việc chạy nhiều bản ghi đè lên nhau.
 
@@ -84,7 +85,7 @@ Cơ chế nhận diện hành vi nhấn phím cực kỳ linh hoạt:
 - **Tác giả:** Black Face
 - **Hỗ trợ phát triển bởi:** Antigravity AI
 - **Cập nhật mới nhất:** 02/03/2026
-- **Phiên bản:** v1.2.0 (Stable)
+- **Phiên bản:** v1.2.1 (AGC & RMS VAD Update)
 
 ---
 *Copyright © 2026 Black Face. All rights reserved.*

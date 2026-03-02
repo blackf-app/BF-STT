@@ -28,11 +28,11 @@ namespace BF_STT.Services.Audio
         private bool _isRecording;
         
         // Audio processing state
-        private float _volumeMultiplier = 6f;
         private float _prevSample = 0;
         private float _prevHpfOutput = 0;
         private const float HpfAlpha = 0.97f;
         private const float SoftClipThreshold = 0.95f;
+        private AutoGainControl _agc = new AutoGainControl();
         
         // Noise Suppression
         private NoiseSuppressionService? _noiseService;
@@ -65,10 +65,10 @@ namespace BF_STT.Services.Audio
         public bool IsRecording => _isRecording;
         public bool IsSpeaking => _isSpeaking;
 
-        public float VolumeMultiplier
+        public float VolumeMultiplier // Khuyến khích giữ lại property này nhưng redirect vào TargetLevel của AGC nếu cần, hiện tại set cho AGC không ý nghĩa lắm nếu AGC tự lo 
         {
-            get => _volumeMultiplier;
-            set => _volumeMultiplier = value;
+            get => _agc.TargetLevel;
+            set => _agc.TargetLevel = value;
         }
 
         public int DeviceNumber { get; set; } = 0;
@@ -183,21 +183,30 @@ namespace BF_STT.Services.Audio
             // 1. Convert to float to apply filters
             int sampleCount = e.BytesRecorded / 2;
             short[] shortBuffer = new short[sampleCount];
+            float[] floatBuffer = new float[sampleCount];
             for (int i = 0; i < sampleCount; i++)
             {
                 shortBuffer[i] = BitConverter.ToInt16(e.Buffer, i * 2);
+                floatBuffer[i] = shortBuffer[i] / (float)short.MaxValue;
             }
 
-            // Apply existing filters (HPF, Gain, Soft Clipping)
+            // Apply High-Pass Filter (HPF)
             for (int i = 0; i < sampleCount; i++)
             {
-                float sample = shortBuffer[i];
+                float sample = floatBuffer[i];
                 float hpfOut = HpfAlpha * (_prevHpfOutput + sample - _prevSample);
                 _prevSample = sample;
                 _prevHpfOutput = hpfOut;
+                floatBuffer[i] = hpfOut;
+            }
 
-                float amplified = hpfOut * _volumeMultiplier;
-                float normalized = amplified / short.MaxValue;
+            // Apply AGC (Auto Gain Control) to the float buffer
+            _agc.Process(floatBuffer);
+
+            // Apply Soft Clipping and convert back to short
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float normalized = floatBuffer[i];
                 float softClipped = (float)Math.Tanh(normalized); 
                 float finalFloat = softClipped * short.MaxValue;
 
@@ -237,20 +246,23 @@ namespace BF_STT.Services.Audio
 
             // Process final 16kHz data for VAD and Level
             float maxSample = 0;
+            double sumSquares = 0;
             int finalSampleCount = finalBytesRecorded / 2;
             for (int i = 0; i < finalSampleCount; i++)
             {
                 short sample = BitConverter.ToInt16(finalBuffer, i * 2);
                 float absSample = Math.Abs((float)sample / short.MaxValue);
                 if (absSample > maxSample) maxSample = absSample;
+                sumSquares += (absSample * absSample);
             }
+            float currentFrameRms = (float)Math.Sqrt(sumSquares / finalSampleCount);
 
             // Track peak for silent detection
             if (maxSample > _maxPeakLevel) _maxPeakLevel = maxSample;
             if (_maxPeakLevel > SilenceThreshold) _hasAudio = true;
 
-            // 5. VAD Logic
-            if (maxSample > VadSpeechThreshold)
+            // 5. VAD Logic (Now using RMS instead of Peak)
+            if (currentFrameRms > VadSpeechThreshold)
             {
                 _speechFrameCount++;
                 _silenceFrameCount = 0;
@@ -260,7 +272,7 @@ namespace BF_STT.Services.Audio
                     _isSpeaking = true;
                     _hasSpeechContent = true;
                     IsSpeakingChanged?.Invoke(this, true);
-                    System.Diagnostics.Debug.WriteLine($"[AudioRecording] VAD: Speech Started (Peak: {maxSample:F4})");
+                    System.Diagnostics.Debug.WriteLine($"[AudioRecording] VAD: Speech Started (RMS: {currentFrameRms:F4}, Peak: {maxSample:F4})");
                 }
             }
             else

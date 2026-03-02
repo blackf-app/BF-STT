@@ -314,6 +314,7 @@ namespace BF_STT.Services.Workflow
                 AudioService.DeviceNumber = SettingsService.CurrentSettings.MicrophoneDeviceNumber;
                 AudioService.EnableNoiseSuppression = SettingsService.CurrentSettings.EnableNoiseSuppression;
                 AudioService.EnableSilenceTrimming = true; // Default on; streaming mode will disable
+                AudioService.SaveToFile = IsTestMode;
                 AudioService.StartRecording();
 
                 _recordingDuration = TimeSpan.Zero;

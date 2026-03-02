@@ -23,10 +23,17 @@ namespace BF_STT.Services.Audio
         private WaveInEvent? _waveIn;
         private MemoryStream? _audioMemory;
         private BinaryWriter? _memWriter;
+        private FileStream? _audioFile;
+        private BinaryWriter? _fileWriter;
+        private string? _tempFilePath;
         private WaveFormat? _waveFormat;
-        private long _dataChunkSizePosition;
-        private long _riffSizePosition;
+        private long _memDataPos;
+        private long _memRiffPos;
+        private long _fileDataPos;
+        private long _fileRiffPos;
         private bool _isRecording;
+        
+        public bool SaveToFile { get; set; }
         
         // Audio processing state
         private float _prevSample = 0;
@@ -170,7 +177,30 @@ namespace BF_STT.Services.Audio
             // Initialize in-memory WAV buffer
             _audioMemory = new MemoryStream();
             _memWriter = new BinaryWriter(_audioMemory);
-            WriteWavHeader(_memWriter, _waveFormat);
+            var (mRiff, mData) = WriteWavHeader(_memWriter, _waveFormat);
+            _memRiffPos = mRiff;
+            _memDataPos = mData;
+
+            // Initialize optional file buffer for Test Mode
+            if (SaveToFile)
+            {
+                try
+                {
+                    string tempPath = Path.GetTempPath();
+                    string fileName = $"bf_stt_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav";
+                    _tempFilePath = Path.Combine(tempPath, fileName);
+                    _audioFile = new FileStream(_tempFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                    _fileWriter = new BinaryWriter(_audioFile);
+                    var (fRiff, fData) = WriteWavHeader(_fileWriter, _waveFormat);
+                    _fileRiffPos = fRiff;
+                    _fileDataPos = fData;
+                    System.Diagnostics.Debug.WriteLine($"[AudioRecording] Test Mode: Saving to {_tempFilePath}");
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[AudioRecording] Error creating temp file: {ex.Message}");
+                }
+            }
 
             _waveIn.DataAvailable += OnWaveInDataAvailable;
             _waveIn.RecordingStopped += OnRecordingStopped;
@@ -182,11 +212,11 @@ namespace BF_STT.Services.Audio
         /// <summary>
         /// Writes a WAV file header to the stream. Reserves space for sizes to be patched later.
         /// </summary>
-        private void WriteWavHeader(BinaryWriter writer, WaveFormat format)
+        private (long riffPos, long dataPos) WriteWavHeader(BinaryWriter writer, WaveFormat format)
         {
             // RIFF header
             writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
-            _riffSizePosition = writer.BaseStream.Position;
+            long riffPos = writer.BaseStream.Position;
             writer.Write(0); // placeholder for RIFF chunk size
             writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
 
@@ -202,23 +232,24 @@ namespace BF_STT.Services.Audio
 
             // data sub-chunk header
             writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
-            _dataChunkSizePosition = writer.BaseStream.Position;
+            long dataPos = writer.BaseStream.Position;
             writer.Write(0); // placeholder for data chunk size
+            return (riffPos, dataPos);
         }
 
         /// <summary>
         /// Patches the WAV header with the actual data and RIFF sizes.
         /// </summary>
-        private void FinalizeWavHeader(BinaryWriter writer)
+        private void FinalizeWavHeader(BinaryWriter writer, long riffPos, long dataPos)
         {
-            long totalDataBytes = writer.BaseStream.Length - _dataChunkSizePosition - 4;
+            long totalDataBytes = writer.BaseStream.Length - dataPos - 4;
 
             // Patch data chunk size
-            writer.BaseStream.Position = _dataChunkSizePosition;
+            writer.BaseStream.Position = dataPos;
             writer.Write((int)totalDataBytes);
 
             // Patch RIFF chunk size (total file size - 8)
-            writer.BaseStream.Position = _riffSizePosition;
+            writer.BaseStream.Position = riffPos;
             writer.Write((int)(writer.BaseStream.Length - 8));
 
             // Seek back to end
@@ -350,56 +381,59 @@ namespace BF_STT.Services.Audio
 
             AudioLevelUpdated?.Invoke(this, maxSample);
 
-            // 1. Write to in-memory WAV buffer (for batch mode)
-            if (_memWriter != null)
+            // 1. Write to output streams
+            void WriteToOutputs(byte[] buffer, int offset, int count)
             {
-                try
-                {
-                    if (EnableSilenceTrimming)
-                    {
-                        if (currentFrameRms > VadSpeechThreshold)
-                        {
-                            // Speech detected
-                            if (_batchWritePaused)
-                            {
-                                // RESUME: flush ring buffer (pre-speech audio) with fade-in
-                                FlushRingBuffer();
-                                _batchWritePaused = false;
-                            }
-                            _batchSilenceFrameCount = 0;
-                            _memWriter.Write(finalBuffer, 0, finalBytesRecorded);
-                        }
-                        else
-                        {
-                            // Silence
-                            _batchSilenceFrameCount++;
+                _memWriter?.Write(buffer, offset, count);
+                _fileWriter?.Write(buffer, offset, count);
+            }
 
-                            if (_batchSilenceFrameCount <= BatchSilenceFrameLimit)
-                            {
-                                // Within 1.5s allowance — still write
-                                _memWriter.Write(finalBuffer, 0, finalBytesRecorded);
-                            }
-                            else
-                            {
-                                // Exceeded 1.5s — pause writing, store in ring buffer
-                                if (!_batchWritePaused)
-                                {
-                                    _batchWritePaused = true;
-                                }
-                                PushToRingBuffer(finalBuffer, finalBytesRecorded);
-                            }
+            try
+            {
+                if (EnableSilenceTrimming)
+                {
+                    if (currentFrameRms > VadSpeechThreshold)
+                    {
+                        // Speech detected
+                        if (_batchWritePaused)
+                        {
+                            // RESUME: flush ring buffer (pre-speech audio) with fade-in
+                            FlushToOutputs();
+                            _batchWritePaused = false;
                         }
+                        _batchSilenceFrameCount = 0;
+                        WriteToOutputs(finalBuffer, 0, finalBytesRecorded);
                     }
                     else
                     {
-                        // No trimming — write everything (original behavior)
-                        _memWriter.Write(finalBuffer, 0, finalBytesRecorded);
+                        // Silence
+                        _batchSilenceFrameCount++;
+
+                        if (_batchSilenceFrameCount <= BatchSilenceFrameLimit)
+                        {
+                            // Within 1.5s allowance — still write
+                            WriteToOutputs(finalBuffer, 0, finalBytesRecorded);
+                        }
+                        else
+                        {
+                            // Exceeded 1.5s — pause writing, store in ring buffer
+                            if (!_batchWritePaused)
+                            {
+                                _batchWritePaused = true;
+                            }
+                            PushToRingBuffer(finalBuffer, finalBytesRecorded);
+                        }
                     }
                 }
-                catch (Exception ex)
+                else
                 {
-                    System.Diagnostics.Debug.WriteLine($"Error writing to memory: {ex.Message}");
+                    // No trimming — write everything (original behavior)
+                    WriteToOutputs(finalBuffer, 0, finalBytesRecorded);
                 }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Error writing to output streams: {ex.Message}");
             }
 
             // 2. Fire event for streaming
@@ -441,9 +475,16 @@ namespace BF_STT.Services.Audio
             {
                 if (_memWriter != null && _audioMemory != null && !_discardRecording)
                 {
-                    FinalizeWavHeader(_memWriter);
+                    FinalizeWavHeader(_memWriter, _memRiffPos, _memDataPos);
                     _memWriter.Flush();
                     audioData = _audioMemory.ToArray();
+                }
+
+                if (_fileWriter != null && !_discardRecording)
+                {
+                    FinalizeWavHeader(_fileWriter, _fileRiffPos, _fileDataPos);
+                    _fileWriter.Flush();
+                    System.Diagnostics.Debug.WriteLine($"[AudioRecording] Test Mode: Saved recording to {_tempFilePath}");
                 }
             }
             catch (Exception ex)
@@ -457,6 +498,11 @@ namespace BF_STT.Services.Audio
                 _memWriter = null;
                 try { _audioMemory?.Dispose(); } catch { }
                 _audioMemory = null;
+                
+                try { _fileWriter?.Dispose(); } catch { }
+                _fileWriter = null;
+                try { _audioFile?.Dispose(); } catch { }
+                _audioFile = null;
             }
 
             _waveIn?.Dispose();
@@ -501,9 +547,9 @@ namespace BF_STT.Services.Audio
         /// Flushes ring buffer to _memWriter in chronological order.
         /// Applies fade-in to the first frame for smooth transition.
         /// </summary>
-        private void FlushRingBuffer()
+        private void FlushToOutputs()
         {
-            if (_memWriter == null || _ringBufferCount == 0) return;
+            if ((_memWriter == null && _fileWriter == null) || _ringBufferCount == 0) return;
 
             int startIdx = _ringBufferCount < RingBufferCapacity
                 ? 0
@@ -522,7 +568,8 @@ namespace BF_STT.Services.Audio
                     ApplyCrossfade(buf, len, fadeIn: true);
                 }
 
-                _memWriter.Write(buf, 0, len);
+                _memWriter?.Write(buf, 0, len);
+                _fileWriter?.Write(buf, 0, len);
             }
 
             // Clear ring buffer
@@ -565,6 +612,12 @@ namespace BF_STT.Services.Audio
             _memWriter = null;
             try { _audioMemory?.Dispose(); } catch { }
             _audioMemory = null;
+
+            try { _fileWriter?.Dispose(); } catch { }
+            _fileWriter = null;
+            try { _audioFile?.Dispose(); } catch { }
+            _audioFile = null;
+
             _waveIn?.Dispose();
             _waveIn = null;
             _noiseService?.Dispose();

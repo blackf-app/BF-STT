@@ -1,4 +1,5 @@
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using System;
 using System.IO;
 using System.Threading.Tasks;
@@ -37,6 +38,11 @@ namespace BF_STT.Services.Audio
         // Noise Suppression
         private NoiseSuppressionService? _noiseService;
         public bool EnableNoiseSuppression { get; set; }
+        
+        // High-quality resampler (48kHz → 16kHz)
+        private BufferedWaveProvider? _resamplerInput;
+        private WdlResamplingSampleProvider? _resampler;
+        private float[]? _resamplerReadBuffer;
         
         // Silent detection
         private bool _hasAudio;
@@ -131,6 +137,24 @@ namespace BF_STT.Services.Audio
             if (EnableNoiseSuppression && _noiseService == null)
             {
                 _noiseService = new NoiseSuppressionService();
+            }
+
+            // Initialize high-quality resampler for 48kHz → 16kHz
+            if (EnableNoiseSuppression)
+            {
+                _resamplerInput = new BufferedWaveProvider(new WaveFormat(48000, 16, 1))
+                {
+                    ReadFully = false,
+                    DiscardOnBufferOverflow = true
+                };
+                _resampler = new WdlResamplingSampleProvider(_resamplerInput.ToSampleProvider(), 16000);
+                _resamplerReadBuffer = new float[4800]; // enough for 50ms at 48kHz / 3 = ~800 float samples, allocate extra
+            }
+            else
+            {
+                _resamplerInput = null;
+                _resampler = null;
+                _resamplerReadBuffer = null;
             }
 
             _waveIn = new WaveInEvent
@@ -244,20 +268,32 @@ namespace BF_STT.Services.Audio
             byte[] finalBuffer;
             int finalBytesRecorded;
 
-            if (EnableNoiseSuppression && _noiseService != null)
+            if (EnableNoiseSuppression && _noiseService != null && _resamplerInput != null && _resampler != null && _resamplerReadBuffer != null)
             {
                 // Denoise at 48kHz
                 _noiseService.Process(shortBuffer, sampleCount);
 
-                // Downsample 3:1 (48kHz -> 16kHz)
-                int downsampledCount = sampleCount / 3;
-                short[] downsampledBuffer = new short[downsampledCount];
-                for (int i = 0; i < downsampledCount; i++)
+                // High-quality resample 48kHz → 16kHz using WDL sinc interpolation
+                byte[] inputBytes = new byte[sampleCount * 2];
+                Buffer.BlockCopy(shortBuffer, 0, inputBytes, 0, sampleCount * 2);
+                _resamplerInput.AddSamples(inputBytes, 0, sampleCount * 2);
+
+                int expectedSamples = sampleCount / 3 + 16; // add margin for resampler latency
+                if (_resamplerReadBuffer.Length < expectedSamples)
+                    _resamplerReadBuffer = new float[expectedSamples];
+
+                int samplesRead = _resampler.Read(_resamplerReadBuffer, 0, expectedSamples);
+
+                short[] downsampledBuffer = new short[samplesRead];
+                for (int i = 0; i < samplesRead; i++)
                 {
-                    downsampledBuffer[i] = shortBuffer[i * 3];
+                    float val = _resamplerReadBuffer[i] * short.MaxValue;
+                    if (val > short.MaxValue) val = short.MaxValue;
+                    if (val < short.MinValue) val = short.MinValue;
+                    downsampledBuffer[i] = (short)val;
                 }
 
-                finalBytesRecorded = downsampledCount * 2;
+                finalBytesRecorded = samplesRead * 2;
                 finalBuffer = new byte[finalBytesRecorded];
                 Buffer.BlockCopy(downsampledBuffer, 0, finalBuffer, 0, finalBytesRecorded);
             }
@@ -533,6 +569,9 @@ namespace BF_STT.Services.Audio
             _waveIn = null;
             _noiseService?.Dispose();
             _noiseService = null;
+            _resamplerInput = null;
+            _resampler = null;
+            _resamplerReadBuffer = null;
         }
     }
 }

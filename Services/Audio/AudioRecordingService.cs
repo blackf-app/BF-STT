@@ -53,6 +53,22 @@ namespace BF_STT.Services.Audio
         private const float VadSpeechThreshold = 0.02f;
         private const int VadSilenceFramesToPause = 10;
         private const int VadSpeechFramesToStart = 2;
+        
+        // Batch silence trimming
+        public bool EnableSilenceTrimming { get; set; }
+        private bool _batchWritePaused;
+        private int _batchSilenceFrameCount;
+        private const int BatchSilenceFrameLimit = 30; // 1.5s / 50ms = 30 frames
+        
+        // Ring buffer for pre-speech capture (~200ms = 4 frames)
+        private const int RingBufferCapacity = 4;
+        private byte[]?[] _ringBuffer = new byte[RingBufferCapacity][];
+        private int[] _ringBufferLengths = new int[RingBufferCapacity];
+        private int _ringBufferIndex;
+        private int _ringBufferCount;
+        
+        // Crossfade to prevent click/pop at splice points
+        private const int CrossfadeSamples = 80; // ~5ms at 16kHz
 
         public event EventHandler<StoppedEventArgs>? RecordingStopped;
         public event EventHandler<float>? AudioLevelUpdated;
@@ -102,6 +118,14 @@ namespace BF_STT.Services.Audio
             _isSpeaking = false;
             _silenceFrameCount = 0;
             _speechFrameCount = 0;
+            
+            // Reset batch silence trimming
+            _batchWritePaused = false;
+            _batchSilenceFrameCount = 0;
+            _ringBuffer = new byte[RingBufferCapacity][];
+            _ringBufferLengths = new int[RingBufferCapacity];
+            _ringBufferIndex = 0;
+            _ringBufferCount = 0;
 
             int sampleRate = EnableNoiseSuppression ? 48000 : 16000;
             if (EnableNoiseSuppression && _noiseService == null)
@@ -295,7 +319,46 @@ namespace BF_STT.Services.Audio
             {
                 try
                 {
-                    _memWriter.Write(finalBuffer, 0, finalBytesRecorded);
+                    if (EnableSilenceTrimming)
+                    {
+                        if (currentFrameRms > VadSpeechThreshold)
+                        {
+                            // Speech detected
+                            if (_batchWritePaused)
+                            {
+                                // RESUME: flush ring buffer (pre-speech audio) with fade-in
+                                FlushRingBuffer();
+                                _batchWritePaused = false;
+                            }
+                            _batchSilenceFrameCount = 0;
+                            _memWriter.Write(finalBuffer, 0, finalBytesRecorded);
+                        }
+                        else
+                        {
+                            // Silence
+                            _batchSilenceFrameCount++;
+
+                            if (_batchSilenceFrameCount <= BatchSilenceFrameLimit)
+                            {
+                                // Within 1.5s allowance — still write
+                                _memWriter.Write(finalBuffer, 0, finalBytesRecorded);
+                            }
+                            else
+                            {
+                                // Exceeded 1.5s — pause writing, store in ring buffer
+                                if (!_batchWritePaused)
+                                {
+                                    _batchWritePaused = true;
+                                }
+                                PushToRingBuffer(finalBuffer, finalBytesRecorded);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // No trimming — write everything (original behavior)
+                        _memWriter.Write(finalBuffer, 0, finalBytesRecorded);
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -383,6 +446,76 @@ namespace BF_STT.Services.Audio
         public bool HasMeaningfulAudio()
         {
             return _hasSpeechContent || (_hasAudio && _speechFrameCount > 0);
+        }
+
+        /// <summary>
+        /// Pushes a frame into the ring buffer, overwriting the oldest if full.
+        /// </summary>
+        private void PushToRingBuffer(byte[] data, int length)
+        {
+            var frame = new byte[length];
+            Buffer.BlockCopy(data, 0, frame, 0, length);
+            _ringBuffer[_ringBufferIndex] = frame;
+            _ringBufferLengths[_ringBufferIndex] = length;
+            _ringBufferIndex = (_ringBufferIndex + 1) % RingBufferCapacity;
+            if (_ringBufferCount < RingBufferCapacity) _ringBufferCount++;
+        }
+
+        /// <summary>
+        /// Flushes ring buffer to _memWriter in chronological order.
+        /// Applies fade-in to the first frame for smooth transition.
+        /// </summary>
+        private void FlushRingBuffer()
+        {
+            if (_memWriter == null || _ringBufferCount == 0) return;
+
+            int startIdx = _ringBufferCount < RingBufferCapacity
+                ? 0
+                : _ringBufferIndex; // oldest entry
+
+            for (int i = 0; i < _ringBufferCount; i++)
+            {
+                int idx = (startIdx + i) % RingBufferCapacity;
+                var buf = _ringBuffer[idx];
+                var len = _ringBufferLengths[idx];
+                if (buf == null) continue;
+
+                if (i == 0)
+                {
+                    // Apply fade-in to first frame to prevent click/pop
+                    ApplyCrossfade(buf, len, fadeIn: true);
+                }
+
+                _memWriter.Write(buf, 0, len);
+            }
+
+            // Clear ring buffer
+            _ringBufferCount = 0;
+            _ringBufferIndex = 0;
+        }
+
+        /// <summary>
+        /// Applies a short linear fade-in or fade-out to a 16-bit PCM buffer
+        /// to prevent click/pop artifacts at splice points.
+        /// </summary>
+        private void ApplyCrossfade(byte[] buffer, int length, bool fadeIn)
+        {
+            int sampleCount = length / 2;
+            int fadeSamples = Math.Min(CrossfadeSamples, sampleCount);
+
+            for (int i = 0; i < fadeSamples; i++)
+            {
+                float factor = fadeIn
+                    ? (float)i / fadeSamples        // 0 → 1
+                    : (float)(fadeSamples - i) / fadeSamples; // 1 → 0
+
+                int offset = fadeIn ? i * 2 : (sampleCount - fadeSamples + i) * 2;
+                short sample = BitConverter.ToInt16(buffer, offset);
+                sample = (short)(sample * factor);
+                byte[] bytes = BitConverter.GetBytes(sample);
+                buffer[offset] = bytes[0];
+                buffer[offset + 1] = bytes[1];
+            }
         }
 
         public void Dispose()

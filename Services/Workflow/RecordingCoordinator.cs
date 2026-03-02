@@ -313,6 +313,7 @@ namespace BF_STT.Services.Workflow
             {
                 AudioService.DeviceNumber = SettingsService.CurrentSettings.MicrophoneDeviceNumber;
                 AudioService.EnableNoiseSuppression = SettingsService.CurrentSettings.EnableNoiseSuppression;
+                AudioService.EnableSilenceTrimming = true; // Default on; streaming mode will disable
                 AudioService.StartRecording();
 
                 _recordingDuration = TimeSpan.Zero;
@@ -342,6 +343,7 @@ namespace BF_STT.Services.Workflow
         internal async void EnterStreamingMode()
         {
             _hybridTimer.Stop();
+            AudioService.EnableSilenceTrimming = false; // Streaming writes all audio
             TransitionTo(StreamingState.Instance);
 
             PlayStartSound();

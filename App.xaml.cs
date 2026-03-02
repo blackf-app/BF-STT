@@ -79,7 +79,8 @@ namespace BF_STT
             bool hasAnyKey = allProviders.Any(p => !string.IsNullOrWhiteSpace(p.GetApiKey(settings)));
             if (!hasAnyKey)
             {
-                var settingsWindow = new SettingsWindow(settingsService);
+                var updateService = _serviceProvider.GetRequiredService<UpdateService>();
+                var settingsWindow = new SettingsWindow(settingsService, updateService);
                 if (settingsWindow.ShowDialog() != true)
                 {
                     Shutdown();

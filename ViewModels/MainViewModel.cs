@@ -13,6 +13,7 @@ namespace BF_STT.ViewModels
         private readonly RecordingCoordinator _coordinator;
         private readonly SettingsService _settingsService;
         private readonly HistoryService _historyService;
+        private readonly UpdateService _updateService;
         private bool _isHistoryVisible;
         private bool _isHistoryAtTop;
 
@@ -36,11 +37,13 @@ namespace BF_STT.ViewModels
         public MainViewModel(
             RecordingCoordinator coordinator,
             SettingsService settingsService,
-            HistoryService historyService)
+            HistoryService historyService,
+            UpdateService updateService)
         {
             _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _historyService = historyService ?? throw new ArgumentNullException(nameof(historyService));
+            _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
 
             // Subscribe to coordinator events
             _coordinator.StatusChanged += status => StatusText = status;
@@ -365,7 +368,7 @@ namespace BF_STT.ViewModels
         private void OpenSettings()
         {
             System.Windows.Application.Current.MainWindow.Hide();
-            var settingsWindow = new SettingsWindow(_settingsService);
+            var settingsWindow = new SettingsWindow(_settingsService, _updateService);
             if (settingsWindow.ShowDialog() == true)
             {
                 // Refresh filtered API lists based on updated keys

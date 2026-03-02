@@ -7,12 +7,19 @@ namespace BF_STT
     public partial class SettingsWindow : Window
     {
         private readonly SettingsService _settingsService;
+        private readonly UpdateService _updateService;
         private AppSettings _tempSettings;
 
-        public SettingsWindow(SettingsService settingsService)
+        public SettingsWindow(SettingsService settingsService, UpdateService updateService)
         {
             InitializeComponent();
             _settingsService = settingsService;
+            _updateService = updateService;
+
+            // Set Version Text
+            var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            VersionText.Text = $"Version: {version?.Major}.{version?.Minor}.{version?.Build}";
+
             _tempSettings = new AppSettings
             {
                 ApiKey = _settingsService.CurrentSettings.ApiKey,
@@ -230,6 +237,42 @@ namespace BF_STT
             catch (System.Exception ex)
             {
                 System.Windows.MessageBox.Show($"Không thể mở thư mục: {ex.Message}", "Lỗi", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+            }
+        }
+
+        private async void CheckUpdateButtonClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var button = sender as System.Windows.Controls.Button;
+                if (button != null) button.IsEnabled = false;
+
+                var release = await _updateService.CheckForUpdateAsync();
+
+                if (release != null)
+                {
+                    var result = System.Windows.MessageBox.Show(
+                        $"Đã có phiên bản mới ({release.Version}). Bạn có muốn cập nhật ngay không?\n\n" +
+                        "Ứng dụng sẽ tự động tải về, cài đặt và khởi động lại.",
+                        "Cập Nhật Có Sẵn",
+                        System.Windows.MessageBoxButton.YesNo,
+                        System.Windows.MessageBoxImage.Information);
+
+                    if (result == System.Windows.MessageBoxResult.Yes)
+                    {
+                        _ = _updateService.DownloadAndInstallUpdateAsync(release.DownloadUrl);
+                    }
+                }
+                else
+                {
+                    System.Windows.MessageBox.Show("Bạn đang sử dụng phiên bản mới nhất.", "Thông báo", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Information);
+                }
+
+                if (button != null) button.IsEnabled = true;
+            }
+            catch (System.Exception ex)
+            {
+                System.Windows.MessageBox.Show($"Lỗi khi kiểm tra cập nhật: {ex.Message}", "Lỗi", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
             }
         }
     }

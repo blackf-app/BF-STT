@@ -34,6 +34,7 @@ namespace BF_STT.Services.Infrastructure
                 return new HistoryService(settings.MaxHistoryItems);
             });
             services.AddSingleton<HttpClient>();
+            services.AddSingleton<UpdateService>();
 
             // ── Audio ──
             services.AddSingleton<AudioRecordingService>();

@@ -204,8 +204,16 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Header -->
             <Grid Grid.Row="0" Margin="10,5,10,15">
+                <Button Width="32" 
+                        Height="32" 
+                        HorizontalAlignment="Left" 
+                        VerticalAlignment="Center" 
+                        ToolTip="Kiểm tra phiên bản mới"
+                        Background="#333333"
+                        Click="CheckUpdateButtonClick">
+                    <TextBlock Text="🔄" FontSize="16" Margin="0,-2,0,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                </Button>
                 <TextBlock Text="Settings" 
                            FontSize="20" 
                            FontWeight="Bold" 
@@ -376,6 +384,15 @@
                         Width="140" 
                         Height="45"/>
             </StackPanel>
+
+            <TextBlock x:Name="VersionText" 
+                       Grid.Row="2" 
+                       Text="Version: 1.0.0" 
+                       Foreground="#666666" 
+                       FontSize="11" 
+                       HorizontalAlignment="Right" 
+                       VerticalAlignment="Bottom" 
+                       Margin="0,0,0,-15"/>
         </Grid>
     </Border>
 </Window>

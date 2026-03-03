@@ -11,8 +11,18 @@ namespace BF_STT.Services.STT.Providers.AssemblyAI
     {
         public AssemblyAIBatchService(HttpClient httpClient, string apiKey, string baseUrl, string model)
             : base(httpClient, apiKey, baseUrl, "https://api.assemblyai.com",
-                   string.IsNullOrWhiteSpace(model) ? "best" : model)
+                   ResolveSpeechModel(string.IsNullOrWhiteSpace(model) ? "universal-3-pro" : model))
         { }
+
+        private static string ResolveSpeechModel(string model)
+        {
+            return model.ToLowerInvariant() switch
+            {
+                "best" => "universal-3-pro",
+                "nano" => "universal-2",
+                _ => model
+            };
+        }
 
         protected override async Task<string> TranscribeCore(byte[] audioData, string language, CancellationToken ct)
         {
@@ -67,13 +77,16 @@ namespace BF_STT.Services.STT.Providers.AssemblyAI
 
         private async Task<string> CreateTranscriptAsync(string audioUrl, string language, CancellationToken ct)
         {
+            // universal-3-pro only supports English; for all other languages use universal-2
+            var isEnglish = string.IsNullOrWhiteSpace(language) || language.Equals("en", StringComparison.OrdinalIgnoreCase);
+            var effectiveModel = isEnglish ? Model : "universal-2";
+
             var body = new Dictionary<string, object>
             {
                 { "audio_url", audioUrl },
-                { "speech_models", new[] { Model } }
+                { "speech_models", new[] { effectiveModel } }
             };
 
-            // Map language code to AssemblyAI format (e.g., "vi" -> "vi")
             if (!string.IsNullOrWhiteSpace(language))
             {
                 body["language_code"] = language;

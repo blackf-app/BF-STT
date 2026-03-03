@@ -33,13 +33,27 @@ namespace BF_STT.Services.STT.Providers.AssemblyAI
             _streamingUrl = string.IsNullOrWhiteSpace(streamingUrl)
                 ? "wss://streaming.assemblyai.com/v3/ws"
                 : streamingUrl;
-            _model = string.IsNullOrWhiteSpace(model) ? "best" : model;
+            _model = ResolveStreamingModel(string.IsNullOrWhiteSpace(model) ? "universal-streaming-english" : model);
+        }
+
+        /// <summary>
+        /// Maps batch/legacy model names to valid streaming model names.
+        /// Valid streaming models: universal-streaming-english, universal-streaming-multilingual, u3-rt-pro
+        /// </summary>
+        private static string ResolveStreamingModel(string model)
+        {
+            return model.ToLowerInvariant() switch
+            {
+                "best" or "universal-3-pro" => "universal-streaming-english",
+                "nano" or "universal-2" => "universal-streaming-multilingual",
+                _ => model
+            };
         }
 
         public void UpdateSettings(string apiKey, string model)
         {
             _apiKey = apiKey;
-            if (!string.IsNullOrWhiteSpace(model)) _model = model;
+            if (!string.IsNullOrWhiteSpace(model)) _model = ResolveStreamingModel(model);
         }
 
         public async Task StartAsync(string language, CancellationToken ct = default)
@@ -50,8 +64,12 @@ namespace BF_STT.Services.STT.Providers.AssemblyAI
             _webSocket = new ClientWebSocket();
             _webSocket.Options.SetRequestHeader("Authorization", _apiKey);
 
+            // Auto-select multilingual model for non-English languages
+            var isEnglish = string.IsNullOrWhiteSpace(language) || language.Equals("en", StringComparison.OrdinalIgnoreCase);
+            var effectiveModel = isEnglish ? _model : "universal-streaming-multilingual";
+
             // Build WebSocket URL with query parameters
-            var url = $"{_streamingUrl}?encoding=pcm_s16le&sample_rate=16000";
+            var url = $"{_streamingUrl}?encoding=pcm_s16le&sample_rate=16000&speech_model={effectiveModel}";
 
             _receiveCts = new CancellationTokenSource();
             _keepAliveCts = new CancellationTokenSource();

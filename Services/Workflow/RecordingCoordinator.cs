@@ -467,13 +467,26 @@ namespace BF_STT.Services.Workflow
 
         public string GetProviderTranscript(string providerName)
         {
-            return _providerTranscripts.TryGetValue(providerName, out var val) ? val : string.Empty;
+            // Note: In the new architecture, transcripts are stored in ProviderViewModels.
+            // This method might need to be removed or updated if something still calls it.
+            // For now, we delegate to the main transcript text or specific ProviderViewModel if possible.
+            return string.Empty; 
         }
 
         private void SetProviderTranscript(string providerName, string value)
         {
-            _providerTranscripts[providerName] = value;
-            ProviderTranscriptChanged?.Invoke(providerName, value);
+            // Bubble up to ViewModel instead of storing locally
+            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            {
+                var app = System.Windows.Application.Current as App;
+                // Note: Better to use an event or a direct reference if possible, 
+                // but since RecordingCoordinator is a singleton in DI, we can't easily 
+                // get the transient MainViewModel without a reference.
+                // However, RecordingCoordinator has no direct reference to MainViewModel to avoid circular dependency.
+                
+                // We'll fire the event so whoever is listening (MainViewModel) can update.
+                ProviderTranscriptChanged?.Invoke(providerName, value);
+            });
         }
 
         #endregion

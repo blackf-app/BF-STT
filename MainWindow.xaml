@@ -1,4 +1,4 @@
-﻿<Window x:Class="BF_STT.MainWindow"
+<Window x:Class="BF_STT.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -314,136 +314,29 @@
                 </Style>
             </Border.Style>
             <Grid>
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="5"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="5"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="5"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="5"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="5"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="5"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="5"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    
-                    <!-- Deepgram -->
-                    <DockPanel Grid.Column="0">
-                        <TextBlock DockPanel.Dock="Top" Text="Deepgram" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding DeepgramTranscript}" 
-                                 Background="Transparent" 
-                                 Foreground="White" 
-                                 BorderThickness="1" BorderBrush="#444444"
-                                 FontSize="10" 
-                                 TextWrapping="Wrap" 
-                                 IsReadOnly="True"
-                                 Height="80" Width="80"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-                    <!-- Speechmatics -->
-                    <DockPanel Grid.Column="2">
-                        <TextBlock DockPanel.Dock="Top" Text="Speechmatics" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding SpeechmaticsTranscript}" 
-                                 Background="Transparent" 
-                                 Foreground="White" 
-                                 BorderThickness="1" BorderBrush="#444444"
-                                 FontSize="10" 
-                                 TextWrapping="Wrap" 
-                                 IsReadOnly="True"
-                                 Height="80" Width="80"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-                    
-                    <!-- Soniox -->
-                    <DockPanel Grid.Column="4">
-                        <TextBlock DockPanel.Dock="Top" Text="Soniox" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding SonioxTranscript}" 
-                                 Background="Transparent" 
-                                 Foreground="White" 
-                                 BorderThickness="1" BorderBrush="#444444"
-                                 FontSize="10" 
-                                 TextWrapping="Wrap" 
-                                 IsReadOnly="True"
-                                 Height="80" Width="80"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-
-                    <!-- OpenAI -->
-                    <DockPanel Grid.Column="6">
-                        <TextBlock DockPanel.Dock="Top" Text="OpenAI" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding OpenAITranscript}" 
-                                 Background="Transparent" 
-                                 Foreground="White" 
-                                 BorderThickness="1" BorderBrush="#444444"
-                                 FontSize="10" 
-                                 TextWrapping="Wrap" 
-                                 IsReadOnly="True"
-                                 Height="80" Width="80"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-
-                    <!-- ElevenLabs -->
-                    <DockPanel Grid.Column="8">
-                        <TextBlock DockPanel.Dock="Top" Text="ElevenLabs" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding ElevenLabsTranscript}" 
-                                 Background="Transparent" 
-                                 Foreground="White" 
-                                 BorderThickness="1" BorderBrush="#444444"
-                                 FontSize="10" 
-                                 TextWrapping="Wrap" 
-                                 IsReadOnly="True"
-                                 Height="80" Width="80"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-
-                    <!-- Google -->
-                    <DockPanel Grid.Column="10">
-                        <TextBlock DockPanel.Dock="Top" Text="Google" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding GoogleTranscript}" 
-                                 Background="Transparent" 
-                                 Foreground="White" 
-                                 BorderThickness="1" BorderBrush="#444444"
-                                 FontSize="10" 
-                                 TextWrapping="Wrap" 
-                                 IsReadOnly="True"
-                                 Height="80" Width="80"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-
-                    <!-- AssemblyAI -->
-                    <DockPanel Grid.Column="12">
-                        <TextBlock DockPanel.Dock="Top" Text="AssemblyAI" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding AssemblyAITranscript}" 
-                                 Background="Transparent" 
-                                 Foreground="White" 
-                                 BorderThickness="1" BorderBrush="#444444"
-                                 FontSize="10" 
-                                 TextWrapping="Wrap" 
-                                 IsReadOnly="True"
-                                 Height="80" Width="80"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-
-                    <!-- Azure -->
-                    <DockPanel Grid.Column="14">
-                        <TextBlock DockPanel.Dock="Top" Text="Azure" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
-                        <TextBox Text="{Binding AzureTranscript}" 
-                                 Background="Transparent" 
-                                 Foreground="White" 
-                                 BorderThickness="1" BorderBrush="#444444"
-                                 FontSize="10" 
-                                 TextWrapping="Wrap" 
-                                 IsReadOnly="True"
-                                 Height="80" Width="80"
-                                 VerticalScrollBarVisibility="Auto"/>
-                    </DockPanel>
-                </Grid>
+                <ItemsControl ItemsSource="{Binding Providers}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="5,0">
+                                <TextBlock DockPanel.Dock="Top" Text="{Binding Name}" Foreground="#AAAAAA" FontSize="10" FontWeight="SemiBold" Margin="0,0,0,2"/>
+                                <TextBox Text="{Binding Transcript}" 
+                                         Background="Transparent" 
+                                         Foreground="White" 
+                                         BorderThickness="1" BorderBrush="#444444"
+                                         FontSize="10" 
+                                         TextWrapping="Wrap" 
+                                         IsReadOnly="True"
+                                         Height="80" Width="90"
+                                         VerticalScrollBarVisibility="Auto"/>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 
                 <!-- Loading Overlay -->
                 <Grid Background="#AA000000" Visibility="{Binding IsSending, Converter={StaticResource BooleanToVisibilityConverter}}">

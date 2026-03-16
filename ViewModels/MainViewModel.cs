@@ -22,13 +22,8 @@ namespace BF_STT.ViewModels
         private bool _isRecording;
         private float _audioLevel;
 
-        /// <summary>
-        /// Providers that support streaming (have a streaming service implementation).
-        /// </summary>
-        private static readonly HashSet<string> StreamingCapableProviders = new()
-        {
-            "Deepgram", "Speechmatics", "Soniox", "ElevenLabs", "AssemblyAI"
-        };
+        private readonly Dictionary<string, ProviderViewModel> _providerMap = new();
+        public ObservableCollection<ProviderViewModel> Providers { get; } = new();
 
         #endregion
 
@@ -49,7 +44,7 @@ namespace BF_STT.ViewModels
             _coordinator.StatusChanged += status => StatusText = status;
             _coordinator.TranscriptChanged += text => TranscriptText = text;
             _coordinator.ProviderTranscriptChanged += (provider, text) =>
-                OnPropertyChanged($"{provider}Transcript");
+                UpdateProviderTranscript(provider, text);
             _coordinator.RecordingStateChanged += recording => IsRecording = recording;
             _coordinator.SendingStateChanged += () => OnPropertyChanged(nameof(IsSending));
             _coordinator.AudioLevelChanged += level => AudioLevel = level;
@@ -138,53 +133,8 @@ namespace BF_STT.ViewModels
         public bool IsTestMode => _coordinator.IsTestMode;
 
         // Per-provider transcripts for Test Mode UI panels
-        public string DeepgramTranscript
-        {
-            get => _coordinator.GetProviderTranscript("Deepgram");
-            set => OnPropertyChanged();
-        }
-
-        public string SpeechmaticsTranscript
-        {
-            get => _coordinator.GetProviderTranscript("Speechmatics");
-            set => OnPropertyChanged();
-        }
-
-        public string SonioxTranscript
-        {
-            get => _coordinator.GetProviderTranscript("Soniox");
-            set => OnPropertyChanged();
-        }
-
-        public string OpenAITranscript
-        {
-            get => _coordinator.GetProviderTranscript("OpenAI");
-            set => OnPropertyChanged();
-        }
-
-        public string ElevenLabsTranscript
-        {
-            get => _coordinator.GetProviderTranscript("ElevenLabs");
-            set => OnPropertyChanged();
-        }
-
-        public string GoogleTranscript
-        {
-            get => _coordinator.GetProviderTranscript("Google");
-            set => OnPropertyChanged();
-        }
-
-        public string AssemblyAITranscript
-        {
-            get => _coordinator.GetProviderTranscript("AssemblyAI");
-            set => OnPropertyChanged();
-        }
-
-        public string AzureTranscript
-        {
-            get => _coordinator.GetProviderTranscript("Azure");
-            set => OnPropertyChanged();
-        }
+        // All provider transcript properties are removed. 
+        // Provider transcripts are now accessed via the Providers collection or _providerMap.
 
         public string StatusText
         {
@@ -271,44 +221,58 @@ namespace BF_STT.ViewModels
         /// The streaming list additionally filters to only streaming-capable providers.
         /// If the currently selected API is no longer available, auto-selects the first available.
         /// </summary>
-        private void RefreshAvailableApis()
+        public void RefreshAvailableApis()
         {
             var settings = _settingsService.CurrentSettings;
-
-            // Map provider names to their API key values
-            var apiKeyMap = new Dictionary<string, string>
-            {
-                { "Deepgram", settings.ApiKey },
-                { "Speechmatics", settings.SpeechmaticsApiKey },
-                { "Soniox", settings.SonioxApiKey },
-                { "OpenAI", settings.OpenAIApiKey },
-                { "ElevenLabs", settings.ElevenLabsApiKey },
-                { "Google", settings.GoogleApiKey },
-                { "AssemblyAI", settings.AssemblyAIApiKey },
-                { "Azure", settings.AzureApiKey }
-            };
-
+            // 1. Get all providers from registry
+            var allProviderEntries = _coordinator.Registry.GetAllProviders();
             var newBatchApis = new List<string>();
             var newStreamingApis = new List<string>();
 
-            foreach (var kvp in apiKeyMap)
+            // 2. Clear/Update UI Provider List (Test Mode panels)
+            var currentActiveProviders = new List<string>();
+
+            foreach (var entry in allProviderEntries)
             {
-                if (!string.IsNullOrWhiteSpace(kvp.Value))
+                var apiKey = entry.GetApiKey(settings);
+                if (!string.IsNullOrWhiteSpace(apiKey))
                 {
-                    newBatchApis.Add(kvp.Key);
-                    
-                    if (StreamingCapableProviders.Contains(kvp.Key))
+                    newBatchApis.Add(entry.Name);
+                    if (entry.SupportsStreaming)
                     {
-                        newStreamingApis.Add(kvp.Key);
+                        newStreamingApis.Add(entry.Name);
                     }
+                    currentActiveProviders.Add(entry.Name);
                 }
             }
 
-            // Sync collections instead of clearing to preserve WPF ComboBox selected items
+            // 3. Sync Providers collection for Test Mode UI
+            // Remove providers no longer active
+            for (int i = Providers.Count - 1; i >= 0; i--)
+            {
+                if (!currentActiveProviders.Contains(Providers[i].Name))
+                {
+                    _providerMap.Remove(Providers[i].Name);
+                    Providers.RemoveAt(i);
+                }
+            }
+
+            // Add or move new providers
+            foreach (var name in currentActiveProviders)
+            {
+                if (!_providerMap.ContainsKey(name))
+                {
+                    var pvm = new ProviderViewModel(name);
+                    _providerMap[name] = pvm;
+                    Providers.Add(pvm);
+                }
+            }
+
+            // 4. Sync Dropdown collections
             SyncCollection(ConfiguredBatchApis, newBatchApis);
             SyncCollection(ConfiguredStreamingApis, newStreamingApis);
 
-            // Validate current selections — fallback if no longer available
+            // 5. Validate current selections
             if (!ConfiguredBatchApis.Contains(_coordinator.BatchModeApi))
             {
                 var fallback = ConfiguredBatchApis.FirstOrDefault();
@@ -326,9 +290,17 @@ namespace BF_STT.ViewModels
                 }
             }
 
-            // Force WPF ComboBox to re-read SelectedItem after collection rebuild
+            // 6. Force WPF ComboBox to re-read SelectedItem
             OnPropertyChanged(nameof(BatchModeApi));
             OnPropertyChanged(nameof(StreamingModeApi));
+        }
+
+        public void UpdateProviderTranscript(string providerName, string text)
+        {
+            if (_providerMap.TryGetValue(providerName, out var pvm))
+            {
+                pvm.Transcript = text;
+            }
         }
 
         private void SyncCollection(ObservableCollection<string> collection, List<string> newItems)

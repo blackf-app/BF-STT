@@ -12,6 +12,7 @@ using BF_STT.Services.STT.Providers.Speechmatics;
 using BF_STT.Services.Workflow;
 using BF_STT.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System.Net.Http;
 
 namespace BF_STT.Services.Infrastructure
@@ -25,13 +26,19 @@ namespace BF_STT.Services.Infrastructure
         {
             var services = new ServiceCollection();
 
+            services.AddLogging(builder => {
+                builder.AddDebug();
+                builder.SetMinimumLevel(LogLevel.Debug);
+            });
+
             // ── Infrastructure ──
             services.AddSingleton<SettingsService>();
             services.AddSingleton<SoundService>();
             services.AddSingleton(sp =>
             {
                 var settings = sp.GetRequiredService<SettingsService>().CurrentSettings;
-                return new HistoryService(settings.MaxHistoryItems);
+                var logger = sp.GetRequiredService<ILogger<HistoryService>>();
+                return new HistoryService(settings.MaxHistoryItems, logger);
             });
             services.AddSingleton<HttpClient>();
             services.AddSingleton<UpdateService>();

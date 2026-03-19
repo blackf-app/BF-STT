@@ -55,8 +55,6 @@ namespace BF_STT.Services.Workflow
         private DispatcherTimer _hybridTimer;
         private TimeSpan _recordingDuration;
 
-        /// <summary>Per-provider transcript text for Test Mode display.</summary>
-        private readonly Dictionary<string, string> _providerTranscripts = new();
 
         internal const int HybridThresholdMs = 300;
 
@@ -156,12 +154,6 @@ namespace BF_STT.Services.Workflow
 
             _currentState = IdleState.Instance;
 
-            // Initialize per-provider transcript storage
-            foreach (var p in Registry.GetAllProviders())
-            {
-                _providerTranscripts[p.Name] = string.Empty;
-            }
-
             // Wire audio level updates
             AudioService.AudioLevelUpdated += (s, level) =>
             {
@@ -180,20 +172,12 @@ namespace BF_STT.Services.Workflow
             // Bubble events from BatchProcessor
             BatchProcessor.StatusChanged += s => StatusChanged?.Invoke(s);
             BatchProcessor.TranscriptChanged += t => TranscriptChanged?.Invoke(t);
-            BatchProcessor.ProviderTranscriptChanged += (name, text) =>
-            {
-                _providerTranscripts[name] = text;
-                ProviderTranscriptChanged?.Invoke(name, text);
-            };
+            BatchProcessor.ProviderTranscriptChanged += (name, text) => ProviderTranscriptChanged?.Invoke(name, text);
 
             // Bubble events from StreamingManager
             StreamingManager.StatusChanged += s => StatusChanged?.Invoke(s);
             StreamingManager.TranscriptChanged += t => TranscriptChanged?.Invoke(t);
-            StreamingManager.ProviderTranscriptChanged += (name, text) =>
-            {
-                _providerTranscripts[name] = text;
-                ProviderTranscriptChanged?.Invoke(name, text);
-            };
+            StreamingManager.ProviderTranscriptChanged += (name, text) => ProviderTranscriptChanged?.Invoke(name, text);
 
             _recordingTimer = new DispatcherTimer
             {
@@ -296,7 +280,7 @@ namespace BF_STT.Services.Workflow
             {
                 foreach (var p in Registry.GetAllProviders())
                 {
-                    SetProviderTranscript(p.Name, string.Empty);
+                    ProviderTranscriptChanged?.Invoke(p.Name, string.Empty);
                 }
             }
             else
@@ -463,34 +447,6 @@ namespace BF_STT.Services.Workflow
 
         #endregion
 
-        #region Provider Transcript Helpers
-
-        public string GetProviderTranscript(string providerName)
-        {
-            // Note: In the new architecture, transcripts are stored in ProviderViewModels.
-            // This method might need to be removed or updated if something still calls it.
-            // For now, we delegate to the main transcript text or specific ProviderViewModel if possible.
-            return string.Empty; 
-        }
-
-        private void SetProviderTranscript(string providerName, string value)
-        {
-            // Bubble up to ViewModel instead of storing locally
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
-            {
-                var app = System.Windows.Application.Current as App;
-                // Note: Better to use an event or a direct reference if possible, 
-                // but since RecordingCoordinator is a singleton in DI, we can't easily 
-                // get the transient MainViewModel without a reference.
-                // However, RecordingCoordinator has no direct reference to MainViewModel to avoid circular dependency.
-                
-                // We'll fire the event so whoever is listening (MainViewModel) can update.
-                ProviderTranscriptChanged?.Invoke(providerName, value);
-            });
-        }
-
-        #endregion
-
         #region Batch Processing (delegates to BatchProcessor)
 
         private async Task ProcessBatchAsync(byte[] audioData, IntPtr targetWindow)
@@ -635,7 +591,7 @@ namespace BF_STT.Services.Workflow
             AudioLevelChanged?.Invoke(0);
             foreach (var p in Registry.GetAllProviders())
             {
-                SetProviderTranscript(p.Name, string.Empty);
+                ProviderTranscriptChanged?.Invoke(p.Name, string.Empty);
             }
             TranscriptChanged?.Invoke(string.Empty);
             StreamingManager.ClearBuffer();

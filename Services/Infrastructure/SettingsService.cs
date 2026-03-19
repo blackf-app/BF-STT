@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using System.IO;
 using System.Text.Json;
@@ -74,11 +75,13 @@ namespace BF_STT.Services.Infrastructure
     {
         private readonly string _settingsFilePath;
         private const string AppName = "BF-STT";
+        private readonly ILogger<SettingsService> _logger;
 
         public AppSettings CurrentSettings { get; private set; } = new AppSettings();
 
-        public SettingsService()
+        public SettingsService(ILogger<SettingsService>? logger = null)
         {
+            _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<SettingsService>.Instance;
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
             Directory.CreateDirectory(appDataPath);
             _settingsFilePath = Path.Combine(appDataPath, "settings.json");
@@ -94,9 +97,11 @@ namespace BF_STT.Services.Infrastructure
                 {
                     var json = File.ReadAllText(_settingsFilePath);
                     CurrentSettings = JsonSerializer.Deserialize<AppSettings>(json) ?? new AppSettings();
+                    DecryptApiKeys(CurrentSettings);
                 }
-                catch
+                catch (Exception ex)
                 {
+                    _logger.LogWarning(ex, "Settings file is corrupted or unreadable, resetting to defaults");
                     CurrentSettings = new AppSettings();
                 }
             }
@@ -122,7 +127,7 @@ namespace BF_STT.Services.Infrastructure
                         }
                     }
                 }
-                catch { /* Ignore errors in fallback */ }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed to read fallback appsettings.json"); }
             }
 
             // Guard against null/empty API selections (can happen from JSON deserialization)
@@ -169,9 +174,36 @@ namespace BF_STT.Services.Infrastructure
         public void SaveSettings(AppSettings newSettings)
         {
             CurrentSettings = newSettings;
-            var json = JsonSerializer.Serialize(CurrentSettings, new JsonSerializerOptions { WriteIndented = true });
+            var copy = JsonSerializer.Deserialize<AppSettings>(
+                JsonSerializer.Serialize(CurrentSettings))!;
+            EncryptApiKeys(copy);
+            var json = JsonSerializer.Serialize(copy, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_settingsFilePath, json);
             SetStartWithWindows(CurrentSettings.StartWithWindows);
+        }
+
+        private static void EncryptApiKeys(AppSettings s)
+        {
+            s.ApiKey = SecureSettingsSerializer.Encrypt(s.ApiKey);
+            s.SpeechmaticsApiKey = SecureSettingsSerializer.Encrypt(s.SpeechmaticsApiKey);
+            s.SonioxApiKey = SecureSettingsSerializer.Encrypt(s.SonioxApiKey);
+            s.OpenAIApiKey = SecureSettingsSerializer.Encrypt(s.OpenAIApiKey);
+            s.ElevenLabsApiKey = SecureSettingsSerializer.Encrypt(s.ElevenLabsApiKey);
+            s.GoogleApiKey = SecureSettingsSerializer.Encrypt(s.GoogleApiKey);
+            s.AssemblyAIApiKey = SecureSettingsSerializer.Encrypt(s.AssemblyAIApiKey);
+            s.AzureApiKey = SecureSettingsSerializer.Encrypt(s.AzureApiKey);
+        }
+
+        private static void DecryptApiKeys(AppSettings s)
+        {
+            s.ApiKey = SecureSettingsSerializer.Decrypt(s.ApiKey);
+            s.SpeechmaticsApiKey = SecureSettingsSerializer.Decrypt(s.SpeechmaticsApiKey);
+            s.SonioxApiKey = SecureSettingsSerializer.Decrypt(s.SonioxApiKey);
+            s.OpenAIApiKey = SecureSettingsSerializer.Decrypt(s.OpenAIApiKey);
+            s.ElevenLabsApiKey = SecureSettingsSerializer.Decrypt(s.ElevenLabsApiKey);
+            s.GoogleApiKey = SecureSettingsSerializer.Decrypt(s.GoogleApiKey);
+            s.AssemblyAIApiKey = SecureSettingsSerializer.Decrypt(s.AssemblyAIApiKey);
+            s.AzureApiKey = SecureSettingsSerializer.Decrypt(s.AzureApiKey);
         }
 
         private void SetStartWithWindows(bool enable)

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Windows.Threading;
+using Microsoft.Extensions.Logging;
 using WpfClipboard = System.Windows.Clipboard;
 using WpfIDataObject = System.Windows.IDataObject;
 
@@ -10,14 +11,16 @@ namespace BF_STT.Services.Platform
         private IntPtr _lastExternalWindowHandle;
         private readonly DispatcherTimer _timer;
         private readonly int _myProcessId;
+        private readonly ILogger<InputInjector> _logger;
 
         // Streaming injection state
         private string _lastInjectedText = string.Empty;
         private string _committedText = string.Empty; // Text from all finalized segments
         private readonly SemaphoreSlim _injectSemaphore = new(1, 1);
 
-        public InputInjector()
+        public InputInjector(ILogger<InputInjector>? logger = null)
         {
+            _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<InputInjector>.Instance;
             _myProcessId = Process.GetCurrentProcess().Id;
             
             _timer = new DispatcherTimer
@@ -69,7 +72,7 @@ namespace BF_STT.Services.Platform
             {
                 clipboardBackup = ClipboardHelper.Backup();
             }
-            catch { /* If backup fails, continue without restore */ }
+            catch (Exception ex) { _logger.LogWarning(ex, "Clipboard backup failed, text injection will proceed without restore"); }
 
             uint currentThreadId = Win32InputSimulator.GetCurrentThreadId();
             uint targetThreadId = Win32InputSimulator.GetWindowThreadProcessId(handleToUse, out uint _);
@@ -122,7 +125,7 @@ namespace BF_STT.Services.Platform
                 {
                     ClipboardHelper.Restore(clipboardBackup);
                 }
-                catch { /* Ignore restore errors to avoid crashing */ }
+                catch (Exception ex) { _logger.LogWarning(ex, "Clipboard restore failed"); }
             }
         }
 

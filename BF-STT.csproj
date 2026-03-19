@@ -10,10 +10,10 @@
     <Authors>Black Face</Authors>
     <Company>BF Company</Company>
     <Copyright>Copyright (c) 2026 BF Company</Copyright>
-    <Version>1.0.241</Version>
-    <AssemblyVersion>1.0.241</AssemblyVersion>
-    <FileVersion>1.0.241</FileVersion>
-    <InformationalVersion>1.0.241</InformationalVersion>
+    <Version>1.0.248</Version>
+    <AssemblyVersion>1.0.248</AssemblyVersion>
+    <FileVersion>1.0.248</FileVersion>
+    <InformationalVersion>1.0.248</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -44,8 +44,11 @@
     <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.1" />
     <PackageReference Include="NAudio" Version="2.2.1" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="YellowDogMan.RRNoise.NET" Version="0.1.9" />
   </ItemGroup>
 
@@ -54,6 +57,10 @@
     <EmbeddedResource Remove="Tests\**" />
     <None Remove="Tests\**" />
     <Page Remove="Tests\**" />
+    <Compile Remove="BF-STT.Tests\**" />
+    <EmbeddedResource Remove="BF-STT.Tests\**" />
+    <None Remove="BF-STT.Tests\**" />
+    <Page Remove="BF-STT.Tests\**" />
   </ItemGroup>
 
   <!-- Automatically increment version before build -->

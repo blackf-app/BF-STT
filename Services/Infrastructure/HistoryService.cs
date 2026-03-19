@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using BF_STT.Models;
+using Microsoft.Extensions.Logging;
 
 namespace BF_STT.Services.Infrastructure
 {
@@ -14,12 +15,14 @@ namespace BF_STT.Services.Infrastructure
         private const string HistoryFileName = "history.json";
         private int _maxHistoryItems;
         private readonly string _historyFilePath;
+        private readonly ILogger<HistoryService> _logger;
 
         public ObservableCollection<HistoryItem> History { get; private set; } = new ObservableCollection<HistoryItem>();
 
-        public HistoryService(int maxItems = 100)
+        public HistoryService(int maxItems = 100, ILogger<HistoryService>? logger = null)
         {
             _maxHistoryItems = maxItems;
+            _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<HistoryService>.Instance;
             var appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), AppName);
             Directory.CreateDirectory(appDataPath);
             _historyFilePath = Path.Combine(appDataPath, HistoryFileName);
@@ -54,9 +57,9 @@ namespace BF_STT.Services.Infrastructure
                         }
                     }
                 }
-                catch
+                catch (Exception ex)
                 {
-                    // If corrupted, start over
+                    _logger.LogWarning(ex, "History file is corrupted or unreadable, resetting to empty");
                     History.Clear();
                 }
             }

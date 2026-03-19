@@ -2,21 +2,16 @@
 description: Stage all changes, generate an AI commit message, and push to Git
 ---
 
-Follow these steps to push your changes with an AI-generated commit message:
+// turbo-all
+# Git Push Workflow
+Automate the staging, committing, and pushing of changes with an AI-generated message.
 
-1. Stage all changes (including untracked files).
-```powershell
-git add -A
-```
+## 1. PREPARE & ANALYZE
+- Run `powershell -ExecutionPolicy Bypass -File .agent/scripts/git_prepare.ps1`
+- If output is `NO_CHANGES`, stop and inform the user.
+- Analyze the output to generate a concise, descriptive commit message (max 50 chars).
+- **DO NOT** use prefixes like `feat:`, `fix:`, `refactor:`, or `docs:`.
 
-2. Generate a concise and descriptive commit message based on the staged changes (DO NOT use prefixes like "feat:", "fix:", etc.). Ignore changes related to version increments or README updates in the generated message. I will review the `git diff --cached` output to understand the context of your work.
-
-3. Commit the changes with the generated message.
-```powershell
-git commit -m "[INSERT_AI_MESSAGE_HERE]"
-```
-
-4. Push the changes to the remote repository.
-```powershell
-git push
-```
+## 2. FINALIZE
+- Run `powershell -ExecutionPolicy Bypass -File .agent/scripts/git_push.ps1 "[Generated Message]"`
+- Report the status and the generated message.

@@ -5,9 +5,9 @@ using BF_STT.Services.STT.Abstractions;
 using BF_STT.Services.Workflow.States;
 using BF_STT.Services.Platform;
 using BF_STT.Services.Infrastructure;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using System.Windows.Threading;
@@ -32,6 +32,7 @@ namespace BF_STT.Services.Workflow
         internal readonly HistoryService HistoryService;
         internal readonly BatchProcessor BatchProcessor;
         internal readonly StreamingManager StreamingManager;
+        private readonly ILogger<RecordingCoordinator> _logger;
 
         #endregion
 
@@ -141,7 +142,8 @@ namespace BF_STT.Services.Workflow
             SettingsService settingsService,
             HistoryService historyService,
             BatchProcessor batchProcessor,
-            StreamingManager streamingManager)
+            StreamingManager streamingManager,
+            ILogger<RecordingCoordinator> logger)
         {
             AudioService = audioService ?? throw new ArgumentNullException(nameof(audioService));
             Registry = registry ?? throw new ArgumentNullException(nameof(registry));
@@ -151,6 +153,7 @@ namespace BF_STT.Services.Workflow
             HistoryService = historyService ?? throw new ArgumentNullException(nameof(historyService));
             BatchProcessor = batchProcessor ?? throw new ArgumentNullException(nameof(batchProcessor));
             StreamingManager = streamingManager ?? throw new ArgumentNullException(nameof(streamingManager));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
             _currentState = IdleState.Instance;
 
@@ -204,7 +207,7 @@ namespace BF_STT.Services.Workflow
             var oldState = _currentState;
             _currentState = newState;
 
-            Debug.WriteLine($"[Coordinator] State: {oldState.StateId} → {newState.StateId}");
+            _logger.LogDebug("State: {OldState} → {NewState}", oldState.StateId, newState.StateId);
 
             // Fire recording state change if transitioning in/out of recording
             bool wasRecording = oldState.StateId == RecordingStateEnum.HybridPending
@@ -240,7 +243,7 @@ namespace BF_STT.Services.Workflow
         {
             if (IsRecording)
             {
-                CancelRecording();
+                CancelRecordingAsync().SafeFireAndForget(_logger);
             }
             else if (State == RecordingStateEnum.Idle || State == RecordingStateEnum.Failed)
             {
@@ -252,11 +255,11 @@ namespace BF_STT.Services.Workflow
         {
             if (State == RecordingStateEnum.BatchRecording)
             {
-                StopAndProcessBatch();
+                StopAndProcessBatchAsync().SafeFireAndForget(_logger);
             }
             else if (State == RecordingStateEnum.Streaming)
             {
-                StopStreamingAndFinalize();
+                StopStreamingAndFinalizeAsync().SafeFireAndForget(_logger);
             }
         }
 
@@ -325,7 +328,7 @@ namespace BF_STT.Services.Workflow
         }
 
         /// <summary>Enters streaming mode — delegates to StreamingManager.</summary>
-        internal async void EnterStreamingMode()
+        internal async Task EnterStreamingModeAsync()
         {
             _hybridTimer.Stop();
             AudioService.EnableSilenceTrimming = false; // Streaming writes all audio
@@ -338,7 +341,7 @@ namespace BF_STT.Services.Workflow
         }
 
         /// <summary>Stops recording and sends audio to batch API for processing.</summary>
-        internal async void StopAndProcessBatch()
+        internal async Task StopAndProcessBatchAsync()
         {
             try
             {
@@ -382,13 +385,14 @@ namespace BF_STT.Services.Workflow
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in StopAndProcessBatch");
                 FireStatusChanged($"Error: {ex.Message}");
                 TransitionTo(FailedState.Instance);
             }
         }
 
         /// <summary>Stops streaming, finalizes WebSocket, and transitions to Idle.</summary>
-        internal async void StopStreamingAndFinalize()
+        internal async Task StopStreamingAndFinalizeAsync()
         {
             try
             {
@@ -409,13 +413,14 @@ namespace BF_STT.Services.Workflow
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in StopStreamingAndFinalize");
                 FireStatusChanged($"Error: {ex.Message}");
                 TransitionTo(FailedState.Instance);
             }
         }
 
         /// <summary>Cancels the current recording session and returns to Idle.</summary>
-        internal async void CancelRecording()
+        internal async Task CancelRecordingAsync()
         {
             try
             {
@@ -434,6 +439,7 @@ namespace BF_STT.Services.Workflow
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Error in CancelRecording");
                 FireStatusChanged($"Error: {ex.Message}");
                 ResetState();
             }
@@ -598,5 +604,24 @@ namespace BF_STT.Services.Workflow
         }
 
         #endregion
+    }
+
+    /// <summary>
+    /// Extension method for safe fire-and-forget async calls.
+    /// Catches and logs any unhandled exceptions instead of crashing silently.
+    /// </summary>
+    internal static class TaskExtensions
+    {
+        public static async void SafeFireAndForget(this Task task, ILogger? logger = null)
+        {
+            try
+            {
+                await task;
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Unhandled exception in fire-and-forget task");
+            }
+        }
     }
 }

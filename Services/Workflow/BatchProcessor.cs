@@ -157,13 +157,20 @@ namespace BF_STT.Services.Workflow
         }
 
         /// <summary>
-        /// Formats a raw transcript: trims and ensures period + space at the end.
+        /// Formats a raw transcript: trims whitespace and ensures a trailing space.
+        /// Only appends a period if the text doesn't already end with sentence-ending punctuation
+        /// (handles English `.!?` and CJK `。！？` to avoid double-punctuation with providers
+        /// like Deepgram that already add their own punctuation).
         /// </summary>
         public string FormatTranscript(string transcript)
         {
             if (string.IsNullOrWhiteSpace(transcript)) return string.Empty;
             var trimmed = transcript.TrimEnd();
-            return trimmed.EndsWith(".") ? trimmed + " " : trimmed + ". ";
+            // Sentence-ending punctuation across EN/VI/CJK
+            return (trimmed.EndsWith('.') || trimmed.EndsWith('!') || trimmed.EndsWith('?') ||
+                    trimmed.EndsWith('。') || trimmed.EndsWith('！') || trimmed.EndsWith('？'))
+                ? trimmed + " "
+                : trimmed + ". ";
         }
     }
 }

@@ -3,9 +3,9 @@ using BF_STT.Services.Audio;
 using BF_STT.Services.Infrastructure;
 using BF_STT.Services.Platform;
 using BF_STT.Services.STT;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -22,6 +22,7 @@ namespace BF_STT.Services.Workflow
         private readonly HistoryService _historyService;
         private readonly SettingsService _settingsService;
         private readonly SoundService _soundService;
+        private readonly ILogger<StreamingManager> _logger;
 
         private ConcurrentQueue<AudioDataEventArgs> _audioBuffer = new();
 
@@ -43,13 +44,15 @@ namespace BF_STT.Services.Workflow
             InputInjector inputInjector,
             HistoryService historyService,
             SettingsService settingsService,
-            SoundService soundService)
+            SoundService soundService,
+            ILogger<StreamingManager> logger)
         {
             _registry = registry ?? throw new ArgumentNullException(nameof(registry));
             _inputInjector = inputInjector ?? throw new ArgumentNullException(nameof(inputInjector));
             _historyService = historyService ?? throw new ArgumentNullException(nameof(historyService));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _soundService = soundService ?? throw new ArgumentNullException(nameof(soundService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         /// <summary>
@@ -194,14 +197,14 @@ namespace BF_STT.Services.Workflow
                 }
                 catch (Exception ex)
                 {
-                    Debug.WriteLine($"[StreamingManager] Streaming inject error: {ex.Message}");
+                    _logger.LogWarning(ex, "Streaming inject error");
                 }
             });
         }
 
         private void OnUtteranceEndReceived(object? sender, EventArgs e)
         {
-            Debug.WriteLine("[StreamingManager] UtteranceEnd received.");
+            _logger.LogDebug("UtteranceEnd received");
         }
 
         private void OnStreamingError(object? sender, string errorMessage)

@@ -10,10 +10,10 @@
     <Authors>Black Face</Authors>
     <Company>BF Company</Company>
     <Copyright>Copyright (c) 2026 BF Company</Copyright>
-    <Version>1.0.248</Version>
-    <AssemblyVersion>1.0.248</AssemblyVersion>
-    <FileVersion>1.0.248</FileVersion>
-    <InformationalVersion>1.0.248</InformationalVersion>
+    <Version>1.0.258</Version>
+    <AssemblyVersion>1.0.258</AssemblyVersion>
+    <FileVersion>1.0.258</FileVersion>
+    <InformationalVersion>1.0.258</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -47,6 +47,10 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.1" />
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="Serilog" Version="4.2.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
     <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="YellowDogMan.RRNoise.NET" Version="0.1.9" />
@@ -80,7 +84,7 @@
   <!-- Auto publish when building Release -->
   <Target Name="AutoPublishOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And '$(IsAutoPublishing)' != 'true'">
     <Message Importance="High" Text="Detect Release build. Automatically publishing to ./publish..." />
-    <Exec Command="dotnet publish -c $(Configuration) -o ./publish --no-build /p:IsAutoPublishing=true" />
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectFile)&quot; -c $(Configuration) -o ./publish --no-build /p:IsAutoPublishing=true" />
   </Target>
 
 </Project>

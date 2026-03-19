@@ -1,3 +1,4 @@
+using System.IO;
 using BF_STT.Services.Audio;
 using BF_STT.Services.Platform;
 using BF_STT.Services.STT;
@@ -15,6 +16,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System.Net.Http;
 
+using Serilog;
+
 namespace BF_STT.Services.Infrastructure
 {
     /// <summary>
@@ -26,8 +29,23 @@ namespace BF_STT.Services.Infrastructure
         {
             var services = new ServiceCollection();
 
+            // Configure Serilog: file + debug sinks
+            var logPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "BF-STT", "logs", "bfstt-.log");
+
+            Log.Logger = new LoggerConfiguration()
+                .MinimumLevel.Debug()
+                .WriteTo.Debug()
+                .WriteTo.File(logPath,
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 7,
+                    outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level:u3}] {SourceContext} {Message:lj}{NewLine}{Exception}")
+                .CreateLogger();
+
             services.AddLogging(builder => {
-                builder.AddDebug();
+                builder.ClearProviders();
+                builder.AddSerilog(dispose: true);
                 builder.SetMinimumLevel(LogLevel.Debug);
             });
 

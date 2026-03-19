@@ -16,7 +16,7 @@ namespace BF_STT.Services.Workflow.States
         {
             // Second press stops batch recording
             if (autoSend) ctx.ShouldAutoSend = true;
-            ctx.StopAndProcessBatch();
+            ctx.StopAndProcessBatchAsync().SafeFireAndForget();
         }
 
         public void HandleHotkeyUp(RecordingCoordinator ctx) { /* No-op in Batch */ }
@@ -25,7 +25,7 @@ namespace BF_STT.Services.Workflow.States
         public void HandleStartButton(RecordingCoordinator ctx)
         {
             // Cancel current recording
-            ctx.CancelRecording();
+            ctx.CancelRecordingAsync().SafeFireAndForget();
         }
 
         public void HandleAudioData(RecordingCoordinator ctx, AudioDataEventArgs e)

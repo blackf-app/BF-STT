@@ -1,14 +1,14 @@
-﻿using BF_STT.Services.Audio;
+using BF_STT.Services.Audio;
 using BF_STT.Services.STT;
 using BF_STT.Services.Workflow;
 using BF_STT.Services.Platform;
 using BF_STT.Services.Infrastructure;
 using BF_STT.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Diagnostics;
 using System.Windows;
 
 namespace BF_STT
@@ -138,7 +138,7 @@ namespace BF_STT
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"Update check background error: {ex.Message}");
+                        Log.Warning(ex, "Update check background error");
                     }
                 });
             }
@@ -161,6 +161,9 @@ namespace BF_STT
 
             _mutex?.Dispose();
             
+            // Flush Serilog before exit
+            Log.CloseAndFlush();
+
             base.OnExit(e);
         }
     }

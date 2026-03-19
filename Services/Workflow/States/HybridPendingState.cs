@@ -1,5 +1,6 @@
 using BF_STT.Services.Audio;
 using BF_STT.Services.Workflow;
+using Microsoft.Extensions.Logging;
 
 namespace BF_STT.Services.Workflow.States
 {
@@ -15,7 +16,7 @@ namespace BF_STT.Services.Workflow.States
         public void HandleHotkeyDown(RecordingCoordinator ctx, bool autoSend)
         {
             // Already recording — cancel
-            ctx.CancelRecording();
+            ctx.CancelRecordingAsync().SafeFireAndForget();
         }
 
         public void HandleHotkeyUp(RecordingCoordinator ctx)
@@ -35,13 +36,13 @@ namespace BF_STT.Services.Workflow.States
         public void HandleHybridTimeout(RecordingCoordinator ctx)
         {
             // Long press → switch to Streaming mode
-            ctx.EnterStreamingMode();
+            ctx.EnterStreamingModeAsync().SafeFireAndForget();
         }
 
         public void HandleStartButton(RecordingCoordinator ctx)
         {
             // Cancel
-            ctx.CancelRecording();
+            ctx.CancelRecordingAsync().SafeFireAndForget();
         }
 
         public void HandleAudioData(RecordingCoordinator ctx, AudioDataEventArgs e)

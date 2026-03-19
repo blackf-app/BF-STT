@@ -1,7 +1,6 @@
-using System.Diagnostics;
-
 using BF_STT.Services.Audio;
 using BF_STT.Services.Workflow;
+using Microsoft.Extensions.Logging;
 
 namespace BF_STT.Services.Workflow.States
 {
@@ -22,7 +21,7 @@ namespace BF_STT.Services.Workflow.States
         public void HandleHotkeyUp(RecordingCoordinator ctx)
         {
             // Release stops streaming
-            ctx.StopStreamingAndFinalize();
+            ctx.StopStreamingAndFinalizeAsync().SafeFireAndForget();
         }
 
         public void HandleHybridTimeout(RecordingCoordinator ctx) { /* No-op in Streaming */ }
@@ -30,7 +29,7 @@ namespace BF_STT.Services.Workflow.States
         public void HandleStartButton(RecordingCoordinator ctx)
         {
             // Cancel streaming
-            ctx.CancelRecording();
+            ctx.CancelRecordingAsync().SafeFireAndForget();
         }
 
         public async void HandleAudioData(RecordingCoordinator ctx, AudioDataEventArgs e)
@@ -51,9 +50,9 @@ namespace BF_STT.Services.Workflow.States
                         .SendAudioAsync(e.Buffer, e.BytesRecorded);
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                Debug.WriteLine($"[StreamingState] Audio send error: {ex.Message}");
+                // Audio send errors are transient; the streaming manager handles reconnection.
             }
         }
     }

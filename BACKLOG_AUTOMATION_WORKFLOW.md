@@ -743,9 +743,14 @@ Loop behavior:
 
 Provider wrappers can be:
 
+- `run-backlog-loop.bat`
+- `run-backlog-loop-claude.bat`
+- `run-backlog-loop-codex.bat`
+- `run-backlog-loop-gemini.bat`
 - `run-backlog-loop-claude.ps1`
 - `run-backlog-loop-codex.ps1`
 - `run-backlog-loop-gemini.ps1`
+- `run-backlog-loop-core.ps1`
 
 Core loop parameters:
 
@@ -758,6 +763,220 @@ NoSkipPermissions
 ```
 
 If the CLI cannot spawn subagents, the adapter prompt must require it to perform code-review/security/QA in the same session by reading `.agents/agents/*.md`.
+
+### 10.1 Required Loop Script Files
+
+Create the following files under `.agents/scripts/`:
+
+```text
+.agents/scripts/
+  run-backlog-loop.bat
+  run-backlog-loop-core.ps1
+  run-backlog-loop-claude.bat
+  run-backlog-loop-claude.ps1
+  run-backlog-loop-codex.bat
+  run-backlog-loop-codex.ps1
+  run-backlog-loop-gemini.bat
+  run-backlog-loop-gemini.ps1
+```
+
+`run-backlog-loop-core.ps1` owns the shared loop behavior:
+
+- Resolve repo root from the script location.
+- Create the log directory.
+- Check that the selected provider CLI exists on `PATH`.
+- Inspect `BACKLOG.md` before each iteration.
+- Stop if there is no `TODO` and no `IN PROGRESS`.
+- Invoke exactly one agent iteration.
+- Tee provider output into per-iteration logs.
+- Stop on non-zero CLI exit or blocker sentinels.
+
+The provider-specific `.ps1` files should be thin wrappers around the core script. The provider-specific `.bat` files should only bypass PowerShell execution policy and call the matching `.ps1`.
+
+### 10.2 Default Batch Entrypoint
+
+`run-backlog-loop.bat` is the default human-friendly entrypoint. It can point to the provider you want as the default, usually Claude:
+
+```bat
+@echo off
+REM Default backlog loop entrypoint.
+REM Change this target if your default provider is Codex or Gemini.
+
+setlocal
+set "SCRIPT_DIR=%~dp0"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%run-backlog-loop-claude.ps1" %*
+endlocal
+```
+
+### 10.3 Provider Batch Wrappers
+
+Create one `.bat` wrapper per provider.
+
+`run-backlog-loop-claude.bat`:
+
+```bat
+@echo off
+REM Wrapper to run the Claude backlog loop with execution policy bypassed.
+
+setlocal
+set "SCRIPT_DIR=%~dp0"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%run-backlog-loop-claude.ps1" %*
+endlocal
+```
+
+`run-backlog-loop-codex.bat`:
+
+```bat
+@echo off
+REM Wrapper to run the Codex backlog loop with execution policy bypassed.
+
+setlocal
+set "SCRIPT_DIR=%~dp0"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%run-backlog-loop-codex.ps1" %*
+endlocal
+```
+
+`run-backlog-loop-gemini.bat`:
+
+```bat
+@echo off
+REM Wrapper to run the Gemini backlog loop with execution policy bypassed.
+
+setlocal
+set "SCRIPT_DIR=%~dp0"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%run-backlog-loop-gemini.ps1" %*
+endlocal
+```
+
+### 10.4 Provider PowerShell Wrappers
+
+Each provider `.ps1` forwards parameters to `run-backlog-loop-core.ps1`.
+
+`run-backlog-loop-claude.ps1`:
+
+```powershell
+[CmdletBinding()]
+param(
+    [int]$MaxIterations = 100,
+    [string]$LogDir = "logs/backlog-loop",
+    [AllowEmptyString()]
+    [string]$Model = "claude-sonnet-4-6",
+    [switch]$NoSkipPermissions
+)
+
+$coreArgs = @{
+    Provider = "claude"
+    MaxIterations = $MaxIterations
+    LogDir = $LogDir
+    Model = $Model
+}
+
+if ($NoSkipPermissions) {
+    $coreArgs.NoSkipPermissions = $true
+}
+
+& "$PSScriptRoot\run-backlog-loop-core.ps1" @coreArgs
+exit $LASTEXITCODE
+```
+
+`run-backlog-loop-codex.ps1`:
+
+```powershell
+[CmdletBinding()]
+param(
+    [int]$MaxIterations = 100,
+    [string]$LogDir = "logs/backlog-loop",
+    [AllowEmptyString()]
+    [string]$Model = "",
+    [switch]$NoSkipPermissions
+)
+
+$coreArgs = @{
+    Provider = "codex"
+    MaxIterations = $MaxIterations
+    LogDir = $LogDir
+    Model = $Model
+}
+
+if ($NoSkipPermissions) {
+    $coreArgs.NoSkipPermissions = $true
+}
+
+& "$PSScriptRoot\run-backlog-loop-core.ps1" @coreArgs
+exit $LASTEXITCODE
+```
+
+`run-backlog-loop-gemini.ps1`:
+
+```powershell
+[CmdletBinding()]
+param(
+    [int]$MaxIterations = 100,
+    [string]$LogDir = "logs/backlog-loop",
+    [AllowEmptyString()]
+    [string]$Model = "",
+    [switch]$NoSkipPermissions
+)
+
+$coreArgs = @{
+    Provider = "gemini"
+    MaxIterations = $MaxIterations
+    LogDir = $LogDir
+    Model = $Model
+}
+
+if ($NoSkipPermissions) {
+    $coreArgs.NoSkipPermissions = $true
+}
+
+& "$PSScriptRoot\run-backlog-loop-core.ps1" @coreArgs
+exit $LASTEXITCODE
+```
+
+### 10.5 Provider Invocation Contract
+
+The core script should construct the provider invocation like this:
+
+- Claude:
+  ```text
+  claude -p /run-backlog --dangerously-skip-permissions --model <model>
+  ```
+  Use `< nul` or equivalent so the CLI runs headless.
+
+- Codex:
+  ```text
+  codex exec -C <repo-root> --dangerously-bypass-approvals-and-sandbox -
+  ```
+  Pipe an adapter prompt on stdin that instructs Codex to execute exactly one backlog iteration by reading the run-backlog instructions.
+
+- Gemini:
+  ```text
+  gemini --skip-trust -p "Run the backlog loop using the instructions provided on stdin." --yolo
+  ```
+  Pipe the same adapter prompt on stdin.
+
+When `NoSkipPermissions` is set, remove provider-specific yolo/skip-permission flags and use the safest non-interactive mode supported by that CLI.
+
+### 10.6 Adapter Prompt for Non-Native Providers
+
+Use an adapter prompt for providers that do not support the native `/run-backlog` command:
+
+```text
+You are running the backlog workflow through a non-native CLI adapter.
+
+Goal: execute exactly one backlog task iteration with behavior equivalent to /run-backlog.
+
+Required contract:
+1. Read .agents/skills/run-backlog/SKILL.md before changing files.
+2. Follow that skill exactly for one iteration only.
+3. Read the project guide, .agents/rules/*, the selected task file, and only relevant code.
+4. If your CLI cannot spawn subagents, perform code-reviewer, security-auditor, and qa-verifier gates in this same session by reading .agents/agents/*.md and applying the same blocking criteria.
+5. Preserve the same stop tokens and print them exactly when blocked: PREFLIGHT_BLOCKED, REVIEW_BLOCKED, VERIFY_BLOCKED, or "manual intervention required".
+6. Commit and push only when the run-backlog skill says the task is DONE.
+7. Do not ask for confirmation. Work autonomously inside this repository.
+
+Start now.
+```
 
 ---
 
@@ -910,4 +1129,3 @@ Safety comes from separating concerns:
 - Implementing a task does not commit until gates pass.
 - Passing static gates does not replace manual verification.
 - Broad changes are allowed only when scope, impact, migration, tests, checkpoints, and rollback/fallback are explicit.
-

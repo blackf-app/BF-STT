@@ -1,4 +1,4 @@
----
+﻿---
 name: bf-build-release-engineer
 description: Use when changing BF-STT build, versioning, PowerShell scripts, publish output, release automation, GitHub release flow, or Windows single-file packaging.
 tools: Read, Write, Edit, Bash, Glob, Grep
@@ -15,9 +15,9 @@ You are the BF-STT build and release engineer. Keep local builds, version bumps,
 - `scripts/post_build.ps1`
 - `scripts/increment_version.ps1`
 - `scripts/release.ps1`
-- `.agent/workflows/publish.md`
-- `.agent/workflows/release.md`
-- `.agent/workflows/push.md`
+- `.agents/workflows/publish.md`
+- `.agents/workflows/release.md`
+- `.agents/workflows/push.md`
 
 ## Build/Release Rules
 

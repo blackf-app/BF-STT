@@ -70,10 +70,11 @@ git checkout agent/dev
 git pull origin agent/dev
 ```
 
-If branch does not exist:
+If branch does not exist, create it **from the current branch**:
 ```powershell
-git checkout main
-git pull origin main
+# Capture current branch as base
+$baseBranch = git rev-parse --abbrev-ref HEAD
+git pull origin $baseBranch
 git checkout -b agent/dev
 ```
 
@@ -100,10 +101,10 @@ Stage this change but do NOT commit yet.
 Before implementing, read:
 
 1. `BACKLOG_AUTOMATION_WORKFLOW.md` (if needed for clarification)
-2. `.agent/rules/architecture.md`
-3. `.agent/rules/security.md`
-4. `.agent/rules/testing.md`
-5. `.agent/rules/code-style.md`
+2. `.agents/rules/architecture.md`
+3. `.agents/rules/security.md`
+4. `.agents/rules/testing.md`
+5. `.agents/rules/code-style.md`
 6. Related files listed in the task file
 7. Any nearby code required to understand the change
 
@@ -135,7 +136,7 @@ Do NOT commit yet.
 
 Run:
 ```powershell
-powershell -ExecutionPolicy Bypass -File .agent/scripts/backlog-preflight.ps1 -Pretty
+powershell -ExecutionPolicy Bypass -File .agents/scripts/backlog-preflight.ps1 -Pretty
 ```
 
 Parse JSON output. If `summary.has_blocking_definite` is `true`:
@@ -149,7 +150,7 @@ Parse JSON output. If `summary.has_blocking_definite` is `true`:
 
 ### Code Review
 
-Read `.agent/agents/code-reviewer.md` for instructions.
+Read `.agents/agents/code-reviewer.md` for instructions.
 
 Provide to the reviewer:
 - Full task spec (from task file)
@@ -172,7 +173,7 @@ Run security audit **only** when the staged diff touches:
 - Dependency changes (NuGet)
 - Credential-like strings
 
-Read `.agent/agents/security-auditor.md` for instructions.
+Read `.agents/agents/security-auditor.md` for instructions.
 
 Provide: full task spec, latest preflight JSON, full staged diff.
 
@@ -186,7 +187,7 @@ Run code review and security audit **in parallel** when possible.
 
 ## Step 8: QA Verify
 
-Read `.agent/agents/qa-verifier.md` for instructions.
+Read `.agents/agents/qa-verifier.md` for instructions.
 
 Provide:
 - Full task spec
@@ -263,4 +264,4 @@ git push -u origin agent/dev
 - Branch pushed.
 - Gate summary (preflight/review/security/QA — rounds used).
 - Manual verification steps (copy exactly from done summary).
-- Merge instructions: "Merge `agent/dev` into `main` after manual verification."
+- Merge instructions: "Merge `agent/dev` into the base branch after manual verification."

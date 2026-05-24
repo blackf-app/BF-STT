@@ -1,4 +1,4 @@
----
+﻿---
 name: Pending Task
 description: Create a new pending task file in backlog/pending/. Use when the user asks to draft, capture, or create a task. Do NOT queue or implement — only draft the spec file.
 ---
@@ -88,7 +88,7 @@ For `XS/S`: if the task requires touching modules outside the stated scope, ask 
 **S:** Read 1-3 relevant files to confirm paths and patterns. No planning pass.
 
 **M/L:** Run a planning pass before drafting:
-- Read: `.agent/rules/*`, related skill docs, relevant source files.
+- Read: `.agents/rules/*`, related skill docs, relevant source files.
 - Do NOT implement. Do NOT modify files.
 - Produce planning JSON:
 

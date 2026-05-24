@@ -8,13 +8,13 @@
     tokens, non-zero exit, or when the backlog is empty.
 
 .PARAMETER Provider
-    AI CLI to use: "claude" | "gemini". Default: "claude".
+    AI CLI to use: "claude" | "gemini" | "codex". Default: "claude".
 
 .PARAMETER MaxIterations
     Maximum number of backlog tasks to run in this session. Default: 10.
 
 .PARAMETER LogDir
-    Directory for per-iteration log files. Default: ".agent/logs/backlog".
+    Directory for per-iteration log files. Default: ".agents/logs/backlog".
 
 .PARAMETER Model
     Model identifier to pass to the AI CLI. Default: "" (use CLI default).
@@ -27,7 +27,7 @@
 param(
     [string]$Provider        = "claude",
     [int]   $MaxIterations   = 10,
-    [string]$LogDir          = ".agent/logs/backlog",
+    [string]$LogDir          = ".agents/logs/backlog",
     [string]$Model           = "",
     [switch]$NoSkipPermissions
 )
@@ -76,7 +76,7 @@ $HARD_STOP_TOKENS = @(
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 $runPrompt = @"
-Read the skill file at .agent/skills/run-backlog/SKILL.md and follow it exactly.
+Read the skill file at .agents/skills/run-backlog/SKILL.md and follow it exactly.
 Execute one full backlog task cycle: pick, branch, implement, preflight, review, QA, mark done, commit, push.
 Stop immediately and report if any hard-stop condition is encountered.
 "@
@@ -122,8 +122,19 @@ for ($i = 1; $i -le $MaxIterations; $i++) {
             $output = & gemini @cliArgs 2>&1
             $exitCode = $LASTEXITCODE
         }
+        "codex" {
+            # OpenAI Codex CLI: codex [--model <model>] --approval-mode full-auto "<prompt>"
+            $cliArgs = @("--approval-mode", "full-auto")
+            if ($Model) {
+                $cliArgs += @("--model", $Model)
+            }
+            $cliArgs += $runPrompt
+
+            $output = & codex @cliArgs 2>&1
+            $exitCode = $LASTEXITCODE
+        }
         default {
-            Write-Log "ERROR: Unknown provider '$Provider'. Use 'claude' or 'gemini'."
+            Write-Log "ERROR: Unknown provider '$Provider'. Use 'claude', 'gemini', or 'codex'."
             exit 1
         }
     }

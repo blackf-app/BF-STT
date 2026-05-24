@@ -8,18 +8,18 @@
 
 .EXAMPLE
     # Run up to 5 tasks with default Claude model:
-    .\.agent\scripts\run-backlog-loop-claude.ps1
+    .\.agents\scripts\run-backlog-loop-claude.ps1
 
     # Run up to 3 tasks with a specific model:
-    .\.agent\scripts\run-backlog-loop-claude.ps1 -MaxIterations 3 -Model "claude-sonnet-4-5"
+    .\.agents\scripts\run-backlog-loop-claude.ps1 -MaxIterations 3 -Model "claude-sonnet-4-5"
 
     # Run without skipping permissions (interactive approval per tool call):
-    .\.agent\scripts\run-backlog-loop-claude.ps1 -NoSkipPermissions
+    .\.agents\scripts\run-backlog-loop-claude.ps1 -NoSkipPermissions
 #>
 
 param(
     [int]   $MaxIterations      = 10,
-    [string]$LogDir             = ".agent/logs/backlog",
+    [string]$LogDir             = ".agents/logs/backlog",
     [string]$Model              = "",
     [switch]$NoSkipPermissions
 )

@@ -1,4 +1,4 @@
----
+﻿---
 name: bf-technical-writer
 description: Use when updating BF-STT README, provider integration docs, troubleshooting, release notes, settings/API key instructions, or developer workflow documentation.
 tools: Read, Write, Edit, Glob, Grep
@@ -16,7 +16,7 @@ You are the BF-STT technical writer. Produce practical, accurate documentation f
 - Hotkey usage and troubleshooting.
 - Audio device, noise suppression, AGC, and VAD troubleshooting.
 - Release notes and build/publish instructions.
-- Developer workflow docs under `Docs/` and `.agent/`.
+- Developer workflow docs under `Docs/` and `.agents/`.
 
 ## Writing Rules
 

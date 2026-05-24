@@ -1,4 +1,4 @@
-# BF-STT Subagent Customization Plan
+﻿# BF-STT Subagent Customization Plan
 
 This document evaluates `D:\AppDevelop\template\awesome-claude-code-subagents-main` as a source of reusable agent patterns, role definitions, and checklists. The goal is **not** to copy generic agents as-is. The goal is to extract the situations they were designed for and customize them for BF-STT.
 
@@ -10,7 +10,7 @@ BF-STT is a Windows desktop WPF/.NET 8 speech-to-text application. Its main risk
 - Remove web, cloud, Kubernetes, database, and microservice guidance unless it directly applies to this application.
 - Rename and rewrite agents around BF-STT-specific triggers. Prefer names such as `bf-audio-performance-engineer` over generic names such as `performance-engineer`.
 - Agents should review the modules that actually exist in this codebase: `Services/Audio`, `Services/STT`, `Services/Workflow`, `Services/Platform`, `Services/Infrastructure`, `ViewModels`, and WPF XAML.
-- Existing project skills under `.agent/skills` should take priority over generic agents when the task is a repeatable workflow, especially adding a new STT provider.
+- Existing project skills under `.agents/skills` should take priority over generic agents when the task is a repeatable workflow, especially adding a new STT provider.
 
 ## Agents To Bring In And Customize
 
@@ -227,7 +227,7 @@ Use their ideas for a small workflow, not a full agent yet:
 - Create backlog-ready tasks with acceptance criteria.
 
 Recommended skill:
-- `.agent/skills/research-stt-provider/SKILL.md`
+- `.agents/skills/research-stt-provider/SKILL.md`
 
 Expected output:
 - Provider comparison table.
@@ -261,7 +261,7 @@ Do not bring the full meta-orchestration set in yet:
 ## Implementation Structure
 
 ```text
-.agent/
+.agents/
   agents/
     bf-dotnet-wpf-engineer.md
     bf-code-reviewer.md
@@ -286,8 +286,8 @@ Do not bring the full meta-orchestration set in yet:
 
 ## Priority Order
 
-1. Create `.agent/agents/bf-code-reviewer.md`, `bf-test-engineer.md`, and `bf-security-auditor.md`.
-2. Upgrade `.agent/skills/add-stt-provider/SKILL.md` so it matches `SttProviderRegistry`, the test project, and secret-handling requirements.
+1. Create `.agents/agents/bf-code-reviewer.md`, `bf-test-engineer.md`, and `bf-security-auditor.md`.
+2. Upgrade `.agents/skills/add-stt-provider/SKILL.md` so it matches `SttProviderRegistry`, the test project, and secret-handling requirements.
 3. Create `bf-audio-performance-engineer.md` before large audio or streaming changes.
 4. Create `bf-build-release-engineer.md` before publish, versioning, or release automation changes.
 5. Create `research-stt-provider` before adding a new provider based on external research.
@@ -303,3 +303,4 @@ An agent or skill should be added to BF-STT only when these four questions have 
 4. Which project-specific risk does it reduce that a generic agent would miss?
 
 If those questions cannot be answered, keep the item in the external template as reference material and do not add it to this repository.
+

@@ -10,10 +10,10 @@
     <Authors>Black Face</Authors>
     <Company>BF Company</Company>
     <Copyright>Copyright (c) 2026 BF Company</Copyright>
-    <Version>1.0.258</Version>
-    <AssemblyVersion>1.0.258</AssemblyVersion>
-    <FileVersion>1.0.258</FileVersion>
-    <InformationalVersion>1.0.258</InformationalVersion>
+    <Version>1.0.266</Version>
+    <AssemblyVersion>1.0.266</AssemblyVersion>
+    <FileVersion>1.0.266</FileVersion>
+    <InformationalVersion>1.0.266</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -65,6 +65,14 @@
     <EmbeddedResource Remove="BF-STT.Tests\**" />
     <None Remove="BF-STT.Tests\**" />
     <Page Remove="BF-STT.Tests\**" />
+    <Compile Remove="Plugins\**" />
+    <EmbeddedResource Remove="Plugins\**" />
+    <None Remove="Plugins\**" />
+    <Page Remove="Plugins\**" />
+    <Compile Remove="BF-STT.Contracts\**" />
+    <EmbeddedResource Remove="BF-STT.Contracts\**" />
+    <None Remove="BF-STT.Contracts\**" />
+    <Page Remove="BF-STT.Contracts\**" />
   </ItemGroup>
 
   <!-- Automatically increment version before build -->

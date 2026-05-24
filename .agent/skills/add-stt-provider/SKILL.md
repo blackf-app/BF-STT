@@ -1,118 +1,254 @@
 ---
 name: Add STT Provider
-description: Checklist and instructions for adding a new Speech-to-Text API provider to BF-STT. Use this skill whenever the user asks to integrate a new STT API.
+description: Checklist and implementation workflow for adding a new Speech-to-Text provider to BF-STT. Use whenever integrating a new batch or streaming STT API.
 ---
 
 # Add STT Provider
 
-This skill defines the **complete checklist** of files to create and modify when adding a new STT provider. **Do NOT skip any step.**
+This skill defines the required workflow for adding a Speech-to-Text provider to BF-STT. Do not treat providers as only a service class. A provider addition can affect settings, DI registration, UI, Test Mode, docs, and tests.
 
-## Prerequisites
+## Prerequisite: Research First
 
-Before starting, research the new provider's API:
-- **Batch endpoint**: URL, auth method, request/response format
-- **Streaming endpoint** (if available): WebSocket URL, auth method, message format
-- **Model IDs**: default model name(s)
-- **Auth header**: e.g. `Authorization: Bearer`, `xi-api-key`, `Token`, etc.
+Before implementation, use `research-stt-provider` or otherwise confirm:
 
-## Checklist (8 files, all required)
+- Provider supports batch, streaming, or both.
+- Batch endpoint URL, auth method, request format, audio format, and response JSON.
+- Streaming endpoint URL, auth method, audio frame format, keepalive/finalization protocol, and response JSON.
+- Default model ID.
+- Language behavior for Vietnamese and English.
+- Rate limits, max audio size/duration, and concurrency limits.
+- Error response shape.
+- Data retention/privacy constraints.
 
-Use `{Provider}` as the provider name (e.g. `ElevenLabs`, `AssemblyAI`).
+Do not start coding if endpoint, auth, model, response shape, and audio format are unclear.
 
-### 1. [NEW] Response Model
-**File**: `Services/STT/Providers/{Provider}/{Provider}Response.cs`
-- Namespace: `BF_STT.Services.STT.Providers.{Provider}`
-- Model the JSON response from the batch API (at minimum: `Text` property)
+## Naming
 
-### 2. [NEW] Batch Service
-**File**: `Services/STT/Providers/{Provider}/{Provider}BatchService.cs`
-- Inherit from `BaseBatchSttService`
-- Constructor: `(HttpClient httpClient, string apiKey, string baseUrl, string model)`
-- Call `base(httpClient, apiKey, baseUrl, defaultBaseUrl, defaultModel)`
-- Override `TranscribeCore(byte[] audioData, string language, CancellationToken ct)`
-- Follow the same retry pattern as existing providers (see `DeepgramService.cs`)
+Use `{Provider}` as the display and class prefix, for example `ElevenLabs`, `AssemblyAI`, or `Deepgram`.
 
-### 3. [NEW] Streaming Service (if provider supports WebSocket streaming)
-**File**: `Services/STT/Providers/{Provider}/{Provider}StreamingService.cs`
-- Implement `IStreamingSttService, IDisposable`
-- Follow the exact pattern of `DeepgramStreamingService.cs`:
-  - `StartAsync` → connect WebSocket with auth + query params
-  - `SendAudioAsync` → send binary PCM frames
-  - `StopAsync` → send EOS/close message, wait for final results
-  - `CancelAsync` → cancel without waiting
-  - `ReceiveLoopAsync` → read JSON messages, fire `TranscriptReceived`/`UtteranceEndReceived`
-  - `KeepAliveLoopAsync` → periodic ping
-  - `CleanupAsync` → dispose WebSocket + CTS
-- If streaming is NOT supported, pass `null` as streamingService in step 5
+Provider files live under:
 
-### 4. [MODIFY] AppSettings
-**File**: `Services/Infrastructure/SettingsService.cs` → class `AppSettings`
-- Add properties (4-5 fields):
-  ```csharp
-  // {Provider}
-  public string {Provider}ApiKey { get; set; } = "";
-  public string {Provider}BaseUrl { get; set; } = "{default_batch_url}";
-  public string {Provider}StreamingUrl { get; set; } = "{default_ws_url}"; // if streaming supported
-  public string {Provider}Model { get; set; } = "{default_model}";
-  ```
-- Place BEFORE the `// Noise Suppression` comment
+```text
+Services/STT/Providers/{Provider}/
+```
 
-### 5. [MODIFY] Service Registration (DI)
-**File**: `Services/Infrastructure/ServiceRegistration.cs`
-- Add `using BF_STT.Services.STT.Providers.{Provider};` at the top
-- Inside the `SttProviderRegistry` factory, add:
-  ```csharp
-  // {Provider}
-  var {provider}Batch = new {Provider}BatchService(httpClient, settings.{Provider}ApiKey, settings.{Provider}BaseUrl, settings.{Provider}Model);
-  var {provider}Streaming = new {Provider}StreamingService(settings.{Provider}ApiKey, settings.{Provider}StreamingUrl, settings.{Provider}Model);
-  registry.Register("{Provider}", {provider}Batch, {provider}Streaming,
-      s => s.{Provider}ApiKey, s => s.{Provider}Model);
-  ```
-  - If no streaming: pass `null` instead of streaming service instance
+Namespaces should follow:
 
-### 6. [MODIFY] MainViewModel
-**File**: `ViewModels/MainViewModel.cs`
-- Add `"{Provider}"` to the `AvailableApis` collection (line ~83)
-- Add transcript property for Test Mode:
-  ```csharp
-  public string {Provider}Transcript
-  {
-      get => _coordinator.GetProviderTranscript("{Provider}");
-      set => OnPropertyChanged();
-  }
-  ```
+```csharp
+BF_STT.Services.STT.Providers.{Provider}
+```
 
-### 7. [MODIFY] SettingsWindow XAML + Code-Behind
-**Files**: `SettingsWindow.xaml` + `SettingsWindow.xaml.cs`
+## Implementation Checklist
 
-#### SettingsWindow.xaml:
-- Add `<RowDefinition Height="Auto"/>` to the Grid
-- Add `<ComboBoxItem Content="{Provider}"/>` to **both** `BatchModeApiComboBox` and `StreamingModeApiComboBox`
-- Add a new `StackPanel` with `TextBlock` label + `TextBox` for the API key (follow existing pattern)
-- Shift all subsequent `Grid.Row` indices by +1
+### 1. Response Models
 
-#### SettingsWindow.xaml.cs:
-- **Constructor**: copy `{Provider}ApiKey` (and other settings) into `_tempSettings`
-- **Constructor**: bind `{Provider}ApiKeyTextBox.Text = _tempSettings.{Provider}ApiKey`
-- **Constructor**: add `else if (_tempSettings.BatchModeApi == "{Provider}") BatchModeApiComboBox.SelectedIndex = {N};` (same for Streaming)
-- **SaveButton_Click**: read `_tempSettings.{Provider}ApiKey = {Provider}ApiKeyTextBox.Text;`
-- **SaveButton_Click**: add `if (BatchModeApiComboBox.SelectedIndex == {N}) _tempSettings.BatchModeApi = "{Provider}";` (same for Streaming)
-- ⚠️ Update ALL existing index checks — new provider shifts indices
+Create response model classes for the provider API:
 
-### 8. [MODIFY] MainWindow.xaml (Test Mode area)
-**File**: `MainWindow.xaml`
-- In the Test Mode transcript `<Grid>` (inside `IsTestMode` triggered border):
-  - Add 2 more `<ColumnDefinition>` (`Width="5"` spacer + `Width="*"`)
-  - Add a new `<DockPanel>` with label + readonly TextBox binding to `{Provider}Transcript`
+```text
+Services/STT/Providers/{Provider}/{Provider}Response.cs
+```
 
-### 9. [MODIFY] appsettings.json (optional defaults)
-**File**: `appsettings.json`
-- Add a new section with default config values
+Requirements:
+- Model enough JSON to extract final transcript text.
+- Include streaming response models if streaming JSON differs from batch JSON.
+- Keep provider DTOs inside the provider folder.
+- Do not expose API key or request body details through `ToString()` or logging.
 
-## Build & Verify
+### 2. Batch Service
 
-After all changes:
-1. Run `dotnet build` — must have **0 errors**
-2. Launch app → open Settings → verify new provider appears in **both** Batch and Streaming dropdowns
-3. Verify API Key input field is present
-4. If Test Mode is enabled, verify the new provider's transcript panel is visible
+If the provider supports batch transcription, create:
+
+```text
+Services/STT/Providers/{Provider}/{Provider}BatchService.cs
+```
+
+Requirements:
+- Implement or inherit from the existing batch abstraction pattern.
+- Constructor should accept `HttpClient`, API key, base URL, and model where applicable.
+- Validate missing API key before network calls.
+- Send the audio format required by the provider.
+- Parse provider errors without exposing credentials.
+- Support cancellation.
+- Follow existing retry/error style used by current providers where appropriate.
+
+### 3. Streaming Service
+
+If the provider supports streaming, create:
+
+```text
+Services/STT/Providers/{Provider}/{Provider}StreamingService.cs
+```
+
+Requirements:
+- Implement `IStreamingSttService` or inherit the shared streaming base pattern when applicable.
+- Define lifecycle clearly: `StartAsync`, `SendAudioAsync`, `StopAsync`, `CancelAsync`, cleanup/dispose.
+- Send PCM/audio frames in the provider-required format.
+- Handle final transcript, interim transcript, utterance/end-of-speech, keepalive, and provider errors.
+- Ensure receive/send loops stop on cancellation and disposal.
+- Never log API keys or auth headers.
+
+If streaming is not supported, register the provider as batch-only and pass `null` for streaming service in `SttProviderRegistry.Register`.
+
+### 4. Settings
+
+Modify `Services/Infrastructure/SettingsService.cs`:
+
+Add only the settings the provider actually needs, for example:
+
+```csharp
+// {Provider}
+public string {Provider}ApiKey { get; set; } = "";
+public string {Provider}BaseUrl { get; set; } = "{default_batch_url}";
+public string {Provider}StreamingUrl { get; set; } = "{default_ws_url}";
+public string {Provider}Model { get; set; } = "{default_model}";
+```
+
+Rules:
+- Do not add streaming URL if the provider cannot stream.
+- Keep defaults safe and non-secret.
+- Preserve backward compatibility with existing user settings.
+
+### 5. Dependency Injection And Registry
+
+Modify `Services/Infrastructure/ServiceRegistration.cs`:
+
+- Add the provider namespace.
+- Instantiate batch and streaming services.
+- Register the provider through `SttProviderRegistry`.
+
+Example:
+
+```csharp
+var providerBatch = new {Provider}BatchService(
+    httpClient,
+    settings.{Provider}ApiKey,
+    settings.{Provider}BaseUrl,
+    settings.{Provider}Model);
+
+var providerStreaming = new {Provider}StreamingService(
+    settings.{Provider}ApiKey,
+    settings.{Provider}StreamingUrl,
+    settings.{Provider}Model);
+
+registry.Register("{Provider}", providerBatch, providerStreaming,
+    s => s.{Provider}ApiKey,
+    s => s.{Provider}Model);
+```
+
+For batch-only providers:
+
+```csharp
+registry.Register("{Provider}", providerBatch, null,
+    s => s.{Provider}ApiKey,
+    s => s.{Provider}Model);
+```
+
+Do not add provider-specific if/else chains outside the registry unless unavoidable.
+
+### 6. ViewModel Updates
+
+Modify `ViewModels/MainViewModel.cs` if the provider list or Test Mode transcript properties are currently explicit there.
+
+Requirements:
+- Add provider display name where the UI expects explicit provider names.
+- Add Test Mode transcript binding if current UI requires one property per provider.
+- Prefer registry-driven provider lists if the surrounding code already supports it.
+
+### 7. Settings UI
+
+Modify:
+
+```text
+SettingsWindow.xaml
+SettingsWindow.xaml.cs
+```
+
+Requirements:
+- Add API key field and any required model/base URL field if the app exposes them.
+- Add provider to batch and/or streaming dropdowns based on real capability.
+- Update temporary settings copy, field binding, save path, and selected provider mapping.
+- Avoid fragile selected-index logic when a name-based mapping is practical.
+- Keep layout rows and bindings consistent.
+
+### 8. Main UI / Test Mode
+
+Modify `MainWindow.xaml` only if the current Test Mode UI uses fixed per-provider panels.
+
+Requirements:
+- Add transcript display for the provider if needed.
+- Do not break layout for existing providers.
+- For batch-only providers, make the UI behavior clear.
+
+### 9. appsettings Defaults
+
+Modify `appsettings.json` only for non-secret defaults:
+
+- Default base URL.
+- Default streaming URL if applicable.
+- Default model.
+
+Never commit real API keys.
+
+### 10. Tests
+
+Add or update tests under `BF-STT.Tests`:
+
+- Response parsing for representative successful JSON.
+- Error parsing or error handling for provider failure JSON.
+- Missing API key behavior.
+- Empty audio behavior for batch services.
+- Cancellation behavior where deterministic.
+- Registry behavior if registration logic changes.
+- Streaming message parsing if streaming is supported and parsing can be tested without network access.
+
+Automated tests must not call real provider APIs.
+
+### 11. Documentation
+
+Update docs when user-facing setup changes:
+
+- Provider name.
+- Batch/streaming support.
+- Required API key.
+- Default model.
+- Any provider-specific limitations.
+- Troubleshooting notes for common provider errors.
+
+## Build And Verify
+
+Run:
+
+```powershell
+dotnet build
+```
+
+Run tests when code behavior changed:
+
+```powershell
+dotnet test
+```
+
+Manual verification:
+- Open Settings and confirm provider fields appear.
+- Confirm provider appears only in the modes it supports.
+- Save settings and reopen Settings.
+- Run batch mode with a configured API key if safe.
+- Run streaming mode only if the provider supports it.
+- Enable Test Mode and confirm layout remains usable.
+
+## Security Requirements
+
+- Do not commit real API keys.
+- Do not log API keys, auth headers, or full request payloads.
+- Redact provider error details if they include request metadata or credentials.
+- Confirm release artifacts do not include local settings or secrets.
+
+## Completion Report
+
+When finished, report:
+- Provider capability: batch, streaming, or both.
+- Files changed.
+- Settings added.
+- Tests added or skipped with reason.
+- Build/test result.
+- Manual verification still needed.

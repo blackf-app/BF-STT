@@ -16,8 +16,7 @@ namespace BF_STT.Services.TTS.Providers.Speechmatics
 
         protected override async Task<TtsAudioResult> SynthesizeCoreAsync(string text, CancellationToken ct)
         {
-            // MP3 is safer for in-memory playback here than WAV when providers stream audio bodies.
-            var url = $"{BaseUrl}/{Uri.EscapeDataString(Voice)}?output_format=mp3";
+            var url = $"{BaseUrl}/{Uri.EscapeDataString(Voice)}?output_format=wav_16000";
             using var request = new HttpRequestMessage(HttpMethod.Post, url);
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", ApiKey);
             request.Content = new StringContent(JsonSerializer.Serialize(new { text }), Encoding.UTF8, "application/json");
@@ -30,7 +29,7 @@ namespace BF_STT.Services.TTS.Providers.Speechmatics
                 throw new HttpRequestException($"Speechmatics TTS request failed: {response.StatusCode}. {errorBody}");
             }
 
-            var contentType = response.Content.Headers.ContentType?.MediaType ?? "audio/mpeg";
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "audio/wav";
             return new TtsAudioResult(bytes, contentType);
         }
 

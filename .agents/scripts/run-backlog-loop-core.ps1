@@ -187,14 +187,13 @@ for ($i = 1; $i -le $MaxIterations; $i++) {
 
         "codex" {
             # codex CLI — install: npm install -g @openai/codex
-            # codex [--model <model>] [--approval-mode full-auto] "<prompt>"
-            # Pipe adapter prompt on stdin as fallback.
-            $cliArgs = @()
+            # codex exec [--model <model>] [--dangerously-bypass-approvals-and-sandbox] -
+            $cliArgs = @("exec")
             if ($Model) { $cliArgs += @("--model", $Model) }
-            if (-not $NoSkipPermissions) { $cliArgs += @("--approval-mode", "full-auto") }
-            $cliArgs += $adapterPrompt
+            if (-not $NoSkipPermissions) { $cliArgs += "--dangerously-bypass-approvals-and-sandbox" }
+            $cliArgs += "-"
 
-            $output = & codex @cliArgs 2>&1
+            $output = $adapterPrompt | & codex @cliArgs 2>&1
             $exitCode = $LASTEXITCODE
         }
     }

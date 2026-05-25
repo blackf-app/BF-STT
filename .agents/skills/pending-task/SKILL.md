@@ -1,4 +1,4 @@
-﻿---
+---
 name: Pending Task
 description: Create a new pending task file in backlog/pending/. Use when the user asks to draft, capture, or create a task. Do NOT queue or implement — only draft the spec file.
 ---

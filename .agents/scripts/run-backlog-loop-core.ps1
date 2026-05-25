@@ -115,16 +115,23 @@ $logDirAbs = Join-Path $repoRoot $LogDir
 New-Item -ItemType Directory -Force -Path $logDirAbs | Out-Null
 
 # Check CLI exists
-$cliName = switch ($Provider.ToLower()) {
-    "claude" { "claude" }
-    "gemini" { "gemini" }
-    "codex"  { "codex"  }
-    default  {
-        Write-Log "ERROR: Unknown provider '$Provider'. Use 'claude', 'gemini', or 'codex'."
-        exit 1
-    }
+$providerLower = $Provider.ToLower()
+if ($providerLower -notin @("claude", "gemini", "codex")) {
+    Write-Log "ERROR: Unknown provider '$Provider'. Use 'claude', 'gemini', or 'codex'."
+    exit 1
 }
-Test-ProviderCli $cliName
+
+$cliName = $providerLower
+$cliFound = Get-Command $cliName -ErrorAction SilentlyContinue
+if (-not $cliFound) {
+    Write-Log "ERROR: '$cliName' CLI is not installed or not on PATH."
+    switch ($providerLower) {
+        "claude" { Write-Log "Install: npm install -g @anthropic-ai/claude-code" }
+        "gemini" { Write-Log "Install: npm install -g @google/gemini-cli" }
+        "codex"  { Write-Log "Install: npm install -g @openai/codex" }
+    }
+    exit 1
+}
 
 # ── Loop ───────────────────────────────────────────────────────────────────────
 
@@ -149,11 +156,13 @@ for ($i = 1; $i -le $MaxIterations; $i++) {
 
     # ── Build CLI invocation (§10.5) ──────────────────────────────────────────
 
-    switch ($Provider.ToLower()) {
+    switch ($providerLower) {
 
         "claude" {
-            # claude -p /run-backlog [--dangerously-skip-permissions] [--model <model>]
-            $cliArgs = @("-p", "/run-backlog")
+            # Validated: claude 2.1.139
+            # claude --print "<prompt>" [--dangerously-skip-permissions] [--model <model>]
+            # -p/--print = non-interactive headless mode.
+            $cliArgs = @("--print", $adapterPrompt)
             if (-not $NoSkipPermissions) {
                 $cliArgs += "--dangerously-skip-permissions"
             }
@@ -164,26 +173,28 @@ for ($i = 1; $i -le $MaxIterations; $i++) {
         }
 
         "gemini" {
-            # gemini --skip-trust -p "<adapter>" --yolo
-            # Pipe adapter prompt via stdin for non-native support.
-            $cliArgs = @("--skip-trust")
+            # Validated: gemini 0.41.2
+            # gemini --skip-trust --prompt "<prompt>" [--yolo] [--model <model>]
+            # -p/--prompt = non-interactive headless mode.
+            # Adapter prompt passed via --prompt; stdin appended if needed.
+            $cliArgs = @("--skip-trust", "--prompt", $adapterPrompt)
             if ($Model) { $cliArgs += @("--model", $Model) }
             if (-not $NoSkipPermissions) { $cliArgs += "--yolo" }
-            $cliArgs += @("-p", "Run the backlog loop using the instructions provided on stdin.")
 
-            $output = $adapterPrompt | & gemini @cliArgs 2>&1
+            $output = & gemini @cliArgs 2>&1
             $exitCode = $LASTEXITCODE
         }
 
         "codex" {
-            # codex exec -C <repo-root> [--dangerously-bypass-approvals-and-sandbox] -
-            # Pipe adapter prompt on stdin.
-            $cliArgs = @("exec", "-C", $repoRoot)
+            # codex CLI — install: npm install -g @openai/codex
+            # codex [--model <model>] [--approval-mode full-auto] "<prompt>"
+            # Pipe adapter prompt on stdin as fallback.
+            $cliArgs = @()
             if ($Model) { $cliArgs += @("--model", $Model) }
-            if (-not $NoSkipPermissions) { $cliArgs += "--dangerously-bypass-approvals-and-sandbox" }
-            $cliArgs += "-"
+            if (-not $NoSkipPermissions) { $cliArgs += @("--approval-mode", "full-auto") }
+            $cliArgs += $adapterPrompt
 
-            $output = $adapterPrompt | & codex @cliArgs 2>&1
+            $output = & codex @cliArgs 2>&1
             $exitCode = $LASTEXITCODE
         }
     }

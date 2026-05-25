@@ -38,7 +38,7 @@ namespace BF_STT.Services.TTS
                 throw new InvalidOperationException("Clipboard text is empty or unavailable.");
             }
 
-            if (!await _gate.WaitAsync(0, ct))
+            if (!await _gate.WaitAsync(0, ct).ConfigureAwait(false))
             {
                 throw new InvalidOperationException("TTS playback is already running.");
             }
@@ -72,7 +72,7 @@ namespace BF_STT.Services.TTS
 
                 if (result == null)
                 {
-                    result = await provider.Service.SynthesizeAsync(text, playbackCts.Token);
+                    result = await provider.Service.SynthesizeAsync(text, playbackCts.Token).ConfigureAwait(false);
                     lock (_cacheLock)
                     {
                         if (_cache.Count >= MaxCacheEntries)
@@ -86,7 +86,7 @@ namespace BF_STT.Services.TTS
                 SynthesisCompleted?.Invoke();
                 var volume = settings.GetTtsProviderVolume(provider.Name);
                 var rate = settings.GetTtsProviderRate(provider.Name);
-                await _playbackService.PlayAsync(result.AudioData, result.ContentType, volume, rate, playbackCts.Token);
+                await _playbackService.PlayAsync(result.AudioData, result.ContentType, volume, rate, playbackCts.Token).ConfigureAwait(false);
             }
             finally
             {

@@ -10,10 +10,10 @@
     <Authors>Black Face</Authors>
     <Company>BF Company</Company>
     <Copyright>Copyright (c) 2026 BF Company</Copyright>
-    <Version>1.0.289</Version>
-    <AssemblyVersion>1.0.289</AssemblyVersion>
-    <FileVersion>1.0.289</FileVersion>
-    <InformationalVersion>1.0.289</InformationalVersion>
+    <Version>1.0.290</Version>
+    <AssemblyVersion>1.0.290</AssemblyVersion>
+    <FileVersion>1.0.290</FileVersion>
+    <InformationalVersion>1.0.290</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

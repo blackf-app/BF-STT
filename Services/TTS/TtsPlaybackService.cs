@@ -99,7 +99,7 @@ namespace BF_STT.Services.TTS
             });
 
             output.Play();
-            await completion.Task;
+            await completion.Task.ConfigureAwait(false);
         }
 
         public void Stop()

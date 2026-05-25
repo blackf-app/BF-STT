@@ -16,7 +16,7 @@ namespace BF_STT.Services.Infrastructure
         public string DefaultLanguage { get; set; } = "vi";
         public string SelectedTtsProvider { get; set; } = "OpenAI";
         public int HotkeyVirtualKeyCode { get; set; } = 0x72; // VK_F3
-        public int TtsHotkeyVirtualKeyCode { get; set; } = 0x71; // VK_F2
+        public int TtsHotkeyVirtualKeyCode { get; set; } = 0x74; // VK_F5
         public int StopAndSendHotkeyVirtualKeyCode { get; set; } = 0x73; // VK_F4
         public int MicrophoneDeviceNumber { get; set; } = 0;
         public int MaxHistoryItems { get; set; } = 100;
@@ -242,7 +242,7 @@ namespace BF_STT.Services.Infrastructure
             }
             if (CurrentSettings.TtsHotkeyVirtualKeyCode == 0)
             {
-                CurrentSettings.TtsHotkeyVirtualKeyCode = 0x71;
+                CurrentSettings.TtsHotkeyVirtualKeyCode = 0x74;
                 needsFix = true;
             }
             needsFix |= EnsureTtsProviderPlaybackDefaults(CurrentSettings);

@@ -209,7 +209,7 @@ namespace BF_STT
                     break;
                 }
             }
-            if (TtsHotkeyComboBox.SelectedIndex < 0) TtsHotkeyComboBox.SelectedIndex = 1; // Default F2
+            if (TtsHotkeyComboBox.SelectedIndex < 0) TtsHotkeyComboBox.SelectedIndex = 4; // Default F5
 
             for (int i = 0; i < StopAndSendHotkeyComboBox.Items.Count; i++)
             {

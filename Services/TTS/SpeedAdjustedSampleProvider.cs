@@ -75,13 +75,9 @@ namespace BF_STT.Services.TTS
                 return false;
             }
 
-            if (!_hasFrameB)
+            if (!_hasFrameB && !TryReadNextFrame(_frameB))
             {
-                if (!TryReadNextFrame(_frameB))
-                {
-                    Array.Copy(_frameA, _frameB, _channels);
-                    _hasFrameB = true;
-                }
+                return false;
             }
 
             return _hasFrameA;

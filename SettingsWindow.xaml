@@ -375,7 +375,8 @@
                 </TabItem>
                 <TabItem Header="TTS Keys">
                     <Border Background="#333333" CornerRadius="0,8,8,8" Padding="20,15">
-                        <StackPanel Width="430">
+                        <ScrollViewer Width="520" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Width="500">
                             <Grid Margin="0,0,0,10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
@@ -405,52 +406,101 @@
                                     <RowDefinition Height="Auto"/>
                                 </Grid.RowDefinitions>
 
-                                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
-                                    <TextBlock Text="OpenAI Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
-                                    <TextBox x:Name="OpenAITtsApiKeyTextBox" FontSize="11" Padding="6"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
-                                    <TextBlock Text="OpenAI Voice" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
-                                    <TextBox x:Name="OpenAITtsVoiceTextBox" FontSize="11" Padding="6"/>
-                                </StackPanel>
+                                <Border Grid.Row="0" Grid.Column="0" Margin="0,0,0,10" Background="#2D2D30" CornerRadius="8" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="OpenAI" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                                        <TextBlock Text="API Key" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="OpenAITtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                        <TextBlock Text="Voice" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <TextBox x:Name="OpenAITtsVoiceTextBox" FontSize="11" Padding="6"/>
+                                        <TextBlock Text="Volume (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="OpenAIVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                        <TextBlock Text="Rate (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="OpenAIRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Row="0" Grid.Column="2" Margin="0,0,0,10" Background="#2D2D30" CornerRadius="8" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="ElevenLabs" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                                        <TextBlock Text="API Key" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="ElevenLabsTtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                        <TextBlock Text="Voice ID" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <TextBox x:Name="ElevenLabsTtsVoiceTextBox" FontSize="11" Padding="6"
+                                                 ToolTip="Use a Voice ID from My Voices or Default voices. Voice Library voices may be blocked by your ElevenLabs plan/API access."/>
+                                        <TextBlock Text="Volume (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="ElevenLabsVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                        <TextBlock Text="Rate (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="ElevenLabsRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                    </StackPanel>
+                                </Border>
 
-                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,10">
-                                    <TextBlock Text="ElevenLabs Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
-                                    <TextBox x:Name="ElevenLabsTtsApiKeyTextBox" FontSize="11" Padding="6"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,10">
-                                    <TextBlock Text="ElevenLabs Voice ID" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
-                                    <TextBox x:Name="ElevenLabsTtsVoiceTextBox" FontSize="11" Padding="6"
-                                             ToolTip="Use a Voice ID from My Voices or Default voices. Voice Library voices may be blocked by your ElevenLabs plan/API access."/>
-                                </StackPanel>
+                                <Border Grid.Row="1" Grid.Column="0" Margin="0,0,0,10" Background="#2D2D30" CornerRadius="8" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="Deepgram" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                                        <TextBlock Text="API Key" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="DeepgramTtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                        <TextBlock Text="Volume (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="DeepgramVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                        <TextBlock Text="Rate (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="DeepgramRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Row="1" Grid.Column="2" Margin="0,0,0,10" Background="#2D2D30" CornerRadius="8" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="Soniox" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                                        <TextBlock Text="API Key" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="SonioxTtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                        <TextBlock Text="Volume (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="SonioxVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                        <TextBlock Text="Rate (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="SonioxRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                    </StackPanel>
+                                </Border>
 
-                                <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,10">
-                                    <TextBlock Text="Deepgram Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
-                                    <TextBox x:Name="DeepgramTtsApiKeyTextBox" FontSize="11" Padding="6"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,10">
-                                    <TextBlock Text="Soniox Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
-                                    <TextBox x:Name="SonioxTtsApiKeyTextBox" FontSize="11" Padding="6"/>
-                                </StackPanel>
+                                <Border Grid.Row="2" Grid.Column="0" Margin="0,0,0,10" Background="#2D2D30" CornerRadius="8" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="Speechmatics" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                                        <TextBlock Text="API Key" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="SpeechmaticsTtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                        <TextBlock Text="Volume (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="SpeechmaticsVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                        <TextBlock Text="Rate (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="SpeechmaticsRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Row="2" Grid.Column="2" Margin="0,0,0,10" Background="#2D2D30" CornerRadius="8" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="Google" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                                        <TextBlock Text="API Key" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="GoogleTtsApiKeyTextBox" FontSize="11" Padding="6" ToolTip="Google TTS API key"/>
+                                        <TextBlock Text="Volume (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="GoogleVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                        <TextBlock Text="Rate (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="GoogleRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                    </StackPanel>
+                                </Border>
 
-                                <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,0,0">
-                                    <TextBlock Text="Speechmatics Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
-                                    <TextBox x:Name="SpeechmaticsTtsApiKeyTextBox" FontSize="11" Padding="6"/>
-                                </StackPanel>
-                                <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,0,0,0">
-                                    <TextBlock Text="Google / Azure Keys" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*"/>
-                                            <ColumnDefinition Width="8"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBox x:Name="GoogleTtsApiKeyTextBox" Grid.Column="0" FontSize="11" Padding="6" ToolTip="Google TTS API key"/>
-                                        <TextBox x:Name="AzureTtsApiKeyTextBox" Grid.Column="2" FontSize="11" Padding="6" ToolTip="Azure TTS key"/>
-                                    </Grid>
-                                </StackPanel>
+                                <Border Grid.Row="3" Grid.Column="0" Margin="0,0,0,0" Background="#2D2D30" CornerRadius="8" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="Azure" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                                        <TextBlock Text="API Key" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBox x:Name="AzureTtsApiKeyTextBox" FontSize="11" Padding="6" ToolTip="Azure TTS key"/>
+                                        <TextBlock Text="Volume (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="AzureVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                        <TextBlock Text="Rate (%)" Foreground="#AAAAAA" FontSize="11" Margin="0,8,0,4"/>
+                                        <Slider x:Name="AzureRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
+                                    </StackPanel>
+                                </Border>
+                                <Border Grid.Row="3" Grid.Column="2" Margin="0,0,0,0" Background="#2D2D30" CornerRadius="8" Padding="10">
+                                    <StackPanel>
+                                        <TextBlock Text="Playback Note" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
+                                        <TextBlock Text="Volume and rate are stored separately for each TTS provider and applied when that provider is selected." Foreground="#CCCCCC" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                        <TextBlock Text="Provider-specific volume/rate is independent from the TTS voice field." Foreground="#AAAAAA" FontSize="11" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
                             </Grid>
                         </StackPanel>
+                        </ScrollViewer>
                     </Border>
                 </TabItem>
             </TabControl>

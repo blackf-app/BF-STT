@@ -9,6 +9,10 @@ namespace BF_STT.Services.TTS
         private readonly TtsProviderRegistry _registry;
         private readonly TtsPlaybackService _playbackService;
         private readonly SemaphoreSlim _gate = new(1, 1);
+        private readonly object _sync = new();
+        private CancellationTokenSource? _activePlaybackCts;
+
+        public event Action<bool>? PlaybackStateChanged;
 
         public TtsWorkflowService(
             SettingsService settingsService,
@@ -42,13 +46,40 @@ namespace BF_STT.Services.TTS
                 }
 
                 var provider = _registry.GetEntry(settings.SelectedTtsProvider);
-                var result = await provider.Service.SynthesizeAsync(text, ct);
-                await _playbackService.PlayAsync(result.AudioData, result.ContentType, ct);
+                using var playbackCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                lock (_sync)
+                {
+                    _activePlaybackCts = playbackCts;
+                }
+
+                PlaybackStateChanged?.Invoke(true);
+                var result = await provider.Service.SynthesizeAsync(text, playbackCts.Token);
+                var volume = settings.GetTtsProviderVolume(provider.Name);
+                var rate = settings.GetTtsProviderRate(provider.Name);
+                await _playbackService.PlayAsync(result.AudioData, result.ContentType, volume, rate, playbackCts.Token);
             }
             finally
             {
+                lock (_sync)
+                {
+                    _activePlaybackCts = null;
+                }
+
+                PlaybackStateChanged?.Invoke(false);
                 _gate.Release();
             }
+        }
+
+        public void StopPlayback()
+        {
+            CancellationTokenSource? activePlaybackCts;
+            lock (_sync)
+            {
+                activePlaybackCts = _activePlaybackCts;
+            }
+
+            activePlaybackCts?.Cancel();
+            _playbackService.Stop();
         }
 
         public void UpdateSettingsFromRegistry()

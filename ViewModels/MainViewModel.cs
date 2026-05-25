@@ -23,6 +23,7 @@ namespace BF_STT.ViewModels
         private string _transcriptText = string.Empty;
         private string _statusText = "Ready";
         private bool _isRecording;
+        private bool _isTtsPlaying;
         private float _audioLevel;
 
         private readonly Dictionary<string, ProviderViewModel> _providerMap = new();
@@ -56,6 +57,10 @@ namespace BF_STT.ViewModels
             _coordinator.SendingStateChanged += () => OnPropertyChanged(nameof(IsSending));
             _coordinator.AudioLevelChanged += level => AudioLevel = level;
             _coordinator.CommandsInvalidated += () => CommandManager.InvalidateRequerySuggested();
+            _ttsWorkflowService.PlaybackStateChanged += isPlaying =>
+            {
+                IsTtsPlaying = isPlaying;
+            };
 
             // Commands
             StartRecordingCommand = new RelayCommand(
@@ -64,6 +69,8 @@ namespace BF_STT.ViewModels
                 _ => _coordinator.StopRecording(), _ => IsRecording);
             ResendAudioCommand = new RelayCommand(
                 _ => _coordinator.ResendAudio(), _ => _coordinator.CanResend);
+            StopTtsCommand = new RelayCommand(
+                _ => StopTtsPlayback(), _ => IsTtsPlaying);
             CloseCommand = new RelayCommand(_ =>
             {
                 _coordinator.CleanupLastFile();
@@ -164,6 +171,18 @@ namespace BF_STT.ViewModels
 
         public bool IsSending => _coordinator.IsSending;
 
+        public bool IsTtsPlaying
+        {
+            get => _isTtsPlaying;
+            set
+            {
+                if (SetProperty(ref _isTtsPlaying, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
         public float AudioLevel
         {
             get => _audioLevel;
@@ -173,6 +192,7 @@ namespace BF_STT.ViewModels
         public ICommand StartRecordingCommand { get; }
         public ICommand StopRecordingCommand { get; }
         public ICommand ResendAudioCommand { get; }
+        public ICommand StopTtsCommand { get; }
         public ICommand CloseCommand { get; }
         public ICommand OpenSettingsCommand { get; }
         public ICommand ToggleHistoryCommand { get; }
@@ -229,10 +249,20 @@ namespace BF_STT.ViewModels
                 await _ttsWorkflowService.SpeakClipboardAsync();
                 StatusText = "Speech playback complete.";
             }
+            catch (OperationCanceledException)
+            {
+                StatusText = "Speech playback stopped.";
+            }
             catch (Exception ex)
             {
                 StatusText = $"TTS error: {ex.Message}";
             }
+        }
+
+        private void StopTtsPlayback()
+        {
+            _ttsWorkflowService.StopPlayback();
+            StatusText = "Stopping speech playback...";
         }
 
         public string SelectedTtsProvider

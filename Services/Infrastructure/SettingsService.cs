@@ -100,9 +100,69 @@ namespace BF_STT.Services.Infrastructure
         public string AzureTtsApiKey { get; set; } = "";
         public string AzureTtsRegion { get; set; } = "eastus";
         public string AzureTtsVoice { get; set; } = "vi-VN-HoaiMyNeural";
+        public Dictionary<string, float> TtsProviderVolumes { get; set; } = CreateDefaultTtsProviderVolumes();
+        public Dictionary<string, float> TtsProviderRates { get; set; } = CreateDefaultTtsProviderRates();
 
         // Noise Suppression
         public bool EnableNoiseSuppression { get; set; } = false;
+
+        private static Dictionary<string, float> CreateDefaultTtsProviderVolumes()
+        {
+            return new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Deepgram"] = 1.0f,
+                ["Speechmatics"] = 1.0f,
+                ["Soniox"] = 1.0f,
+                ["OpenAI"] = 1.0f,
+                ["ElevenLabs"] = 1.0f,
+                ["Google"] = 1.0f,
+                ["Azure"] = 1.0f
+            };
+        }
+
+        private static Dictionary<string, float> CreateDefaultTtsProviderRates()
+        {
+            return new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Deepgram"] = 1.0f,
+                ["Speechmatics"] = 1.0f,
+                ["Soniox"] = 1.0f,
+                ["OpenAI"] = 1.0f,
+                ["ElevenLabs"] = 1.0f,
+                ["Google"] = 1.0f,
+                ["Azure"] = 1.0f
+            };
+        }
+
+        public float GetTtsProviderVolume(string providerName)
+        {
+            if (TtsProviderVolumes.TryGetValue(providerName, out var volume))
+            {
+                return Math.Clamp(volume, 0f, 2f);
+            }
+
+            return 1.0f;
+        }
+
+        public void SetTtsProviderVolume(string providerName, float volume)
+        {
+            TtsProviderVolumes[providerName] = Math.Clamp(volume, 0f, 2f);
+        }
+
+        public float GetTtsProviderRate(string providerName)
+        {
+            if (TtsProviderRates.TryGetValue(providerName, out var rate))
+            {
+                return Math.Clamp(rate, 0.5f, 2.0f);
+            }
+
+            return 1.0f;
+        }
+
+        public void SetTtsProviderRate(string providerName, float rate)
+        {
+            TtsProviderRates[providerName] = Math.Clamp(rate, 0.5f, 2.0f);
+        }
     }
 
     public class SettingsService
@@ -185,6 +245,7 @@ namespace BF_STT.Services.Infrastructure
                 CurrentSettings.TtsHotkeyVirtualKeyCode = 0x71;
                 needsFix = true;
             }
+            needsFix |= EnsureTtsProviderPlaybackDefaults(CurrentSettings);
 
             // Migrate SelectedApi to BatchModeApi and StreamingModeApi
             if (!string.IsNullOrEmpty(CurrentSettings.SelectedApi))
@@ -293,6 +354,50 @@ namespace BF_STT.Services.Infrastructure
                     }
                 }
             }
+        }
+
+        private static bool EnsureTtsProviderPlaybackDefaults(AppSettings settings)
+        {
+            bool changed = false;
+            string[] providers = ["Deepgram", "Speechmatics", "Soniox", "OpenAI", "ElevenLabs", "Google", "Azure"];
+
+            settings.TtsProviderVolumes ??= new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+            settings.TtsProviderRates ??= new Dictionary<string, float>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var provider in providers)
+            {
+                if (!settings.TtsProviderVolumes.ContainsKey(provider))
+                {
+                    settings.TtsProviderVolumes[provider] = 1.0f;
+                    changed = true;
+                }
+                else
+                {
+                    var clamped = Math.Clamp(settings.TtsProviderVolumes[provider], 0f, 2f);
+                    if (settings.TtsProviderVolumes[provider] != clamped)
+                    {
+                        settings.TtsProviderVolumes[provider] = clamped;
+                        changed = true;
+                    }
+                }
+
+                if (!settings.TtsProviderRates.ContainsKey(provider))
+                {
+                    settings.TtsProviderRates[provider] = 1.0f;
+                    changed = true;
+                }
+                else
+                {
+                    var clamped = Math.Clamp(settings.TtsProviderRates[provider], 0.5f, 2.0f);
+                    if (settings.TtsProviderRates[provider] != clamped)
+                    {
+                        settings.TtsProviderRates[provider] = clamped;
+                        changed = true;
+                    }
+                }
+            }
+
+            return changed;
         }
     }
 }

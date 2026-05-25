@@ -85,7 +85,9 @@ namespace BF_STT
                 GoogleTtsVoice = _settingsService.CurrentSettings.GoogleTtsVoice,
                 AzureTtsApiKey = _settingsService.CurrentSettings.AzureTtsApiKey,
                 AzureTtsRegion = _settingsService.CurrentSettings.AzureTtsRegion,
-                AzureTtsVoice = _settingsService.CurrentSettings.AzureTtsVoice
+                AzureTtsVoice = _settingsService.CurrentSettings.AzureTtsVoice,
+                TtsProviderVolumes = new Dictionary<string, float>(_settingsService.CurrentSettings.TtsProviderVolumes, StringComparer.OrdinalIgnoreCase),
+                TtsProviderRates = new Dictionary<string, float>(_settingsService.CurrentSettings.TtsProviderRates, StringComparer.OrdinalIgnoreCase)
             };
 
             // Load API Keys
@@ -107,6 +109,7 @@ namespace BF_STT
             SpeechmaticsTtsApiKeyTextBox.Text = _tempSettings.SpeechmaticsTtsApiKey;
             GoogleTtsApiKeyTextBox.Text = _tempSettings.GoogleTtsApiKey;
             AzureTtsApiKeyTextBox.Text = _tempSettings.AzureTtsApiKey;
+            InitializeTtsPlaybackSliders();
 
             // Load Checkboxes
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
@@ -242,6 +245,7 @@ namespace BF_STT
             _tempSettings.SpeechmaticsTtsApiKey = SpeechmaticsTtsApiKeyTextBox.Text;
             _tempSettings.GoogleTtsApiKey = GoogleTtsApiKeyTextBox.Text;
             _tempSettings.AzureTtsApiKey = AzureTtsApiKeyTextBox.Text;
+            SaveTtsPlaybackSettings();
 
             if (TtsProviderComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem ttsProviderItem)
             {
@@ -301,6 +305,52 @@ namespace BF_STT
             _settingsService.SaveSettings(_tempSettings);
             DialogResult = true;
             Close();
+        }
+
+        private void InitializeTtsPlaybackSliders()
+        {
+            SetSliderPercent(DeepgramVolumeSlider, _tempSettings.GetTtsProviderVolume("Deepgram"));
+            SetSliderPercent(DeepgramRateSlider, _tempSettings.GetTtsProviderRate("Deepgram"));
+            SetSliderPercent(SpeechmaticsVolumeSlider, _tempSettings.GetTtsProviderVolume("Speechmatics"));
+            SetSliderPercent(SpeechmaticsRateSlider, _tempSettings.GetTtsProviderRate("Speechmatics"));
+            SetSliderPercent(SonioxVolumeSlider, _tempSettings.GetTtsProviderVolume("Soniox"));
+            SetSliderPercent(SonioxRateSlider, _tempSettings.GetTtsProviderRate("Soniox"));
+            SetSliderPercent(OpenAIVolumeSlider, _tempSettings.GetTtsProviderVolume("OpenAI"));
+            SetSliderPercent(OpenAIRateSlider, _tempSettings.GetTtsProviderRate("OpenAI"));
+            SetSliderPercent(ElevenLabsVolumeSlider, _tempSettings.GetTtsProviderVolume("ElevenLabs"));
+            SetSliderPercent(ElevenLabsRateSlider, _tempSettings.GetTtsProviderRate("ElevenLabs"));
+            SetSliderPercent(GoogleVolumeSlider, _tempSettings.GetTtsProviderVolume("Google"));
+            SetSliderPercent(GoogleRateSlider, _tempSettings.GetTtsProviderRate("Google"));
+            SetSliderPercent(AzureVolumeSlider, _tempSettings.GetTtsProviderVolume("Azure"));
+            SetSliderPercent(AzureRateSlider, _tempSettings.GetTtsProviderRate("Azure"));
+        }
+
+        private void SaveTtsPlaybackSettings()
+        {
+            _tempSettings.SetTtsProviderVolume("Deepgram", SliderPercentToValue(DeepgramVolumeSlider));
+            _tempSettings.SetTtsProviderRate("Deepgram", SliderPercentToValue(DeepgramRateSlider));
+            _tempSettings.SetTtsProviderVolume("Speechmatics", SliderPercentToValue(SpeechmaticsVolumeSlider));
+            _tempSettings.SetTtsProviderRate("Speechmatics", SliderPercentToValue(SpeechmaticsRateSlider));
+            _tempSettings.SetTtsProviderVolume("Soniox", SliderPercentToValue(SonioxVolumeSlider));
+            _tempSettings.SetTtsProviderRate("Soniox", SliderPercentToValue(SonioxRateSlider));
+            _tempSettings.SetTtsProviderVolume("OpenAI", SliderPercentToValue(OpenAIVolumeSlider));
+            _tempSettings.SetTtsProviderRate("OpenAI", SliderPercentToValue(OpenAIRateSlider));
+            _tempSettings.SetTtsProviderVolume("ElevenLabs", SliderPercentToValue(ElevenLabsVolumeSlider));
+            _tempSettings.SetTtsProviderRate("ElevenLabs", SliderPercentToValue(ElevenLabsRateSlider));
+            _tempSettings.SetTtsProviderVolume("Google", SliderPercentToValue(GoogleVolumeSlider));
+            _tempSettings.SetTtsProviderRate("Google", SliderPercentToValue(GoogleRateSlider));
+            _tempSettings.SetTtsProviderVolume("Azure", SliderPercentToValue(AzureVolumeSlider));
+            _tempSettings.SetTtsProviderRate("Azure", SliderPercentToValue(AzureRateSlider));
+        }
+
+        private static void SetSliderPercent(System.Windows.Controls.Slider slider, float value)
+        {
+            slider.Value = Math.Round(value * 100f);
+        }
+
+        private static float SliderPercentToValue(System.Windows.Controls.Slider slider)
+        {
+            return (float)(slider.Value / 100d);
         }
 
         private void CancelButton_Click(object sender, RoutedEventArgs e)

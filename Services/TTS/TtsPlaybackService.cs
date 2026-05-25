@@ -1,11 +1,27 @@
 using System.IO;
 using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 
 namespace BF_STT.Services.TTS
 {
     public sealed class TtsPlaybackService
     {
-        public async Task PlayAsync(byte[] audioData, string contentType, CancellationToken ct = default)
+        private readonly object _sync = new();
+        private WaveOutEvent? _currentOutput;
+        private bool _isPlaying;
+
+        public bool IsPlaying
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _isPlaying;
+                }
+            }
+        }
+
+        public async Task PlayAsync(byte[] audioData, string contentType, float volume, float rate, CancellationToken ct = default)
         {
             if (audioData.Length == 0)
             {
@@ -36,9 +52,32 @@ namespace BF_STT.Services.TTS
             }
 
             var output = new WaveOutEvent();
-            output.Init(reader);
+            lock (_sync)
+            {
+                _currentOutput = output;
+                _isPlaying = true;
+            }
+
+            var sampleProvider = reader.ToSampleProvider();
+            var speedProvider = new SpeedAdjustedSampleProvider(sampleProvider, rate);
+            var volumeProvider = new VolumeSampleProvider(speedProvider)
+            {
+                Volume = Math.Clamp(volume, 0f, 2f)
+            };
+
+            output.Init(volumeProvider);
             output.PlaybackStopped += (_, args) =>
             {
+                lock (_sync)
+                {
+                    if (ReferenceEquals(_currentOutput, output))
+                    {
+                        _currentOutput = null;
+                    }
+
+                    _isPlaying = false;
+                }
+
                 output.Dispose();
                 reader.Dispose();
                 stream.Dispose();
@@ -61,6 +100,17 @@ namespace BF_STT.Services.TTS
 
             output.Play();
             await completion.Task;
+        }
+
+        public void Stop()
+        {
+            WaveOutEvent? output;
+            lock (_sync)
+            {
+                output = _currentOutput;
+            }
+
+            output?.Stop();
         }
 
         private static bool IsWave(string contentType, byte[] audioData)

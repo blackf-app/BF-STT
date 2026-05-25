@@ -247,6 +247,11 @@
 
                 <!-- API Selection -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="3,0">
+                    <ComboBox ItemsSource="{Binding ConfiguredTtsProviders}" SelectedItem="{Binding SelectedTtsProvider}"
+                              ToolTip="Select TTS Provider"
+                              Style="{StaticResource ModernComboBoxStyle}"
+                              VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="0,2,2,2" Width="90" Height="28"
+                              FontSize="11" />
                     <ComboBox ItemsSource="{Binding ConfiguredBatchApis}" SelectedItem="{Binding BatchModeApi}"
                               ToolTip="Select Batch API Engine"
                               Style="{StaticResource ModernComboBoxStyle}"
@@ -256,11 +261,6 @@
                               ToolTip="Select Streaming API Engine"
                               Style="{StaticResource ModernComboBoxStyle}"
                               VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="2,2,2,2" Width="90" Height="28"
-                              FontSize="11" />
-                    <ComboBox ItemsSource="{Binding ConfiguredTtsProviders}" SelectedItem="{Binding SelectedTtsProvider}"
-                              ToolTip="Select TTS Provider"
-                              Style="{StaticResource ModernComboBoxStyle}"
-                              VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="2,2,0,2" Width="90" Height="28"
                               FontSize="11" />
                 </StackPanel>
 
@@ -296,6 +296,11 @@
                     <!-- Resend (Refresh/Upload Icon) -->
                     <Button Command="{Binding ResendAudioCommand}" ToolTip="Re-Send Audio" Background="#007ACC" Margin="3,2">
                         <TextBlock Text="&#xE898;" FontFamily="Segoe MDL2 Assets" FontSize="14"/> 
+                    </Button>
+
+                    <!-- Stop TTS -->
+                    <Button Command="{Binding StopTtsCommand}" ToolTip="Stop TTS Playback" Background="#666600" Margin="3,2">
+                        <TextBlock Text="&#xE15B;" FontFamily="Segoe MDL2 Assets" FontSize="14"/>
                     </Button>
 
                     <!-- History (History Icon) -->

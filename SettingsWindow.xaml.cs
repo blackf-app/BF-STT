@@ -55,11 +55,37 @@ namespace BF_STT
                 StreamingModeApi = _settingsService.CurrentSettings.StreamingModeApi,
                 TestMode = _settingsService.CurrentSettings.TestMode,
                 DefaultLanguage = _settingsService.CurrentSettings.DefaultLanguage,
+                SelectedTtsProvider = _settingsService.CurrentSettings.SelectedTtsProvider,
                 HotkeyVirtualKeyCode = _settingsService.CurrentSettings.HotkeyVirtualKeyCode,
+                TtsHotkeyVirtualKeyCode = _settingsService.CurrentSettings.TtsHotkeyVirtualKeyCode,
                 StopAndSendHotkeyVirtualKeyCode = _settingsService.CurrentSettings.StopAndSendHotkeyVirtualKeyCode,
                 MicrophoneDeviceNumber = _settingsService.CurrentSettings.MicrophoneDeviceNumber,
                 MaxHistoryItems = _settingsService.CurrentSettings.MaxHistoryItems,
-                EnableNoiseSuppression = _settingsService.CurrentSettings.EnableNoiseSuppression
+                EnableNoiseSuppression = _settingsService.CurrentSettings.EnableNoiseSuppression,
+                DeepgramTtsApiKey = _settingsService.CurrentSettings.DeepgramTtsApiKey,
+                DeepgramTtsBaseUrl = _settingsService.CurrentSettings.DeepgramTtsBaseUrl,
+                DeepgramTtsModel = _settingsService.CurrentSettings.DeepgramTtsModel,
+                SpeechmaticsTtsApiKey = _settingsService.CurrentSettings.SpeechmaticsTtsApiKey,
+                SpeechmaticsTtsBaseUrl = _settingsService.CurrentSettings.SpeechmaticsTtsBaseUrl,
+                SpeechmaticsTtsVoice = _settingsService.CurrentSettings.SpeechmaticsTtsVoice,
+                SonioxTtsApiKey = _settingsService.CurrentSettings.SonioxTtsApiKey,
+                SonioxTtsBaseUrl = _settingsService.CurrentSettings.SonioxTtsBaseUrl,
+                SonioxTtsModel = _settingsService.CurrentSettings.SonioxTtsModel,
+                SonioxTtsVoice = _settingsService.CurrentSettings.SonioxTtsVoice,
+                OpenAITtsApiKey = _settingsService.CurrentSettings.OpenAITtsApiKey,
+                OpenAITtsBaseUrl = _settingsService.CurrentSettings.OpenAITtsBaseUrl,
+                OpenAITtsModel = _settingsService.CurrentSettings.OpenAITtsModel,
+                OpenAITtsVoice = _settingsService.CurrentSettings.OpenAITtsVoice,
+                ElevenLabsTtsApiKey = _settingsService.CurrentSettings.ElevenLabsTtsApiKey,
+                ElevenLabsTtsBaseUrl = _settingsService.CurrentSettings.ElevenLabsTtsBaseUrl,
+                ElevenLabsTtsModel = _settingsService.CurrentSettings.ElevenLabsTtsModel,
+                ElevenLabsTtsVoice = _settingsService.CurrentSettings.ElevenLabsTtsVoice,
+                GoogleTtsApiKey = _settingsService.CurrentSettings.GoogleTtsApiKey,
+                GoogleTtsBaseUrl = _settingsService.CurrentSettings.GoogleTtsBaseUrl,
+                GoogleTtsVoice = _settingsService.CurrentSettings.GoogleTtsVoice,
+                AzureTtsApiKey = _settingsService.CurrentSettings.AzureTtsApiKey,
+                AzureTtsRegion = _settingsService.CurrentSettings.AzureTtsRegion,
+                AzureTtsVoice = _settingsService.CurrentSettings.AzureTtsVoice
             };
 
             // Load API Keys
@@ -72,6 +98,15 @@ namespace BF_STT
             AssemblyAIApiKeyTextBox.Text = _tempSettings.AssemblyAIApiKey;
             AzureApiKeyTextBox.Text = _tempSettings.AzureApiKey;
             AzureRegionTextBox.Text = _tempSettings.AzureBaseUrl;
+            OpenAITtsApiKeyTextBox.Text = _tempSettings.OpenAITtsApiKey;
+            OpenAITtsVoiceTextBox.Text = _tempSettings.OpenAITtsVoice;
+            ElevenLabsTtsApiKeyTextBox.Text = _tempSettings.ElevenLabsTtsApiKey;
+            ElevenLabsTtsVoiceTextBox.Text = _tempSettings.ElevenLabsTtsVoice;
+            DeepgramTtsApiKeyTextBox.Text = _tempSettings.DeepgramTtsApiKey;
+            SonioxTtsApiKeyTextBox.Text = _tempSettings.SonioxTtsApiKey;
+            SpeechmaticsTtsApiKeyTextBox.Text = _tempSettings.SpeechmaticsTtsApiKey;
+            GoogleTtsApiKeyTextBox.Text = _tempSettings.GoogleTtsApiKey;
+            AzureTtsApiKeyTextBox.Text = _tempSettings.AzureTtsApiKey;
 
             // Load Checkboxes
             StartWithWindowsCheckBox.IsChecked = _tempSettings.StartWithWindows;
@@ -120,8 +155,32 @@ namespace BF_STT
             foreach (var hk in hotkeys)
             {
                 HotkeyComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = hk.Key, Tag = hk.Value });
+                TtsHotkeyComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = hk.Key, Tag = hk.Value });
                 StopAndSendHotkeyComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = hk.Key, Tag = hk.Value });
             }
+
+            foreach (var provider in new[] { "Deepgram", "Speechmatics", "Soniox", "OpenAI", "ElevenLabs", "Google", "Azure" })
+            {
+                TtsProviderComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem { Content = provider, Tag = provider });
+            }
+            TtsProviderComboBox.Items.Add(new System.Windows.Controls.ComboBoxItem
+            {
+                Content = "AssemblyAI (unavailable)",
+                Tag = "AssemblyAI",
+                IsEnabled = false,
+                ToolTip = "AssemblyAI has voice-agent TTS but no standalone text-to-speech endpoint."
+            });
+            for (int i = 0; i < TtsProviderComboBox.Items.Count; i++)
+            {
+                if (TtsProviderComboBox.Items[i] is System.Windows.Controls.ComboBoxItem item
+                    && string.Equals(item.Tag?.ToString(), _tempSettings.SelectedTtsProvider, StringComparison.OrdinalIgnoreCase)
+                    && item.IsEnabled)
+                {
+                    TtsProviderComboBox.SelectedIndex = i;
+                    break;
+                }
+            }
+            if (TtsProviderComboBox.SelectedIndex < 0) TtsProviderComboBox.SelectedIndex = 3; // OpenAI
             
             for (int i = 0; i < HotkeyComboBox.Items.Count; i++)
             {
@@ -132,6 +191,16 @@ namespace BF_STT
                 }
             }
             if (HotkeyComboBox.SelectedIndex < 0) HotkeyComboBox.SelectedIndex = 2; // Default F3
+
+            for (int i = 0; i < TtsHotkeyComboBox.Items.Count; i++)
+            {
+                if (TtsHotkeyComboBox.Items[i] is System.Windows.Controls.ComboBoxItem item && (int)item.Tag == _tempSettings.TtsHotkeyVirtualKeyCode)
+                {
+                    TtsHotkeyComboBox.SelectedIndex = i;
+                    break;
+                }
+            }
+            if (TtsHotkeyComboBox.SelectedIndex < 0) TtsHotkeyComboBox.SelectedIndex = 1; // Default F2
 
             for (int i = 0; i < StopAndSendHotkeyComboBox.Items.Count; i++)
             {
@@ -164,6 +233,20 @@ namespace BF_STT
             _tempSettings.AssemblyAIApiKey = AssemblyAIApiKeyTextBox.Text;
             _tempSettings.AzureApiKey = AzureApiKeyTextBox.Text;
             _tempSettings.AzureBaseUrl = AzureRegionTextBox.Text;
+            _tempSettings.OpenAITtsApiKey = OpenAITtsApiKeyTextBox.Text;
+            _tempSettings.OpenAITtsVoice = OpenAITtsVoiceTextBox.Text;
+            _tempSettings.ElevenLabsTtsApiKey = ElevenLabsTtsApiKeyTextBox.Text;
+            _tempSettings.ElevenLabsTtsVoice = ElevenLabsTtsVoiceTextBox.Text;
+            _tempSettings.DeepgramTtsApiKey = DeepgramTtsApiKeyTextBox.Text;
+            _tempSettings.SonioxTtsApiKey = SonioxTtsApiKeyTextBox.Text;
+            _tempSettings.SpeechmaticsTtsApiKey = SpeechmaticsTtsApiKeyTextBox.Text;
+            _tempSettings.GoogleTtsApiKey = GoogleTtsApiKeyTextBox.Text;
+            _tempSettings.AzureTtsApiKey = AzureTtsApiKeyTextBox.Text;
+
+            if (TtsProviderComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem ttsProviderItem)
+            {
+                _tempSettings.SelectedTtsProvider = ttsProviderItem.Tag?.ToString() ?? "OpenAI";
+            }
 
             // Save Checkboxes
             _tempSettings.StartWithWindows = StartWithWindowsCheckBox.IsChecked ?? false;
@@ -189,6 +272,11 @@ namespace BF_STT
                 _tempSettings.HotkeyVirtualKeyCode = hvk;
             }
 
+            if (TtsHotkeyComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem ttsHotkeyItem && ttsHotkeyItem.Tag is int thvk)
+            {
+                _tempSettings.TtsHotkeyVirtualKeyCode = thvk;
+            }
+
             // Get Stop & Send Hotkey
             if (StopAndSendHotkeyComboBox.SelectedItem is System.Windows.Controls.ComboBoxItem stopSendHotkeyItem && stopSendHotkeyItem.Tag is int sshvk)
             {
@@ -196,9 +284,11 @@ namespace BF_STT
             }
 
             // Validation: Hotkeys must be different
-            if (_tempSettings.HotkeyVirtualKeyCode == _tempSettings.StopAndSendHotkeyVirtualKeyCode)
+            if (_tempSettings.HotkeyVirtualKeyCode == _tempSettings.StopAndSendHotkeyVirtualKeyCode
+                || _tempSettings.HotkeyVirtualKeyCode == _tempSettings.TtsHotkeyVirtualKeyCode
+                || _tempSettings.TtsHotkeyVirtualKeyCode == _tempSettings.StopAndSendHotkeyVirtualKeyCode)
             {
-                System.Windows.MessageBox.Show("Phím tắt mặc định và phím tắt 'Dừng & Gửi' không được trùng nhau.", "Cảnh báo", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
+                System.Windows.MessageBox.Show("Hotkeys for recording, TTS, and Stop & Send must be different.", "Warning", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Warning);
                 return;
             }
 

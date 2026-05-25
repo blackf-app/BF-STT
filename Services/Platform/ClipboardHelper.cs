@@ -49,6 +49,30 @@ namespace BF_STT.Services.Platform
             return backup;
         }
 
+        public static bool TryGetText(out string text)
+        {
+            text = string.Empty;
+
+            try
+            {
+                if (!WpfClipboard.ContainsText())
+                {
+                    return false;
+                }
+
+                text = WpfClipboard.GetText();
+                return true;
+            }
+            catch (System.Runtime.InteropServices.ExternalException)
+            {
+                return false;
+            }
+            catch (System.Threading.ThreadStateException)
+            {
+                return false;
+            }
+        }
+
         /// <summary>
         /// Restores previously backed-up clipboard content.
         /// If backup is null (original clipboard was empty), clears the clipboard.

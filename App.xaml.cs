@@ -96,6 +96,7 @@ namespace BF_STT
                 settingsService,
                 onKeyDown: () => mainViewModel.OnF3KeyDown(),
                 onKeyUp: () => mainViewModel.OnF3KeyUp(),
+                onTtsHotkeyDown: () => mainViewModel.OnTtsHotkeyDown(),
                 onStopAndSendKeyDown: () => mainViewModel.OnStopAndSendKeyDown(),
                 onStopAndSendKeyUp: () => mainViewModel.OnStopAndSendKeyUp()
             );

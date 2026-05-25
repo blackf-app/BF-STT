@@ -1,6 +1,7 @@
 using BF_STT.Models;
 using BF_STT.Services.Workflow;
 using BF_STT.Services.Infrastructure;
+using BF_STT.Services.TTS;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
@@ -14,6 +15,7 @@ namespace BF_STT.ViewModels
         private readonly SettingsService _settingsService;
         private readonly HistoryService _historyService;
         private readonly UpdateService _updateService;
+        private readonly TtsWorkflowService _ttsWorkflowService;
         private bool _isHistoryVisible;
         private bool _isHistoryAtTop;
 
@@ -33,12 +35,14 @@ namespace BF_STT.ViewModels
             RecordingCoordinator coordinator,
             SettingsService settingsService,
             HistoryService historyService,
-            UpdateService updateService)
+            UpdateService updateService,
+            TtsWorkflowService ttsWorkflowService)
         {
             _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _historyService = historyService ?? throw new ArgumentNullException(nameof(historyService));
             _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
+            _ttsWorkflowService = ttsWorkflowService ?? throw new ArgumentNullException(nameof(ttsWorkflowService));
 
             // Subscribe to coordinator events
             _coordinator.StatusChanged += status => StatusText = status;
@@ -208,9 +212,24 @@ namespace BF_STT.ViewModels
         #region Hotkey Handlers
 
         public void OnF3KeyDown() => _coordinator.HandleHotkeyDown(false);
+        public void OnTtsHotkeyDown() => _ = SpeakClipboardAsync();
         public void OnStopAndSendKeyDown() => _coordinator.HandleHotkeyDown(true);
         public void OnF3KeyUp() => _coordinator.HandleHotkeyUp();
         public void OnStopAndSendKeyUp() => _coordinator.HandleHotkeyUp();
+
+        private async Task SpeakClipboardAsync()
+        {
+            try
+            {
+                StatusText = "Generating speech...";
+                await _ttsWorkflowService.SpeakClipboardAsync();
+                StatusText = "Speech playback complete.";
+            }
+            catch (Exception ex)
+            {
+                StatusText = $"TTS error: {ex.Message}";
+            }
+        }
 
         #endregion
 
@@ -351,6 +370,7 @@ namespace BF_STT.ViewModels
                 OnPropertyChanged(nameof(IsTestMode));
 
                 _coordinator.UpdateSettingsFromRegistry();
+                _ttsWorkflowService.UpdateSettingsFromRegistry();
 
                 StatusText = "Settings updated.";
             }

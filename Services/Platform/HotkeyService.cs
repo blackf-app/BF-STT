@@ -16,20 +16,24 @@ namespace BF_STT.Services.Platform
         private IntPtr _hookId = IntPtr.Zero;
         private readonly Action _onKeyDown;
         private readonly Action _onKeyUp;
+        private readonly Action _onTtsHotkeyDown;
         private readonly Action _onStopAndSendKeyDown;
         private readonly Action _onStopAndSendKeyUp;
         private readonly SettingsService _settingsService;
 
         private bool _isHotkeyTracking = false;
+        private bool _isTtsHotkeyTracking = false;
         private bool _isStopAndSendHotkeyTracking = false;
 
         public HotkeyService(SettingsService settingsService, 
             Action onKeyDown, Action onKeyUp,
+            Action onTtsHotkeyDown,
             Action onStopAndSendKeyDown, Action onStopAndSendKeyUp)
         {
             _settingsService = settingsService;
             _onKeyDown = onKeyDown;
             _onKeyUp = onKeyUp;
+            _onTtsHotkeyDown = onTtsHotkeyDown;
             _onStopAndSendKeyDown = onStopAndSendKeyDown;
             _onStopAndSendKeyUp = onStopAndSendKeyUp;
             _proc = HookCallback;
@@ -72,6 +76,23 @@ namespace BF_STT.Services.Platform
                             _isHotkeyTracking = false;
                             System.Windows.Application.Current?.Dispatcher.BeginInvoke(_onKeyUp);
                         }
+                        return (IntPtr)1; // Swallow key stroke
+                    }
+                }
+                else if (vkCode == settings.TtsHotkeyVirtualKeyCode)
+                {
+                    if (wParam == (IntPtr)WM_KEYDOWN || wParam == (IntPtr)WM_SYSKEYDOWN)
+                    {
+                        if (!_isTtsHotkeyTracking)
+                        {
+                            _isTtsHotkeyTracking = true;
+                            System.Windows.Application.Current?.Dispatcher.BeginInvoke(_onTtsHotkeyDown);
+                        }
+                        return (IntPtr)1; // Swallow key stroke
+                    }
+                    else if (wParam == (IntPtr)WM_KEYUP || wParam == (IntPtr)WM_SYSKEYUP)
+                    {
+                        _isTtsHotkeyTracking = false;
                         return (IntPtr)1; // Swallow key stroke
                     }
                 }

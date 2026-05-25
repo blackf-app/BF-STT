@@ -236,13 +236,15 @@
                 <!-- General Tab -->
                 <TabItem Header="⚙ General">
                     <Border Background="#333333" CornerRadius="0,8,8,8" Padding="20,15">
-                        <StackPanel Width="330">
+                        <StackPanel Width="430">
                             <!-- Mic and Hotkeys -->
                             <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="10"/>
-                                    <ColumnDefinition Width="75"/>
+                                    <ColumnDefinition Width="65"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="65"/>
                                     <ColumnDefinition Width="10"/>
                                     <ColumnDefinition Width="75"/>
                                 </Grid.ColumnDefinitions>
@@ -255,6 +257,10 @@
                                     <ComboBox x:Name="HotkeyComboBox" Height="30" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="4">
+                                    <TextBlock Text="TTS" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                                    <ComboBox x:Name="TtsHotkeyComboBox" Height="30" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="6">
                                     <TextBlock Text="Stop &amp; Send" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,7" FontWeight="SemiBold" ToolTip="Stop &amp; Send Hotkey"/>
                                     <ComboBox x:Name="StopAndSendHotkeyComboBox" Height="30" />
                                 </StackPanel>
@@ -303,7 +309,7 @@
                 </TabItem>
 
                 <!-- API Keys Tab -->
-                <TabItem Header="🔑 API Keys">
+                <TabItem Header="STT Keys">
                     <Border Background="#333333" CornerRadius="0,8,8,8" Padding="20,15">
                         <Grid Width="330">
                             <Grid.ColumnDefinitions>
@@ -365,6 +371,85 @@
                                 <TextBox x:Name="AzureRegionTextBox" FontSize="11" Padding="6" ToolTip="Region (e.g. eastus)"/>
                             </StackPanel>
                         </Grid>
+                    </Border>
+                </TabItem>
+                <TabItem Header="TTS Keys">
+                    <Border Background="#333333" CornerRadius="0,8,8,8" Padding="20,15">
+                        <StackPanel Width="430">
+                            <Grid Margin="0,0,0,10">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Provider" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <ComboBox x:Name="TtsProviderComboBox" Height="30"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Unsupported" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <TextBox Text="AssemblyAI voice-agent only" IsReadOnly="True" FontSize="11" Padding="6"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="10"/>
+                                    <ColumnDefinition Width="*"/>
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
+                                    <TextBlock Text="OpenAI Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="OpenAITtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
+                                    <TextBlock Text="OpenAI Voice" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="OpenAITtsVoiceTextBox" FontSize="11" Padding="6"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,10">
+                                    <TextBlock Text="ElevenLabs Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="ElevenLabsTtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,10">
+                                    <TextBlock Text="ElevenLabs Voice ID" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="ElevenLabsTtsVoiceTextBox" FontSize="11" Padding="6"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,10">
+                                    <TextBlock Text="Deepgram Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="DeepgramTtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,10">
+                                    <TextBlock Text="Soniox Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="SonioxTtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                </StackPanel>
+
+                                <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,0,0">
+                                    <TextBlock Text="Speechmatics Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="SpeechmaticsTtsApiKeyTextBox" FontSize="11" Padding="6"/>
+                                </StackPanel>
+                                <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,0,0,0">
+                                    <TextBlock Text="Google / Azure Keys" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="8"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="GoogleTtsApiKeyTextBox" Grid.Column="0" FontSize="11" Padding="6" ToolTip="Google TTS API key"/>
+                                        <TextBox x:Name="AzureTtsApiKeyTextBox" Grid.Column="2" FontSize="11" Padding="6" ToolTip="Azure TTS key"/>
+                                    </Grid>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
                     </Border>
                 </TabItem>
             </TabControl>

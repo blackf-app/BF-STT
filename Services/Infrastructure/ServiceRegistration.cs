@@ -10,6 +10,14 @@ using BF_STT.Services.STT.Providers.Google;
 using BF_STT.Services.STT.Providers.AssemblyAI;
 using BF_STT.Services.STT.Providers.Azure;
 using BF_STT.Services.STT.Providers.Speechmatics;
+using BF_STT.Services.TTS;
+using BF_STT.Services.TTS.Providers.Deepgram;
+using BF_STT.Services.TTS.Providers.OpenAI;
+using BF_STT.Services.TTS.Providers.Soniox;
+using BF_STT.Services.TTS.Providers.ElevenLabs;
+using BF_STT.Services.TTS.Providers.Google;
+using BF_STT.Services.TTS.Providers.Azure;
+using BF_STT.Services.TTS.Providers.Speechmatics;
 using BF_STT.Services.Workflow;
 using BF_STT.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
@@ -121,6 +129,50 @@ namespace BF_STT.Services.Infrastructure
 
                 return registry;
             });
+
+            // TTS Provider Registry
+            services.AddSingleton(sp =>
+            {
+                var httpClient = sp.GetRequiredService<HttpClient>();
+                var settings = sp.GetRequiredService<SettingsService>().CurrentSettings;
+                var registry = new TtsProviderRegistry();
+
+                registry.Register("Deepgram",
+                    new DeepgramTtsService(httpClient, settings.DeepgramTtsApiKey, settings.DeepgramTtsModel, settings.DeepgramTtsBaseUrl),
+                    true, s => s.DeepgramTtsApiKey, s => s.DeepgramTtsModel, _ => "", s => s.DeepgramTtsBaseUrl);
+
+                registry.Register("Speechmatics",
+                    new SpeechmaticsTtsService(httpClient, settings.SpeechmaticsTtsApiKey, settings.SpeechmaticsTtsVoice, settings.SpeechmaticsTtsBaseUrl),
+                    true, s => s.SpeechmaticsTtsApiKey, _ => "", s => s.SpeechmaticsTtsVoice, s => s.SpeechmaticsTtsBaseUrl);
+
+                registry.Register("Soniox",
+                    new SonioxTtsService(httpClient, settings.SonioxTtsApiKey, settings.SonioxTtsModel, settings.SonioxTtsVoice, settings.SonioxTtsBaseUrl),
+                    true, s => s.SonioxTtsApiKey, s => s.SonioxTtsModel, s => s.SonioxTtsVoice, s => s.SonioxTtsBaseUrl);
+
+                registry.Register("OpenAI",
+                    new OpenAITtsService(httpClient, settings.OpenAITtsApiKey, settings.OpenAITtsModel, settings.OpenAITtsVoice, settings.OpenAITtsBaseUrl),
+                    true, s => s.OpenAITtsApiKey, s => s.OpenAITtsModel, s => s.OpenAITtsVoice, s => s.OpenAITtsBaseUrl);
+
+                registry.Register("ElevenLabs",
+                    new ElevenLabsTtsService(httpClient, settings.ElevenLabsTtsApiKey, settings.ElevenLabsTtsModel, settings.ElevenLabsTtsVoice, settings.ElevenLabsTtsBaseUrl),
+                    true, s => s.ElevenLabsTtsApiKey, s => s.ElevenLabsTtsModel, s => s.ElevenLabsTtsVoice, s => s.ElevenLabsTtsBaseUrl);
+
+                registry.Register("Google",
+                    new GoogleTtsService(httpClient, settings.GoogleTtsApiKey, settings.GoogleTtsVoice, settings.GoogleTtsBaseUrl),
+                    true, s => s.GoogleTtsApiKey, _ => "", s => s.GoogleTtsVoice, s => s.GoogleTtsBaseUrl);
+
+                registry.Register("Azure",
+                    new AzureTtsService(httpClient, settings.AzureTtsApiKey, settings.AzureTtsVoice, settings.AzureTtsRegion),
+                    true, s => s.AzureTtsApiKey, _ => "", s => s.AzureTtsVoice, s => s.AzureTtsRegion);
+
+                registry.Register("AssemblyAI",
+                    new UnsupportedTtsService("AssemblyAI does not expose a standalone text-to-speech API for clipboard synthesis."),
+                    false, _ => "", _ => "", _ => "", _ => "", "AssemblyAI TTS is only available inside its Voice Agent pipeline.");
+
+                return registry;
+            });
+            services.AddSingleton<TtsPlaybackService>();
+            services.AddSingleton<TtsWorkflowService>();
 
             // ── Workflow ──
             services.AddSingleton<BatchProcessor>();

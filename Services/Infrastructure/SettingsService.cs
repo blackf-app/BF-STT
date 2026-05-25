@@ -14,7 +14,9 @@ namespace BF_STT.Services.Infrastructure
         public string BatchModeApi { get; set; } = "Deepgram";
         public string StreamingModeApi { get; set; } = "Deepgram";
         public string DefaultLanguage { get; set; } = "vi";
+        public string SelectedTtsProvider { get; set; } = "OpenAI";
         public int HotkeyVirtualKeyCode { get; set; } = 0x72; // VK_F3
+        public int TtsHotkeyVirtualKeyCode { get; set; } = 0x71; // VK_F2
         public int StopAndSendHotkeyVirtualKeyCode { get; set; } = 0x73; // VK_F4
         public int MicrophoneDeviceNumber { get; set; } = 0;
         public int MaxHistoryItems { get; set; } = 100;
@@ -66,6 +68,38 @@ namespace BF_STT.Services.Infrastructure
         public string AzureApiKey { get; set; } = "";
         public string AzureBaseUrl { get; set; } = "eastus";
         public string AzureModel { get; set; } = "";
+
+        // TTS
+        public string DeepgramTtsApiKey { get; set; } = "";
+        public string DeepgramTtsBaseUrl { get; set; } = "https://api.deepgram.com/v1/speak";
+        public string DeepgramTtsModel { get; set; } = "aura-2-thalia-en";
+
+        public string SpeechmaticsTtsApiKey { get; set; } = "";
+        public string SpeechmaticsTtsBaseUrl { get; set; } = "https://preview.tts.speechmatics.com/generate";
+        public string SpeechmaticsTtsVoice { get; set; } = "sarah";
+
+        public string SonioxTtsApiKey { get; set; } = "";
+        public string SonioxTtsBaseUrl { get; set; } = "https://tts-rt.soniox.com/tts";
+        public string SonioxTtsModel { get; set; } = "tts-rt-v1";
+        public string SonioxTtsVoice { get; set; } = "Adrian";
+
+        public string OpenAITtsApiKey { get; set; } = "";
+        public string OpenAITtsBaseUrl { get; set; } = "https://api.openai.com/v1/audio/speech";
+        public string OpenAITtsModel { get; set; } = "gpt-4o-mini-tts";
+        public string OpenAITtsVoice { get; set; } = "alloy";
+
+        public string ElevenLabsTtsApiKey { get; set; } = "";
+        public string ElevenLabsTtsBaseUrl { get; set; } = "https://api.elevenlabs.io/v1/text-to-speech";
+        public string ElevenLabsTtsModel { get; set; } = "eleven_multilingual_v2";
+        public string ElevenLabsTtsVoice { get; set; } = "JBFqnCBsd6RMkjVDRZzb";
+
+        public string GoogleTtsApiKey { get; set; } = "";
+        public string GoogleTtsBaseUrl { get; set; } = "https://texttospeech.googleapis.com/v1/text:synthesize";
+        public string GoogleTtsVoice { get; set; } = "vi-VN-Standard-A";
+
+        public string AzureTtsApiKey { get; set; } = "";
+        public string AzureTtsRegion { get; set; } = "eastus";
+        public string AzureTtsVoice { get; set; } = "vi-VN-HoaiMyNeural";
 
         // Noise Suppression
         public bool EnableNoiseSuppression { get; set; } = false;
@@ -141,6 +175,16 @@ namespace BF_STT.Services.Infrastructure
                 CurrentSettings.StreamingModeApi = "Deepgram";
                 needsFix = true;
             }
+            if (string.IsNullOrEmpty(CurrentSettings.SelectedTtsProvider))
+            {
+                CurrentSettings.SelectedTtsProvider = "OpenAI";
+                needsFix = true;
+            }
+            if (CurrentSettings.TtsHotkeyVirtualKeyCode == 0)
+            {
+                CurrentSettings.TtsHotkeyVirtualKeyCode = 0x71;
+                needsFix = true;
+            }
 
             // Migrate SelectedApi to BatchModeApi and StreamingModeApi
             if (!string.IsNullOrEmpty(CurrentSettings.SelectedApi))
@@ -192,6 +236,13 @@ namespace BF_STT.Services.Infrastructure
             s.GoogleApiKey = SecureSettingsSerializer.Encrypt(s.GoogleApiKey);
             s.AssemblyAIApiKey = SecureSettingsSerializer.Encrypt(s.AssemblyAIApiKey);
             s.AzureApiKey = SecureSettingsSerializer.Encrypt(s.AzureApiKey);
+            s.DeepgramTtsApiKey = SecureSettingsSerializer.Encrypt(s.DeepgramTtsApiKey);
+            s.SpeechmaticsTtsApiKey = SecureSettingsSerializer.Encrypt(s.SpeechmaticsTtsApiKey);
+            s.SonioxTtsApiKey = SecureSettingsSerializer.Encrypt(s.SonioxTtsApiKey);
+            s.OpenAITtsApiKey = SecureSettingsSerializer.Encrypt(s.OpenAITtsApiKey);
+            s.ElevenLabsTtsApiKey = SecureSettingsSerializer.Encrypt(s.ElevenLabsTtsApiKey);
+            s.GoogleTtsApiKey = SecureSettingsSerializer.Encrypt(s.GoogleTtsApiKey);
+            s.AzureTtsApiKey = SecureSettingsSerializer.Encrypt(s.AzureTtsApiKey);
         }
 
         private static void DecryptApiKeys(AppSettings s)
@@ -204,6 +255,13 @@ namespace BF_STT.Services.Infrastructure
             s.GoogleApiKey = SecureSettingsSerializer.Decrypt(s.GoogleApiKey);
             s.AssemblyAIApiKey = SecureSettingsSerializer.Decrypt(s.AssemblyAIApiKey);
             s.AzureApiKey = SecureSettingsSerializer.Decrypt(s.AzureApiKey);
+            s.DeepgramTtsApiKey = SecureSettingsSerializer.Decrypt(s.DeepgramTtsApiKey);
+            s.SpeechmaticsTtsApiKey = SecureSettingsSerializer.Decrypt(s.SpeechmaticsTtsApiKey);
+            s.SonioxTtsApiKey = SecureSettingsSerializer.Decrypt(s.SonioxTtsApiKey);
+            s.OpenAITtsApiKey = SecureSettingsSerializer.Decrypt(s.OpenAITtsApiKey);
+            s.ElevenLabsTtsApiKey = SecureSettingsSerializer.Decrypt(s.ElevenLabsTtsApiKey);
+            s.GoogleTtsApiKey = SecureSettingsSerializer.Decrypt(s.GoogleTtsApiKey);
+            s.AzureTtsApiKey = SecureSettingsSerializer.Decrypt(s.AzureTtsApiKey);
         }
 
         private void SetStartWithWindows(bool enable)

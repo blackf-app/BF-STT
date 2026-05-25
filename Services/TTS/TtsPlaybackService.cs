@@ -75,7 +75,18 @@ namespace BF_STT.Services.TTS
                 || (audioData.Length >= 3
                     && audioData[0] == 'I'
                     && audioData[1] == 'D'
-                    && audioData[2] == '3');
+                    && audioData[2] == '3')
+                || LooksLikeMp3Frame(audioData);
+        }
+
+        private static bool LooksLikeMp3Frame(byte[] audioData)
+        {
+            if (audioData.Length < 2)
+            {
+                return false;
+            }
+
+            return audioData[0] == 0xFF && (audioData[1] & 0xE0) == 0xE0;
         }
     }
 }

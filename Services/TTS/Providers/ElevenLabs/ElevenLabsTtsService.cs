@@ -30,11 +30,29 @@ namespace BF_STT.Services.TTS.Providers.ElevenLabs
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);
             if (!response.IsSuccessStatusCode)
             {
-                throw new HttpRequestException($"ElevenLabs TTS request failed: {response.StatusCode}");
+                var errorBody = TrimResponseBody(bytes);
+                throw new HttpRequestException($"ElevenLabs TTS request failed: {response.StatusCode}. {errorBody}");
             }
 
             var contentType = response.Content.Headers.ContentType?.MediaType ?? "audio/mpeg";
             return new TtsAudioResult(bytes, contentType);
+        }
+
+        private static string TrimResponseBody(byte[] bytes)
+        {
+            if (bytes.Length == 0)
+            {
+                return "Empty response body.";
+            }
+
+            var text = Encoding.UTF8.GetString(bytes);
+            text = text.ReplaceLineEndings(" ").Trim();
+            if (text.Length > 300)
+            {
+                text = text[..300] + "...";
+            }
+
+            return text;
         }
     }
 }

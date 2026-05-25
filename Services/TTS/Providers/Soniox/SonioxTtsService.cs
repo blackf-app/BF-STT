@@ -21,7 +21,9 @@ namespace BF_STT.Services.TTS.Providers.Soniox
                 model = Model,
                 language = "vi",
                 voice = Voice,
-                audio_format = "wav",
+                // Soniox REST returns a streamed audio body. MP3 is more tolerant here than WAV,
+                // whose header lengths can be awkward for in-memory parsing after streaming.
+                audio_format = "mp3",
                 text
             };
 
@@ -33,11 +35,29 @@ namespace BF_STT.Services.TTS.Providers.Soniox
             var bytes = await response.Content.ReadAsByteArrayAsync(ct);
             if (!response.IsSuccessStatusCode)
             {
-                throw new HttpRequestException($"Soniox TTS request failed: {response.StatusCode}");
+                var errorBody = TrimResponseBody(bytes);
+                throw new HttpRequestException($"Soniox TTS request failed: {response.StatusCode}. {errorBody}");
             }
 
-            var contentType = response.Content.Headers.ContentType?.MediaType ?? "audio/wav";
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "audio/mpeg";
             return new TtsAudioResult(bytes, contentType);
+        }
+
+        private static string TrimResponseBody(byte[] bytes)
+        {
+            if (bytes.Length == 0)
+            {
+                return "Empty response body.";
+            }
+
+            var text = Encoding.UTF8.GetString(bytes);
+            text = text.ReplaceLineEndings(" ").Trim();
+            if (text.Length > 300)
+            {
+                text = text[..300] + "...";
+            }
+
+            return text;
         }
     }
 }

@@ -158,11 +158,12 @@
 
         <Style x:Key="ScrollBarThumbStyle" TargetType="Thumb">
             <Setter Property="OverridesDefaultStyle" Value="True"/>
-            <Setter Property="Height" Value="36"/>
+            <Setter Property="MinHeight" Value="20"/>
+            <Setter Property="MinWidth" Value="20"/>
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Thumb">
-                        <Border Background="#595959" CornerRadius="4" Margin="1"/>
+                        <Border Background="#595959" CornerRadius="4" Margin="2,1"/>
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
@@ -171,7 +172,7 @@
                     <Setter Property="Template">
                         <Setter.Value>
                             <ControlTemplate TargetType="Thumb">
-                                <Border Background="#7A7A7A" CornerRadius="4" Margin="1"/>
+                                <Border Background="#7A7A7A" CornerRadius="4" Margin="2,1"/>
                             </ControlTemplate>
                         </Setter.Value>
                     </Setter>
@@ -212,12 +213,12 @@
         </ControlTemplate>
 
         <Style TargetType="ScrollBar">
-            <Setter Property="Width" Value="8"/>
-            <Setter Property="Background" Value="#202020"/>
+            <Setter Property="Width" Value="12"/>
+            <Setter Property="Background" Value="#2A2A2A"/>
             <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}"/>
             <Style.Triggers>
                 <Trigger Property="Orientation" Value="Horizontal">
-                    <Setter Property="Height" Value="8"/>
+                    <Setter Property="Height" Value="12"/>
                     <Setter Property="Width" Value="Auto"/>
                     <Setter Property="Template" Value="{StaticResource HorizontalScrollBarTemplate}"/>
                 </Trigger>
@@ -604,9 +605,9 @@
                                             <TextBox x:Name="OpenAITtsApiKeyTextBox" FontSize="11" Padding="6"/>
                                             <TextBlock Text="Voice" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <TextBox x:Name="OpenAITtsVoiceTextBox" FontSize="11" Padding="6"/>
-                                            <TextBlock Text="Volume (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=OpenAIVolumeSlider, StringFormat='Volume: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="OpenAIVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
-                                            <TextBlock Text="Rate (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=OpenAIRateSlider, StringFormat='Speed: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="OpenAIRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
                                         </StackPanel>
                                     </Border>
@@ -618,9 +619,9 @@
                                             <TextBlock Text="Voice ID" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <TextBox x:Name="ElevenLabsTtsVoiceTextBox" FontSize="11" Padding="6"
                                                      ToolTip="Use a Voice ID from My Voices or Default voices. Voice Library voices may be blocked by your ElevenLabs plan/API access."/>
-                                            <TextBlock Text="Volume (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=ElevenLabsVolumeSlider, StringFormat='Volume: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="ElevenLabsVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
-                                            <TextBlock Text="Rate (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=ElevenLabsRateSlider, StringFormat='Speed: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="ElevenLabsRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
                                         </StackPanel>
                                     </Border>
@@ -630,9 +631,9 @@
                                             <TextBlock Text="Deepgram" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
                                             <TextBlock Text="API Key" Style="{StaticResource SectionLabelStyle}"/>
                                             <TextBox x:Name="DeepgramTtsApiKeyTextBox" FontSize="11" Padding="6"/>
-                                            <TextBlock Text="Volume (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=DeepgramVolumeSlider, StringFormat='Volume: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="DeepgramVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
-                                            <TextBlock Text="Rate (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=DeepgramRateSlider, StringFormat='Speed: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="DeepgramRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
                                         </StackPanel>
                                     </Border>
@@ -641,9 +642,9 @@
                                             <TextBlock Text="Soniox" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
                                             <TextBlock Text="API Key" Style="{StaticResource SectionLabelStyle}"/>
                                             <TextBox x:Name="SonioxTtsApiKeyTextBox" FontSize="11" Padding="6"/>
-                                            <TextBlock Text="Volume (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=SonioxVolumeSlider, StringFormat='Volume: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="SonioxVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
-                                            <TextBlock Text="Rate (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=SonioxRateSlider, StringFormat='Speed: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="SonioxRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
                                         </StackPanel>
                                     </Border>
@@ -653,9 +654,9 @@
                                             <TextBlock Text="Speechmatics" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
                                             <TextBlock Text="API Key" Style="{StaticResource SectionLabelStyle}"/>
                                             <TextBox x:Name="SpeechmaticsTtsApiKeyTextBox" FontSize="11" Padding="6"/>
-                                            <TextBlock Text="Volume (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=SpeechmaticsVolumeSlider, StringFormat='Volume: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="SpeechmaticsVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
-                                            <TextBlock Text="Rate (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=SpeechmaticsRateSlider, StringFormat='Speed: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="SpeechmaticsRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
                                         </StackPanel>
                                     </Border>
@@ -664,9 +665,9 @@
                                             <TextBlock Text="Google" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
                                             <TextBlock Text="API Key" Style="{StaticResource SectionLabelStyle}"/>
                                             <TextBox x:Name="GoogleTtsApiKeyTextBox" FontSize="11" Padding="6" ToolTip="Google TTS API key"/>
-                                            <TextBlock Text="Volume (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=GoogleVolumeSlider, StringFormat='Volume: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="GoogleVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
-                                            <TextBlock Text="Rate (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=GoogleRateSlider, StringFormat='Speed: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="GoogleRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
                                         </StackPanel>
                                     </Border>
@@ -676,17 +677,17 @@
                                             <TextBlock Text="Azure" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
                                             <TextBlock Text="API Key" Style="{StaticResource SectionLabelStyle}"/>
                                             <TextBox x:Name="AzureTtsApiKeyTextBox" FontSize="11" Padding="6" ToolTip="Azure TTS key"/>
-                                            <TextBlock Text="Volume (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=AzureVolumeSlider, StringFormat='Volume: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="AzureVolumeSlider" Minimum="0" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
-                                            <TextBlock Text="Rate (%)" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
+                                            <TextBlock Text="{Binding Value, ElementName=AzureRateSlider, StringFormat='Speed: {0:0}%'}" Style="{StaticResource SectionLabelStyle}" Margin="0,8,0,4"/>
                                             <Slider x:Name="AzureRateSlider" Minimum="50" Maximum="200" TickFrequency="10" IsSnapToTickEnabled="False" Value="100"/>
                                         </StackPanel>
                                     </Border>
                                     <Border Grid.Row="3" Grid.Column="2" Style="{StaticResource CardBorderStyle}">
                                         <StackPanel>
                                             <TextBlock Text="Playback Note" Foreground="White" FontSize="13" Margin="0,0,0,8" FontWeight="SemiBold"/>
-                                            <TextBlock Text="Volume and rate are stored separately for each TTS provider and applied when that provider is selected." Foreground="#CCCCCC" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
-                                            <TextBlock Text="Provider-specific volume/rate is independent from the TTS voice field." Foreground="#AAAAAA" FontSize="11" TextWrapping="Wrap"/>
+                                            <TextBlock Text="Volume and speed are stored per TTS provider and applied when that provider is selected." Foreground="#CCCCCC" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,10"/>
+                                            <TextBlock Text="Provider-specific volume/speed is independent from the TTS voice field." Foreground="#AAAAAA" FontSize="11" TextWrapping="Wrap"/>
                                         </StackPanel>
                                     </Border>
                                 </Grid>

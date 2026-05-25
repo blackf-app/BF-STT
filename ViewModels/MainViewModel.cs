@@ -59,11 +59,11 @@ namespace BF_STT.ViewModels
             _coordinator.CommandsInvalidated += () => CommandManager.InvalidateRequerySuggested();
             _ttsWorkflowService.PlaybackStateChanged += isPlaying =>
             {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() => IsTtsPlaying = isPlaying);
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => IsTtsPlaying = isPlaying);
             };
             _ttsWorkflowService.SynthesisCompleted += () =>
             {
-                System.Windows.Application.Current?.Dispatcher.Invoke(() => StatusText = "Playing speech...");
+                System.Windows.Application.Current?.Dispatcher.BeginInvoke(() => StatusText = "Playing speech...");
             };
 
             // Commands

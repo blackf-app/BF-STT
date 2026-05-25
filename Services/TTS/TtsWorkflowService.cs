@@ -1,5 +1,6 @@
 using BF_STT.Services.Infrastructure;
 using BF_STT.Services.Platform;
+using BF_STT.Services.TTS.Abstractions;
 
 namespace BF_STT.Services.TTS
 {
@@ -11,6 +12,11 @@ namespace BF_STT.Services.TTS
         private readonly SemaphoreSlim _gate = new(1, 1);
         private readonly object _sync = new();
         private CancellationTokenSource? _activePlaybackCts;
+
+        // Cache: key = (providerName, voice, text)
+        private readonly Dictionary<(string provider, string voice, string text), TtsAudioResult> _cache = new();
+        private readonly object _cacheLock = new();
+        private const int MaxCacheEntries = 20;
 
         public event Action<bool>? PlaybackStateChanged;
         public event Action? SynthesisCompleted;
@@ -54,7 +60,29 @@ namespace BF_STT.Services.TTS
                 }
 
                 PlaybackStateChanged?.Invoke(true);
-                var result = await provider.Service.SynthesizeAsync(text, playbackCts.Token);
+
+                var voice = provider.GetVoice(settings);
+                var cacheKey = (provider.Name, voice, text);
+                TtsAudioResult result;
+
+                lock (_cacheLock)
+                {
+                    _cache.TryGetValue(cacheKey, out result!);
+                }
+
+                if (result == null)
+                {
+                    result = await provider.Service.SynthesizeAsync(text, playbackCts.Token);
+                    lock (_cacheLock)
+                    {
+                        if (_cache.Count >= MaxCacheEntries)
+                        {
+                            _cache.Remove(_cache.Keys.First());
+                        }
+                        _cache[cacheKey] = result;
+                    }
+                }
+
                 SynthesisCompleted?.Invoke();
                 var volume = settings.GetTtsProviderVolume(provider.Name);
                 var rate = settings.GetTtsProviderRate(provider.Name);
@@ -87,6 +115,11 @@ namespace BF_STT.Services.TTS
         public void UpdateSettingsFromRegistry()
         {
             _registry.UpdateAllSettings(_settingsService.CurrentSettings);
+            // Invalidate cache when settings change (API key, voice, provider may have changed)
+            lock (_cacheLock)
+            {
+                _cache.Clear();
+            }
         }
     }
 }

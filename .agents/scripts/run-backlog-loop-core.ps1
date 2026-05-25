@@ -193,8 +193,15 @@ for ($i = 1; $i -le $MaxIterations; $i++) {
             if (-not $NoSkipPermissions) { $cliArgs += "--dangerously-bypass-approvals-and-sandbox" }
             $cliArgs += "-"
 
-            $output = $adapterPrompt | & codex @cliArgs 2>&1
-            $exitCode = $LASTEXITCODE
+            $oldErrorActionPreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = "Continue"
+                $output = $adapterPrompt | & codex @cliArgs 2>&1
+                $exitCode = $LASTEXITCODE
+            }
+            finally {
+                $ErrorActionPreference = $oldErrorActionPreference
+            }
         }
     }
 

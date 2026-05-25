@@ -42,7 +42,7 @@ $tagName = "v$newVersion"
 
 # 4. Fast Build
 Write-Host "--> Building/Publishing $tagName..." -ForegroundColor Cyan
-dotnet publish -c Release -o $publishDir /p:IsAutoPublishing=true /p:PauseAfterBuild=true -nologo -clp:NoSummary -v:q
+dotnet publish $csprojPath -c Release -o $publishDir /p:IsAutoPublishing=true /p:PauseAfterBuild=true -nologo -clp:NoSummary -v:q
 
 # 5. Smart Release Notes Generation
 Write-Host "--> Generating Friendly Release Notes..." -ForegroundColor Cyan

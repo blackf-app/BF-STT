@@ -15,6 +15,12 @@ namespace BF_STT
             InitializeComponent();
             _settingsService = settingsService;
             _updateService = updateService;
+            Width = Math.Min(Width, SystemParameters.WorkArea.Width - 32);
+            Height = Math.Min(Height, SystemParameters.WorkArea.Height - 32);
+            MaxHeight = Height;
+            MinHeight = Height;
+            MaxWidth = Width;
+            MinWidth = Width;
 
             // Set Version Text
             var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;

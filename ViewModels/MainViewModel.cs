@@ -16,6 +16,7 @@ namespace BF_STT.ViewModels
         private readonly HistoryService _historyService;
         private readonly UpdateService _updateService;
         private readonly TtsWorkflowService _ttsWorkflowService;
+        private readonly TtsProviderRegistry _ttsProviderRegistry;
         private bool _isHistoryVisible;
         private bool _isHistoryAtTop;
 
@@ -36,13 +37,15 @@ namespace BF_STT.ViewModels
             SettingsService settingsService,
             HistoryService historyService,
             UpdateService updateService,
-            TtsWorkflowService ttsWorkflowService)
+            TtsWorkflowService ttsWorkflowService,
+            TtsProviderRegistry ttsProviderRegistry)
         {
             _coordinator = coordinator ?? throw new ArgumentNullException(nameof(coordinator));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _historyService = historyService ?? throw new ArgumentNullException(nameof(historyService));
             _updateService = updateService ?? throw new ArgumentNullException(nameof(updateService));
             _ttsWorkflowService = ttsWorkflowService ?? throw new ArgumentNullException(nameof(ttsWorkflowService));
+            _ttsProviderRegistry = ttsProviderRegistry ?? throw new ArgumentNullException(nameof(ttsProviderRegistry));
 
             // Subscribe to coordinator events
             _coordinator.StatusChanged += status => StatusText = status;
@@ -95,6 +98,7 @@ namespace BF_STT.ViewModels
 
         public ObservableCollection<string> ConfiguredBatchApis { get; } = new();
         public ObservableCollection<string> ConfiguredStreamingApis { get; } = new();
+        public ObservableCollection<string> ConfiguredTtsProviders { get; } = new();
 
         public string BatchModeApi
         {
@@ -231,6 +235,21 @@ namespace BF_STT.ViewModels
             }
         }
 
+        public string SelectedTtsProvider
+        {
+            get => _settingsService.CurrentSettings.SelectedTtsProvider;
+            set
+            {
+                if (string.IsNullOrEmpty(value)) return;
+                if (_settingsService.CurrentSettings.SelectedTtsProvider != value)
+                {
+                    _settingsService.CurrentSettings.SelectedTtsProvider = value;
+                    _settingsService.SaveSettings(_settingsService.CurrentSettings);
+                    OnPropertyChanged();
+                }
+            }
+        }
+
         #endregion
 
         #region API Filtering
@@ -245,8 +264,10 @@ namespace BF_STT.ViewModels
             var settings = _settingsService.CurrentSettings;
             // 1. Get all providers from registry
             var allProviderEntries = _coordinator.Registry.GetAllProviders();
+            var allTtsProviderEntries = _ttsProviderRegistry.GetAllProviders();
             var newBatchApis = new List<string>();
             var newStreamingApis = new List<string>();
+            var newTtsProviders = new List<string>();
 
             // 2. Clear/Update UI Provider List (Test Mode panels)
             var currentActiveProviders = new List<string>();
@@ -262,6 +283,20 @@ namespace BF_STT.ViewModels
                         newStreamingApis.Add(entry.Name);
                     }
                     currentActiveProviders.Add(entry.Name);
+                }
+            }
+
+            foreach (var entry in allTtsProviderEntries)
+            {
+                if (!entry.SupportsSynthesis)
+                {
+                    continue;
+                }
+
+                var apiKey = entry.GetApiKey(settings);
+                if (!string.IsNullOrWhiteSpace(apiKey))
+                {
+                    newTtsProviders.Add(entry.Name);
                 }
             }
 
@@ -290,6 +325,7 @@ namespace BF_STT.ViewModels
             // 4. Sync Dropdown collections
             SyncCollection(ConfiguredBatchApis, newBatchApis);
             SyncCollection(ConfiguredStreamingApis, newStreamingApis);
+            SyncCollection(ConfiguredTtsProviders, newTtsProviders);
 
             // 5. Validate current selections
             if (!ConfiguredBatchApis.Contains(_coordinator.BatchModeApi))
@@ -308,10 +344,20 @@ namespace BF_STT.ViewModels
                     _coordinator.StreamingModeApi = fallback;
                 }
             }
+            if (!ConfiguredTtsProviders.Contains(_settingsService.CurrentSettings.SelectedTtsProvider))
+            {
+                var fallback = ConfiguredTtsProviders.FirstOrDefault();
+                if (!string.IsNullOrEmpty(fallback))
+                {
+                    _settingsService.CurrentSettings.SelectedTtsProvider = fallback;
+                    _settingsService.SaveSettings(_settingsService.CurrentSettings);
+                }
+            }
 
             // 6. Force WPF ComboBox to re-read SelectedItem
             OnPropertyChanged(nameof(BatchModeApi));
             OnPropertyChanged(nameof(StreamingModeApi));
+            OnPropertyChanged(nameof(SelectedTtsProvider));
         }
 
         public void UpdateProviderTranscript(string providerName, string text)
@@ -367,6 +413,7 @@ namespace BF_STT.ViewModels
 
                 OnPropertyChanged(nameof(BatchModeApi));
                 OnPropertyChanged(nameof(StreamingModeApi));
+                OnPropertyChanged(nameof(SelectedTtsProvider));
                 OnPropertyChanged(nameof(IsTestMode));
 
                 _coordinator.UpdateSettingsFromRegistry();

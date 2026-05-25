@@ -255,6 +255,11 @@
                     <ComboBox ItemsSource="{Binding ConfiguredStreamingApis}" SelectedItem="{Binding StreamingModeApi}"
                               ToolTip="Select Streaming API Engine"
                               Style="{StaticResource ModernComboBoxStyle}"
+                              VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="2,2,2,2" Width="90" Height="28"
+                              FontSize="11" />
+                    <ComboBox ItemsSource="{Binding ConfiguredTtsProviders}" SelectedItem="{Binding SelectedTtsProvider}"
+                              ToolTip="Select TTS Provider"
+                              Style="{StaticResource ModernComboBoxStyle}"
                               VerticalAlignment="Center" VerticalContentAlignment="Center" Margin="2,2,0,2" Width="90" Height="28"
                               FontSize="11" />
                 </StackPanel>

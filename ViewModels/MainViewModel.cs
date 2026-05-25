@@ -61,6 +61,10 @@ namespace BF_STT.ViewModels
             {
                 System.Windows.Application.Current?.Dispatcher.Invoke(() => IsTtsPlaying = isPlaying);
             };
+            _ttsWorkflowService.SynthesisCompleted += () =>
+            {
+                System.Windows.Application.Current?.Dispatcher.Invoke(() => StatusText = "Playing speech...");
+            };
 
             // Commands
             StartRecordingCommand = new RelayCommand(

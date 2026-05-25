@@ -13,6 +13,7 @@ namespace BF_STT.Services.TTS
         private CancellationTokenSource? _activePlaybackCts;
 
         public event Action<bool>? PlaybackStateChanged;
+        public event Action? SynthesisCompleted;
 
         public TtsWorkflowService(
             SettingsService settingsService,
@@ -54,6 +55,7 @@ namespace BF_STT.Services.TTS
 
                 PlaybackStateChanged?.Invoke(true);
                 var result = await provider.Service.SynthesizeAsync(text, playbackCts.Token);
+                SynthesisCompleted?.Invoke();
                 var volume = settings.GetTtsProviderVolume(provider.Name);
                 var rate = settings.GetTtsProviderRate(provider.Name);
                 await _playbackService.PlayAsync(result.AudioData, result.ContentType, volume, rate, playbackCts.Token);

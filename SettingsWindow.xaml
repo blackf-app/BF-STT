@@ -212,12 +212,13 @@
         </ControlTemplate>
 
         <Style TargetType="ScrollBar">
-            <Setter Property="Width" Value="10"/>
-            <Setter Property="Height" Value="10"/>
+            <Setter Property="Width" Value="8"/>
             <Setter Property="Background" Value="#202020"/>
             <Setter Property="Template" Value="{StaticResource VerticalScrollBarTemplate}"/>
             <Style.Triggers>
                 <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Height" Value="8"/>
+                    <Setter Property="Width" Value="Auto"/>
                     <Setter Property="Template" Value="{StaticResource HorizontalScrollBarTemplate}"/>
                 </Trigger>
             </Style.Triggers>
@@ -374,7 +375,7 @@
                         ToolTip="Kiểm tra phiên bản mới"
                         Background="#333333"
                         Click="CheckUpdateButtonClick">
-                    <TextBlock Text="ðŸ”„" FontSize="16" Margin="0,-2,0,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <TextBlock Text="&#x1F504;" FontSize="16" Margin="0,-2,0,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Button>
                 <TextBlock Text="Settings"
                            FontSize="20"
@@ -389,12 +390,12 @@
                         ToolTip="Mở thư mục chứa file cấu hình"
                         Background="#333333"
                         Click="OpenConfigFolderButton_Click">
-                    <TextBlock Text="ðŸ“‚" FontSize="16" Margin="0,-2,0,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    <TextBlock Text="&#x1F4C2;" FontSize="16" Margin="0,-2,0,0" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                 </Button>
             </Grid>
 
             <TabControl Grid.Row="1" Margin="0,0,0,15">
-                <TabItem Header="âš™ General">
+                <TabItem Header="&#x2699; General">
                     <Border Background="{StaticResource PanelBrush}" CornerRadius="0,8,8,8" Padding="18,16">
                         <ScrollViewer Style="{StaticResource TabScrollViewerStyle}">
                             <StackPanel MaxWidth="520">

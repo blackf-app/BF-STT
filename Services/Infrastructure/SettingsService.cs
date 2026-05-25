@@ -91,7 +91,7 @@ namespace BF_STT.Services.Infrastructure
         public string ElevenLabsTtsApiKey { get; set; } = "";
         public string ElevenLabsTtsBaseUrl { get; set; } = "https://api.elevenlabs.io/v1/text-to-speech";
         public string ElevenLabsTtsModel { get; set; } = "eleven_flash_v2_5";
-        public string ElevenLabsTtsVoice { get; set; } = "21m00Tcm4TlvDq8ikWAM";
+        public string ElevenLabsTtsVoice { get; set; } = "JBFqnCBsd6RMkjVDRZzb";
 
         public string GoogleTtsApiKey { get; set; } = "";
         public string GoogleTtsBaseUrl { get; set; } = "https://texttospeech.googleapis.com/v1/text:synthesize";
@@ -209,13 +209,11 @@ namespace BF_STT.Services.Infrastructure
                 needsFix = true;
             }
 
-            // Migrate ElevenLabs TTS defaults to a Vietnamese-capable model and a softer female voice.
-            // Only update when the user is still on the old built-in defaults.
-            if (CurrentSettings.ElevenLabsTtsModel == "eleven_multilingual_v2"
-                && CurrentSettings.ElevenLabsTtsVoice == "JBFqnCBsd6RMkjVDRZzb")
+            // Migrate ElevenLabs TTS model to a Vietnamese-capable model.
+            // Keep the user's current voice ID because API access depends on subscription and owned/default voices.
+            if (CurrentSettings.ElevenLabsTtsModel == "eleven_multilingual_v2")
             {
                 CurrentSettings.ElevenLabsTtsModel = "eleven_flash_v2_5";
-                CurrentSettings.ElevenLabsTtsVoice = "21m00Tcm4TlvDq8ikWAM";
                 needsFix = true;
             }
 

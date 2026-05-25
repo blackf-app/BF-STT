@@ -420,7 +420,8 @@
                                 </StackPanel>
                                 <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,10">
                                     <TextBlock Text="ElevenLabs Voice ID" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
-                                    <TextBox x:Name="ElevenLabsTtsVoiceTextBox" FontSize="11" Padding="6"/>
+                                    <TextBox x:Name="ElevenLabsTtsVoiceTextBox" FontSize="11" Padding="6"
+                                             ToolTip="Use a Voice ID from My Voices or Default voices. Voice Library voices may be blocked by your ElevenLabs plan/API access."/>
                                 </StackPanel>
 
                                 <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,10">

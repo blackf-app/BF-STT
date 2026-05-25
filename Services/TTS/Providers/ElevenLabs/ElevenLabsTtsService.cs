@@ -9,7 +9,7 @@ namespace BF_STT.Services.TTS.Providers.ElevenLabs
     {
         public ElevenLabsTtsService(HttpClient httpClient, string apiKey, string model, string voice, string baseUrl)
             : base(httpClient, apiKey, model, voice, baseUrl,
-                "eleven_flash_v2_5", "21m00Tcm4TlvDq8ikWAM", "https://api.elevenlabs.io/v1/text-to-speech")
+                "eleven_flash_v2_5", "JBFqnCBsd6RMkjVDRZzb", "https://api.elevenlabs.io/v1/text-to-speech")
         {
         }
 

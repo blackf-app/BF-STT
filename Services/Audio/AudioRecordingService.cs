@@ -1,3 +1,4 @@
+using Microsoft.Win32;
 using NAudio.Wave;
 using System;
 using System.IO;
@@ -95,6 +96,8 @@ namespace BF_STT.Services.Audio
             if (WaveIn.DeviceCount == 0)
                 throw new InvalidOperationException("No microphone detected.");
 
+            EnsureDesktopMicrophoneAccessAllowed();
+
             // Clean up any previous recording
             Dispose();
 
@@ -117,51 +120,117 @@ namespace BF_STT.Services.Audio
             _pipeline.Initialize(EnableNoiseSuppression);
 
             int sampleRate = EnableNoiseSuppression ? 48000 : 16000;
+            int resolvedDeviceNumber = ResolveDeviceNumber();
 
-            _waveIn = new WaveInEvent
+            try
             {
-                DeviceNumber = DeviceNumber,
-                WaveFormat = new WaveFormat(sampleRate, 16, 1),
-                BufferMilliseconds = 50,
-                NumberOfBuffers = 3
-            };
-
-            _waveFormat = new WaveFormat(16000, 16, 1); // output is always 16 kHz
-
-            // In-memory WAV buffer
-            _audioMemory = new MemoryStream();
-            _memWriter = new BinaryWriter(_audioMemory);
-            var (mRiff, mData) = WriteWavHeader(_memWriter, _waveFormat);
-            _memRiffPos = mRiff;
-            _memDataPos = mData;
-
-            // Optional file buffer for Test Mode
-            if (SaveToFile)
-            {
-                try
+                _waveIn = new WaveInEvent
                 {
-                    string fileName = $"bf_stt_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav";
-                    _tempFilePath = Path.Combine(Path.GetTempPath(), fileName);
-                    _audioFile = new FileStream(_tempFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
-                    _fileWriter = new BinaryWriter(_audioFile);
-                    var (fRiff, fData) = WriteWavHeader(_fileWriter, _waveFormat);
-                    _fileRiffPos = fRiff;
-                    _fileDataPos = fData;
-                    System.Diagnostics.Debug.WriteLine($"[AudioRecording] Test Mode: Saving to {_tempFilePath}");
-                }
-                catch (Exception ex)
+                    DeviceNumber = resolvedDeviceNumber,
+                    WaveFormat = new WaveFormat(sampleRate, 16, 1),
+                    BufferMilliseconds = 50,
+                    NumberOfBuffers = 3
+                };
+
+                _waveFormat = new WaveFormat(16000, 16, 1); // output is always 16 kHz
+
+                // In-memory WAV buffer
+                _audioMemory = new MemoryStream();
+                _memWriter = new BinaryWriter(_audioMemory);
+                var (mRiff, mData) = WriteWavHeader(_memWriter, _waveFormat);
+                _memRiffPos = mRiff;
+                _memDataPos = mData;
+
+                // Optional file buffer for Test Mode
+                if (SaveToFile)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[AudioRecording] Error creating temp file: {ex.Message}");
+                    try
+                    {
+                        string fileName = $"bf_stt_{DateTime.Now:yyyyMMdd_HHmmss_fff}.wav";
+                        _tempFilePath = Path.Combine(Path.GetTempPath(), fileName);
+                        _audioFile = new FileStream(_tempFilePath, FileMode.Create, FileAccess.Write, FileShare.Read);
+                        _fileWriter = new BinaryWriter(_audioFile);
+                        var (fRiff, fData) = WriteWavHeader(_fileWriter, _waveFormat);
+                        _fileRiffPos = fRiff;
+                        _fileDataPos = fData;
+                        System.Diagnostics.Debug.WriteLine($"[AudioRecording] Test Mode: Saving to {_tempFilePath}");
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[AudioRecording] Error creating temp file: {ex.Message}");
+                    }
                 }
+
+                _waveIn.DataAvailable += OnWaveInDataAvailable;
+                _waveIn.RecordingStopped += OnRecordingStopped;
+                _waveIn.StartRecording();
+                _isRecording = true;
             }
-
-            _waveIn.DataAvailable += OnWaveInDataAvailable;
-            _waveIn.RecordingStopped += OnRecordingStopped;
-            _waveIn.StartRecording();
-            _isRecording = true;
+            catch (NAudio.MmException ex)
+            {
+                Dispose();
+                string deviceName = GetDeviceNameSafe(resolvedDeviceNumber);
+                throw new InvalidOperationException(
+                    $"Unable to open microphone \"{deviceName}\". Check Windows microphone privacy for desktop apps, make sure the device is connected, and close any app that may be using it exclusively.",
+                    ex);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Dispose();
+                string deviceName = GetDeviceNameSafe(resolvedDeviceNumber);
+                throw new InvalidOperationException(
+                    $"Microphone access was denied for \"{deviceName}\". Turn on Windows microphone access for desktop apps, then try again.",
+                    ex);
+            }
         }
 
         // ── WAV header helpers ───────────────────────────────────────────────────
+
+        private int ResolveDeviceNumber()
+        {
+            if (DeviceNumber >= 0 && DeviceNumber < WaveIn.DeviceCount)
+            {
+                return DeviceNumber;
+            }
+
+            return 0;
+        }
+
+        private static string GetDeviceNameSafe(int deviceNumber)
+        {
+            try
+            {
+                return WaveIn.GetCapabilities(deviceNumber).ProductName;
+            }
+            catch
+            {
+                return $"device #{deviceNumber}";
+            }
+        }
+
+        private static void EnsureDesktopMicrophoneAccessAllowed()
+        {
+            const string keyPath = @"SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone\NonPackaged";
+
+            try
+            {
+                using RegistryKey? key = Registry.CurrentUser.OpenSubKey(keyPath);
+                string? value = key?.GetValue("Value") as string;
+                if (string.Equals(value, "Deny", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        "Windows is blocking microphone access for desktop apps. Turn on Settings > Privacy & security > Microphone > Let desktop apps access your microphone.");
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch
+            {
+                // If the privacy state cannot be read, fall back to the normal device-open path.
+            }
+        }
 
         private (long riffPos, long dataPos) WriteWavHeader(BinaryWriter writer, WaveFormat format)
         {

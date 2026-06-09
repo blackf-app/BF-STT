@@ -1,67 +1,64 @@
-using WpfClipboard = System.Windows.Clipboard;
-using WpfDataObject = System.Windows.DataObject;
-using WpfIDataObject = System.Windows.IDataObject;
+using Avalonia;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
+using Avalonia.Threading;
 
 namespace BF_STT.Services.Platform
 {
     /// <summary>
-    /// Handles clipboard backup and restore operations.
-    /// Preserves the user's clipboard content during text injection.
+    /// Cross-platform clipboard helper using Avalonia's IClipboard.
+    /// Backs up the text content of the clipboard before injection and restores
+    /// it after. Image/file/audio formats are not preserved on macOS — the
+    /// trade-off is acceptable because the injection path only writes text.
     /// </summary>
     internal static class ClipboardHelper
     {
-        /// <summary>
-        /// Backs up the current clipboard content, preserving all formats.
-        /// Returns null if clipboard is empty or contains unsupported formats.
-        /// </summary>
-        public static WpfIDataObject? Backup()
+        private static IClipboard? GetClipboard()
         {
-            if (!WpfClipboard.ContainsText() &&
-                !WpfClipboard.ContainsImage() &&
-                !WpfClipboard.ContainsFileDropList() &&
-                !WpfClipboard.ContainsAudio())
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop
+                && desktop.MainWindow != null)
             {
-                return null;
+                return desktop.MainWindow.Clipboard;
             }
-
-            var backup = new WpfDataObject();
-
-            if (WpfClipboard.ContainsText())
-            {
-                backup.SetText(WpfClipboard.GetText());
-            }
-            if (WpfClipboard.ContainsImage())
-            {
-                var image = WpfClipboard.GetImage();
-                if (image != null) backup.SetImage(image);
-            }
-            if (WpfClipboard.ContainsFileDropList())
-            {
-                var files = WpfClipboard.GetFileDropList();
-                if (files != null) backup.SetFileDropList(files);
-            }
-            if (WpfClipboard.ContainsAudio())
-            {
-                var audio = WpfClipboard.GetAudioStream();
-                if (audio != null) backup.SetAudio(audio);
-            }
-
-            return backup;
+            return null;
         }
 
         /// <summary>
-        /// Restores previously backed-up clipboard content.
-        /// If backup is null (original clipboard was empty), clears the clipboard.
+        /// Returns the current clipboard text (or null if none).
         /// </summary>
-        public static void Restore(WpfIDataObject? backup)
+        public static async Task<string?> BackupAsync()
         {
-            if (backup == null)
+            var clipboard = GetClipboard();
+            if (clipboard == null) return null;
+            try
             {
-                WpfClipboard.Clear();
-                return;
+                return await Dispatcher.UIThread.InvokeAsync(async () => await clipboard.GetTextAsync());
             }
+            catch { return null; }
+        }
 
-            WpfClipboard.SetDataObject(backup, true); // true = persist after app exits
+        public static async Task SetTextAsync(string text)
+        {
+            var clipboard = GetClipboard();
+            if (clipboard == null) return;
+            await Dispatcher.UIThread.InvokeAsync(async () => await clipboard.SetTextAsync(text));
+        }
+
+        public static async Task RestoreAsync(string? backup)
+        {
+            var clipboard = GetClipboard();
+            if (clipboard == null) return;
+            try
+            {
+                await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    if (string.IsNullOrEmpty(backup))
+                        await clipboard.ClearAsync();
+                    else
+                        await clipboard.SetTextAsync(backup);
+                });
+            }
+            catch { /* best-effort restore */ }
         }
     }
 }

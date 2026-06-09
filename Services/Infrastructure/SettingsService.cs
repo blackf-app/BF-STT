@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Win32;
 using System.IO;
+using System.Runtime.Versioning;
 using System.Text.Json;
 
 namespace BF_STT.Services.Infrastructure
@@ -208,8 +208,32 @@ namespace BF_STT.Services.Infrastructure
 
         private void SetStartWithWindows(bool enable)
         {
+            try
+            {
+#if WINDOWS
+                if (OperatingSystem.IsWindows())
+                {
+                    SetStartWithWindowsRegistry(enable);
+                    return;
+                }
+#endif
+                if (OperatingSystem.IsMacOS())
+                {
+                    SetStartWithMacLaunchAgent(enable);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to set auto-start preference");
+            }
+        }
+
+#if WINDOWS
+        [SupportedOSPlatform("windows")]
+        private void SetStartWithWindowsRegistry(bool enable)
+        {
             const string runKey = "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run";
-            using (RegistryKey? key = Registry.CurrentUser.OpenSubKey(runKey, true))
+            using (Microsoft.Win32.RegistryKey? key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(runKey, true))
             {
                 if (key != null)
                 {
@@ -227,6 +251,47 @@ namespace BF_STT.Services.Infrastructure
                     }
                 }
             }
+        }
+#endif
+
+        [SupportedOSPlatform("macos")]
+        private void SetStartWithMacLaunchAgent(bool enable)
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var launchAgentsDir = Path.Combine(home, "Library", "LaunchAgents");
+            Directory.CreateDirectory(launchAgentsDir);
+            var plistPath = Path.Combine(launchAgentsDir, "com.bf.stt.plist");
+
+            if (!enable)
+            {
+                if (File.Exists(plistPath)) File.Delete(plistPath);
+                return;
+            }
+
+            string? exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+            if (string.IsNullOrEmpty(exePath)) return;
+
+            // For .app bundles, MainModule.FileName points to the inner binary. We
+            // still launch via that — launchd handles it correctly.
+            var plist = $"""
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyLists-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.bf.stt</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{exePath}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>
+""";
+            File.WriteAllText(plistPath, plist);
         }
     }
 }

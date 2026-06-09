@@ -162,7 +162,7 @@ namespace BF_STT.Services.Workflow
 
         private void OnTranscriptReceived(object? sender, TranscriptEventArgs e)
         {
-            System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+            Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
             {
                 try
                 {
@@ -209,7 +209,7 @@ namespace BF_STT.Services.Workflow
 
         private void OnStreamingError(object? sender, string errorMessage)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
             {
                 StatusChanged?.Invoke($"Stream error: {errorMessage}");
             });

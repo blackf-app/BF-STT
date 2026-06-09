@@ -1,157 +1,105 @@
-using System.Diagnostics;
-using System.Windows.Threading;
+using Avalonia.Threading;
 using Microsoft.Extensions.Logging;
-using WpfClipboard = System.Windows.Clipboard;
-using WpfIDataObject = System.Windows.IDataObject;
+using System.Diagnostics;
 
 namespace BF_STT.Services.Platform
 {
     public class InputInjector : IDisposable
     {
+        private readonly IInputSimulator _input;
         private IntPtr _lastExternalWindowHandle;
         private readonly DispatcherTimer _timer;
         private readonly int _myProcessId;
         private readonly ILogger<InputInjector> _logger;
 
-        // Streaming injection state
         private string _lastInjectedText = string.Empty;
-        private string _committedText = string.Empty; // Text from all finalized segments
+        private string _committedText = string.Empty;
         private readonly SemaphoreSlim _injectSemaphore = new(1, 1);
 
-        public InputInjector(ILogger<InputInjector>? logger = null)
+        public InputInjector(IInputSimulator input, ILogger<InputInjector>? logger = null)
         {
+            _input = input;
             _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<InputInjector>.Instance;
             _myProcessId = Process.GetCurrentProcess().Id;
-            
-            _timer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromMilliseconds(200)
-            };
+
+            _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
             _timer.Tick += CheckForegroundWindow;
             _timer.Start();
         }
 
         private void CheckForegroundWindow(object? sender, EventArgs e)
         {
-            var foregroundWindow = Win32InputSimulator.GetForegroundWindow();
+            var foregroundWindow = _input.GetForegroundWindow();
             if (foregroundWindow == IntPtr.Zero) return;
 
-            Win32InputSimulator.GetWindowThreadProcessId(foregroundWindow, out uint processId);
+            uint processId = _input.GetWindowProcessId(foregroundWindow);
 
-            // If the foreground window is NOT our application, store it
-            if (processId != _myProcessId)
+            // On macOS, GetWindowProcessId returns 0 and the handle is a sentinel —
+            // we just always treat it as external (which is the safe default).
+            if (processId == 0 || processId != _myProcessId)
             {
                 _lastExternalWindowHandle = foregroundWindow;
             }
         }
 
-        /// <summary>
-        /// The last known window handle that is NOT this application.
-        /// </summary>
         public IntPtr LastExternalWindowHandle => _lastExternalWindowHandle;
 
-        /// <summary>
-        /// Injects text into the specified window (or last active external window) by simulating Ctrl+V.
-        /// Backs up and restores the user's clipboard content to avoid data loss.
-        /// </summary>
         public async Task InjectTextAsync(string text, IntPtr? targetWindowHandle = null, bool autoSend = false)
         {
-            // Use the explicit target if provided and valid (non-zero), otherwise fallback to the last known external window
-            var handleToUse = (targetWindowHandle.HasValue && targetWindowHandle.Value != IntPtr.Zero) 
-                              ? targetWindowHandle.Value 
+            var handleToUse = (targetWindowHandle.HasValue && targetWindowHandle.Value != IntPtr.Zero)
+                              ? targetWindowHandle.Value
                               : _lastExternalWindowHandle;
 
             if (string.IsNullOrEmpty(text) || handleToUse == IntPtr.Zero) return;
 
-            var currentForeground = Win32InputSimulator.GetForegroundWindow();
+            var currentForeground = _input.GetForegroundWindow();
             bool shouldRestoreFocus = currentForeground != IntPtr.Zero && currentForeground != handleToUse;
 
-            // Backup current clipboard content
-            WpfIDataObject? clipboardBackup = null;
-            try
-            {
-                clipboardBackup = ClipboardHelper.Backup();
-            }
+            string? clipboardBackup = null;
+            try { clipboardBackup = await ClipboardHelper.BackupAsync(); }
             catch (Exception ex) { _logger.LogWarning(ex, "Clipboard backup failed, text injection will proceed without restore"); }
 
-            uint currentThreadId = Win32InputSimulator.GetCurrentThreadId();
-            uint targetThreadId = Win32InputSimulator.GetWindowThreadProcessId(handleToUse, out uint _);
-            bool attached = false;
-
             try
             {
-                if (currentThreadId != targetThreadId)
-                {
-                    attached = Win32InputSimulator.AttachThreadInput(currentThreadId, targetThreadId, true);
-                }
+                _input.EnsureWindowFocused(handleToUse);
 
-                // Activate the target window
-                // With AttachThreadInput, SetForegroundWindow is much more reliable
-                Win32InputSimulator.SetForegroundWindow(handleToUse);
-
-                // Give it a moment to gain focus (non-blocking)
                 await Task.Delay(30);
 
-                // Set our text and paste via SendInput (faster than SendKeys)
-                WpfClipboard.SetText(text);
-                Win32InputSimulator.SimulateCtrlV();
+                await ClipboardHelper.SetTextAsync(text);
+                _input.SimulatePaste();
 
-                // Short delay — SendInput is near-instant
                 await Task.Delay(30);
 
                 if (autoSend)
                 {
-                    // Small delay to allow target app (like Zalo/Electron) to process the paste
                     await Task.Delay(50);
-                    Win32InputSimulator.SimulateEnter();
+                    _input.SimulateEnter();
                     await Task.Delay(30);
                 }
             }
             finally
             {
-                if (attached)
-                {
-                    Win32InputSimulator.AttachThreadInput(currentThreadId, targetThreadId, false);
-                }
-
                 if (shouldRestoreFocus)
                 {
-                    // Ensure the focus is restored back if necessary
-                    Win32InputSimulator.EnsureWindowFocused(currentForeground);
+                    _input.EnsureWindowFocused(currentForeground);
                 }
 
-                // Restore original clipboard content
-                try
-                {
-                    ClipboardHelper.Restore(clipboardBackup);
-                }
+                try { await ClipboardHelper.RestoreAsync(clipboardBackup); }
                 catch (Exception ex) { _logger.LogWarning(ex, "Clipboard restore failed"); }
             }
         }
 
-        /// <summary>
-        /// Resets streaming injection state. Call at the start of a new streaming session.
-        /// </summary>
         public void ResetStreamingState()
         {
             _lastInjectedText = string.Empty;
             _committedText = string.Empty;
         }
 
-        /// <summary>
-        /// Commits all currently displayed text so it won't be erased.
-        /// Call this when streaming session ends.
-        /// </summary>
         public void CommitCurrentText()
         {
             _committedText = _lastInjectedText;
         }
 
-        /// <summary>
-        /// Injects text incrementally for streaming mode.
-        /// Computes delta from previous injection and sends only the difference.
-        /// Uses clipboard paste for each delta chunk to support Unicode/Vietnamese.
-        /// </summary>
         public async Task InjectStreamingTextAsync(string currentSegmentText, bool isFinal, IntPtr? targetWindowHandle = null)
         {
             await _injectSemaphore.WaitAsync();
@@ -163,71 +111,52 @@ namespace BF_STT.Services.Platform
 
                 if (handleToUse == IntPtr.Zero) return;
 
-                var currentForeground = Win32InputSimulator.GetForegroundWindow();
+                var currentForeground = _input.GetForegroundWindow();
                 bool shouldRestoreFocus = currentForeground != IntPtr.Zero && currentForeground != handleToUse;
 
-                // Build the full text: committed segments + current (interim or final) segment
                 var fullText = _committedText + currentSegmentText;
-
-                // Compute what we need to change
                 var previousText = _lastInjectedText;
 
                 if (fullText == previousText)
                 {
-                    // Even if no change in text, if this is final, we must commit the state
-                    if (isFinal)
-                    {
-                        if (!string.IsNullOrEmpty(currentSegmentText))
-                            _committedText += currentSegmentText;
-                    }
-                    return; 
+                    if (isFinal && !string.IsNullOrEmpty(currentSegmentText))
+                        _committedText += currentSegmentText;
+                    return;
                 }
 
-                // Find the common prefix length
                 int commonLength = 0;
                 int minLength = Math.Min(previousText.Length, fullText.Length);
                 for (int i = 0; i < minLength; i++)
                 {
-                    if (previousText[i] == fullText[i])
-                        commonLength++;
-                    else
-                        break;
+                    if (previousText[i] == fullText[i]) commonLength++;
+                    else break;
                 }
 
-                // Number of characters to delete (from previous text that are no longer valid)
                 int charsToDelete = previousText.Length - commonLength;
-                // New characters to add
                 string charsToAdd = fullText.Substring(commonLength);
 
                 try
                 {
-                    // Ensure target window is focused
-                    Win32InputSimulator.EnsureWindowFocused(handleToUse);
+                    _input.EnsureWindowFocused(handleToUse);
 
-                    // Delete characters that need to be replaced via SendInput
                     if (charsToDelete > 0)
                     {
-                        Win32InputSimulator.SimulateBackspace(charsToDelete);
+                        _input.SimulateBackspace(charsToDelete);
                         await Task.Delay(5);
                     }
 
-                    // Insert new characters via clipboard + SendInput (for Unicode/Vietnamese support)
                     if (!string.IsNullOrEmpty(charsToAdd))
                     {
-                        WpfClipboard.SetText(charsToAdd);
-                        Win32InputSimulator.SimulateCtrlV();
+                        await ClipboardHelper.SetTextAsync(charsToAdd);
+                        _input.SimulatePaste();
                         await Task.Delay(5);
                     }
 
                     _lastInjectedText = fullText;
 
-                    // If this segment is final, commit it
-                    if (isFinal)
+                    if (isFinal && !string.IsNullOrEmpty(currentSegmentText))
                     {
-                        if(!string.IsNullOrEmpty(currentSegmentText))
-                        {
-                            _committedText += currentSegmentText;
-                        }
+                        _committedText += currentSegmentText;
                     }
                 }
                 catch (Exception ex)
@@ -238,7 +167,7 @@ namespace BF_STT.Services.Platform
                 {
                     if (shouldRestoreFocus)
                     {
-                        Win32InputSimulator.EnsureWindowFocused(currentForeground);
+                        _input.EnsureWindowFocused(currentForeground);
                     }
                 }
             }
@@ -254,10 +183,6 @@ namespace BF_STT.Services.Platform
             _timer.Tick -= CheckForegroundWindow;
         }
 
-        /// <summary>
-        /// Simulates an Enter key press in the target window.
-        /// Uses AttachThreadInput for reliable focus switching.
-        /// </summary>
         public async Task PressEnterAsync(IntPtr? targetWindowHandle = null)
         {
             var handleToUse = (targetWindowHandle.HasValue && targetWindowHandle.Value != IntPtr.Zero)
@@ -266,30 +191,20 @@ namespace BF_STT.Services.Platform
 
             if (handleToUse == IntPtr.Zero) return;
 
-            var currentForeground = Win32InputSimulator.GetForegroundWindow();
+            var currentForeground = _input.GetForegroundWindow();
             bool shouldRestoreFocus = currentForeground != IntPtr.Zero && currentForeground != handleToUse;
-
-            uint currentThreadId = Win32InputSimulator.GetCurrentThreadId();
-            uint targetThreadId = Win32InputSimulator.GetWindowThreadProcessId(handleToUse, out uint _);
-            bool attached = false;
 
             try
             {
-                if (currentThreadId != targetThreadId)
-                {
-                    attached = Win32InputSimulator.AttachThreadInput(currentThreadId, targetThreadId, true);
-                }
+                _input.EnsureWindowFocused(handleToUse);
 
-                Win32InputSimulator.SetForegroundWindow(handleToUse);
-
-                // Wait and verify focus actually switched (up to 150ms)
                 for (int i = 0; i < 5; i++)
                 {
                     await Task.Delay(30);
-                    if (Win32InputSimulator.GetForegroundWindow() == handleToUse) break;
+                    if (_input.GetForegroundWindow() == handleToUse) break;
                 }
 
-                Win32InputSimulator.SimulateEnter();
+                _input.SimulateEnter();
             }
             catch (Exception ex)
             {
@@ -297,14 +212,9 @@ namespace BF_STT.Services.Platform
             }
             finally
             {
-                if (attached)
-                {
-                    Win32InputSimulator.AttachThreadInput(currentThreadId, targetThreadId, false);
-                }
-
                 if (shouldRestoreFocus)
                 {
-                    Win32InputSimulator.EnsureWindowFocused(currentForeground);
+                    _input.EnsureWindowFocused(currentForeground);
                 }
             }
         }

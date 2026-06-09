@@ -1,6 +1,10 @@
 using BF_STT.Models;
 using BF_STT.Services.Workflow;
 using BF_STT.Services.Infrastructure;
+using BF_STT.Services.Platform;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using System.Collections.ObjectModel;
 using System.Windows.Input;
 
@@ -48,7 +52,7 @@ namespace BF_STT.ViewModels
             _coordinator.RecordingStateChanged += recording => IsRecording = recording;
             _coordinator.SendingStateChanged += () => OnPropertyChanged(nameof(IsSending));
             _coordinator.AudioLevelChanged += level => AudioLevel = level;
-            _coordinator.CommandsInvalidated += () => CommandManager.InvalidateRequerySuggested();
+            _coordinator.CommandsInvalidated += () => RelayCommand.RaiseCanExecuteChanged();
 
             // Commands
             StartRecordingCommand = new RelayCommand(
@@ -60,16 +64,19 @@ namespace BF_STT.ViewModels
             CloseCommand = new RelayCommand(_ =>
             {
                 _coordinator.CleanupLastFile();
-                System.Windows.Application.Current.Shutdown();
+                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                {
+                    desktop.Shutdown();
+                }
             });
             OpenSettingsCommand = new RelayCommand(_ => OpenSettings());
             ToggleHistoryCommand = new RelayCommand(_ => IsHistoryVisible = !IsHistoryVisible);
             ClearHistoryCommand = new RelayCommand(_ => _historyService.ClearHistory());
-            CopyHistoryItemCommand = new RelayCommand(item =>
+            CopyHistoryItemCommand = new RelayCommand(async item =>
             {
                 if (item is HistoryItem historyItem)
                 {
-                    System.Windows.Clipboard.SetText(historyItem.Text);
+                    await ClipboardHelper.SetTextAsync(historyItem.Text);
                     StatusText = "Copied to clipboard.";
                 }
             });
@@ -149,7 +156,7 @@ namespace BF_STT.ViewModels
             {
                 if (SetProperty(ref _isRecording, value))
                 {
-                    CommandManager.InvalidateRequerySuggested();
+                    RelayCommand.RaiseCanExecuteChanged();
                 }
             }
         }
@@ -337,13 +344,19 @@ namespace BF_STT.ViewModels
 
         #region Settings
 
-        private void OpenSettings()
+        private async void OpenSettings()
         {
-            System.Windows.Application.Current.MainWindow.Hide();
+            if (Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop
+                || desktop.MainWindow is null)
+                return;
+
+            var mainWindow = desktop.MainWindow;
+            mainWindow.Hide();
             var settingsWindow = new SettingsWindow(_settingsService, _updateService);
-            if (settingsWindow.ShowDialog() == true)
+            await settingsWindow.ShowDialog(mainWindow);
+
+            if (settingsWindow.Result == true)
             {
-                // Refresh filtered API lists based on updated keys
                 RefreshAvailableApis();
 
                 OnPropertyChanged(nameof(BatchModeApi));
@@ -354,7 +367,7 @@ namespace BF_STT.ViewModels
 
                 StatusText = "Settings updated.";
             }
-            System.Windows.Application.Current.MainWindow.Show();
+            mainWindow.Show();
         }
 
         #endregion

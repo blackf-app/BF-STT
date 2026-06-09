@@ -1,0 +1,188 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="BF_STT.SettingsWindow"
+        Title="Settings"
+        WindowStartupLocation="CenterScreen"
+        SystemDecorations="None"
+        TransparencyLevelHint="Transparent"
+        Background="Transparent"
+        CanResize="False"
+        SizeToContent="WidthAndHeight">
+
+    <Window.Styles>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="#333333"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="CaretBrush" Value="White"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#444444"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="CornerRadius" Value="6"/>
+        </Style>
+        <Style Selector="CheckBox">
+            <Setter Property="Foreground" Value="#CCCCCC"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#333333"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontSize" Value="15"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="BorderBrush" Value="#444444"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#444444"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="Background" Value="#252526"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#3A3A3C"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="4"/>
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+        </Style>
+    </Window.Styles>
+
+    <Border Background="#1E1E1E"
+            CornerRadius="12"
+            BorderThickness="1"
+            BorderBrush="#333333"
+            PointerPressed="Window_PointerPressed">
+        <Grid Margin="20" RowDefinitions="Auto,*,Auto">
+
+            <Grid Grid.Row="0" Margin="10,5,10,15">
+                <Button Width="32" Height="32"
+                        HorizontalAlignment="Left" VerticalAlignment="Center"
+                        ToolTip.Tip="Kiểm tra phiên bản mới"
+                        Background="#333333"
+                        Click="CheckUpdateButtonClick">
+                    <TextBlock Text="🔄" FontSize="16"/>
+                </Button>
+                <TextBlock Text="Settings" FontSize="20" FontWeight="Bold" Foreground="White"
+                           HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <Button Width="32" Height="32"
+                        HorizontalAlignment="Right" VerticalAlignment="Center"
+                        ToolTip.Tip="Mở thư mục chứa file cấu hình"
+                        Background="#333333"
+                        Click="OpenConfigFolderButton_Click">
+                    <TextBlock Text="📂" FontSize="16"/>
+                </Button>
+            </Grid>
+
+            <TabControl Grid.Row="1" Margin="0,0,0,15">
+                <TabItem Header="⚙ General">
+                    <Border Background="#333333" CornerRadius="0,8,8,8" Padding="20,15">
+                        <StackPanel Width="330">
+                            <Grid Margin="0,0,0,12" ColumnDefinitions="*,10,75,10,75">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Microphone" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                                    <ComboBox x:Name="MicrophoneComboBox" Height="30" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="Hotkey" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                                    <ComboBox x:Name="HotkeyComboBox" Height="30" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Stop &amp; Send" Foreground="#AAAAAA" FontSize="11" Margin="0,0,0,7" FontWeight="SemiBold"/>
+                                    <ComboBox x:Name="StopAndSendHotkeyComboBox" Height="30" HorizontalAlignment="Stretch"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <Grid Margin="0,0,0,12" ColumnDefinitions="*,10,*">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Text="Language" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                                    <ComboBox x:Name="LanguageComboBox" Height="30" HorizontalAlignment="Stretch">
+                                        <ComboBoxItem Content="vi" Tag="vi"/>
+                                        <ComboBoxItem Content="en" Tag="en"/>
+                                        <ComboBoxItem Content="ja" Tag="ja"/>
+                                        <ComboBoxItem Content="ko" Tag="ko"/>
+                                        <ComboBoxItem Content="zh" Tag="zh"/>
+                                        <ComboBoxItem Content="fr" Tag="fr"/>
+                                        <ComboBoxItem Content="de" Tag="de"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Text="History Limit" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="MaxHistoryLimitTextBox" Height="30" Padding="5,2"/>
+                                </StackPanel>
+                            </Grid>
+
+                            <CheckBox x:Name="TestModeCheckBox" Content="Test Mode (Run both APIs simultaneously)" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="AutoCheckUpdateCheckBox" Content="Tự động kiểm tra phiên bản mới" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="NoiseSuppressionCheckBox" Content="Noise Suppression (RNNoise)" Margin="0,0,0,8"/>
+                            <CheckBox x:Name="StartWithWindowsCheckBox" Content="Start at login" Margin="0"/>
+                        </StackPanel>
+                    </Border>
+                </TabItem>
+
+                <TabItem Header="🔑 API Keys">
+                    <Border Background="#333333" CornerRadius="0,8,8,8" Padding="20,15">
+                        <Grid Width="330" ColumnDefinitions="*,10,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+
+                            <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,0,0,10">
+                                <TextBlock Text="Deepgram" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                <TextBox x:Name="ApiKeyTextBox" FontSize="11" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="0" Grid.Column="2" Margin="0,0,0,10">
+                                <TextBlock Text="Speechmatics" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                <TextBox x:Name="SpeechmaticsApiKeyTextBox" FontSize="11" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,0,0,10">
+                                <TextBlock Text="Soniox" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                <TextBox x:Name="SonioxApiKeyTextBox" FontSize="11" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,0,0,10">
+                                <TextBlock Text="OpenAI" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                <TextBox x:Name="OpenAIApiKeyTextBox" FontSize="11" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,0,0,10">
+                                <TextBlock Text="ElevenLabs" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                <TextBox x:Name="ElevenLabsApiKeyTextBox" FontSize="11" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="2" Grid.Column="2" Margin="0,0,0,10">
+                                <TextBlock Text="Google" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                <TextBox x:Name="GoogleApiKeyTextBox" FontSize="11" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="3" Grid.Column="0" Margin="0,0,0,10">
+                                <TextBlock Text="AssemblyAI" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                <TextBox x:Name="AssemblyAIApiKeyTextBox" FontSize="11" Padding="6"/>
+                            </StackPanel>
+                            <StackPanel Grid.Row="3" Grid.Column="2" Margin="0,0,0,10">
+                                <TextBlock Text="Azure Key" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                <TextBox x:Name="AzureApiKeyTextBox" FontSize="11" Padding="6"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Row="4" Grid.Column="2">
+                                <TextBlock Text="Azure Region" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,4" FontWeight="SemiBold"/>
+                                <TextBox x:Name="AzureRegionTextBox" FontSize="11" Padding="6" ToolTip.Tip="Region (e.g. eastus)"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </TabItem>
+            </TabControl>
+
+            <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
+                <Button Content="Save" Click="SaveButton_Click" Width="140" Height="45" Background="#007ACC" Margin="0,0,15,0"/>
+                <Button Content="Cancel" Click="CancelButton_Click" Width="140" Height="45"/>
+            </StackPanel>
+
+            <TextBlock x:Name="VersionText" Grid.Row="2" Text="Version: 1.0.0" Foreground="#666666"
+                       FontSize="11" HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="0,0,0,-15"/>
+        </Grid>
+    </Border>
+</Window>

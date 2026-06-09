@@ -58,7 +58,7 @@ namespace BF_STT.Services.Workflow
                 if (!AudioSilenceDetector.ContainsSpeech(audioData))
                 {
                     sw.Stop();
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         StatusChanged?.Invoke("Silent — skipped.");
                         TranscriptChanged?.Invoke(string.Empty);
@@ -71,7 +71,7 @@ namespace BF_STT.Services.Workflow
                 var transcript = await activeBatch.TranscribeAsync(audioData, language);
                 sw.Stop();
 
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(async () =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     if (HallucinationFilter.IsHallucination(transcript))
                     {
@@ -93,7 +93,7 @@ namespace BF_STT.Services.Workflow
             }
             catch (Exception ex)
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                 {
                     StatusChanged?.Invoke($"Error: {ex.Message}");
                     TranscriptChanged?.Invoke("Failed to get transcript.");
@@ -109,7 +109,7 @@ namespace BF_STT.Services.Workflow
             // Pre-API: silence detection on in-memory WAV data
             if (!AudioSilenceDetector.ContainsSpeech(audioData))
             {
-                await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     StatusChanged?.Invoke("Silent — skipped.");
                     foreach (var p in _registry.GetAllProviders())
@@ -132,7 +132,7 @@ namespace BF_STT.Services.Workflow
                     sw.Stop();
                     var label = HallucinationFilter.IsHallucination(result) ? "[Hallucination]" : "";
                     var formatted = label == "" ? FormatTranscript(result) : $"{label} {result}";
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         ProviderTranscriptChanged?.Invoke(provider.Name, $"[{sw.ElapsedMilliseconds}ms]\n{formatted}");
                     });
@@ -140,7 +140,7 @@ namespace BF_STT.Services.Workflow
                 catch (Exception ex)
                 {
                     sw.Stop();
-                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         ProviderTranscriptChanged?.Invoke(provider.Name, $"[{sw.ElapsedMilliseconds}ms] Failed: {ex.Message}");
                     });
@@ -150,7 +150,7 @@ namespace BF_STT.Services.Workflow
             var overallSw = Stopwatch.StartNew();
             await Task.WhenAll(providerTasks);
             overallSw.Stop();
-            System.Windows.Application.Current.Dispatcher.Invoke(() =>
+            Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
             {
                 StatusChanged?.Invoke($"Done. ({overallSw.ElapsedMilliseconds}ms)");
             });

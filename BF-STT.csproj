@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFrameworks>net8.0;net8.0-windows</TargetFrameworks>
     <RootNamespace>BF_STT</RootNamespace>
     <Title>BF-STT (Bright-Fast Speech To Text)</Title>
     <Product>BF-STT</Product>
@@ -17,82 +17,93 @@
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <UseWPF>true</UseWPF>
-    <UseWindowsForms>true</UseWindowsForms>
-    <ApplicationIcon>bf_stt_icon_1770838132412.ico</ApplicationIcon>
-    <!-- Single File Publish Settings -->
+    <ApplicationIcon Condition="'$(TargetFramework)' == 'net8.0-windows'">bf_stt_icon_1770838132412.ico</ApplicationIcon>
     <PublishSingleFile>true</PublishSingleFile>
     <SelfContained>false</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishReadyToRun>false</PublishReadyToRun>
     <PublishTrimmed>false</PublishTrimmed>
     <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <DebugType>none</DebugType>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
- 
+
   <ItemGroup>
     <Content Include="bf_stt_icon_1770838132412.ico" />
   </ItemGroup>
- 
-  <ItemGroup>
-    <EmbeddedResource Include="appsettings.json" />
-  </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Hardcodet.NotifyIcon.Wpf" Version="1.1.0" />
+    <EmbeddedResource Include="appsettings.json" />
+    <AvaloniaResource Include="bf_stt_icon_1770838132412.ico" />
+  </ItemGroup>
+
+  <!-- Cross-platform dependencies -->
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.1" />
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.2.1" Condition="'$(Configuration)' == 'Debug'" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.1" />
-    <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="NAudio.Core" Version="2.2.1" />
     <PackageReference Include="Serilog" Version="4.2.0" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Serilog.Sinks.Debug" Version="3.0.0" />
     <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
-    <PackageReference Include="System.Drawing.Common" Version="10.0.3" />
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
     <PackageReference Include="YellowDogMan.RRNoise.NET" Version="0.1.9" />
+    <PackageReference Include="OpenTK.Audio.OpenAL" Version="4.9.4" />
+  </ItemGroup>
+
+  <!-- Windows-only dependencies -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <PackageReference Include="NAudio.WinMM" Version="2.2.1" />
+    <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Remove="Tests\**" />
     <EmbeddedResource Remove="Tests\**" />
     <None Remove="Tests\**" />
-    <Page Remove="Tests\**" />
+    <AvaloniaResource Remove="Tests\**" />
     <Compile Remove="BF-STT.Tests\**" />
     <EmbeddedResource Remove="BF-STT.Tests\**" />
     <None Remove="BF-STT.Tests\**" />
-    <Page Remove="BF-STT.Tests\**" />
+    <AvaloniaResource Remove="BF-STT.Tests\**" />
     <Compile Remove="Plugins\**" />
     <EmbeddedResource Remove="Plugins\**" />
     <None Remove="Plugins\**" />
-    <Page Remove="Plugins\**" />
+    <AvaloniaResource Remove="Plugins\**" />
     <Compile Remove="BF-STT.Contracts\**" />
     <EmbeddedResource Remove="BF-STT.Contracts\**" />
     <None Remove="BF-STT.Contracts\**" />
-    <Page Remove="BF-STT.Contracts\**" />
+    <AvaloniaResource Remove="BF-STT.Contracts\**" />
+    <Compile Remove="publish\**" />
+    <None Remove="publish\**" />
   </ItemGroup>
 
-  <!-- Automatically increment version before build -->
-  <Target Name="IncrementVersion" BeforeTargets="Build" Condition="'$(IsAutoPublishing)' != 'true'">
+  <!-- Auto-increment + pre/post build only on Windows -->
+  <Target Name="IncrementVersion" BeforeTargets="Build" Condition="'$(IsAutoPublishing)' != 'true' And '$([MSBuild]::IsOSPlatform(Windows))' == 'true' And '$(TargetFramework)' == 'net8.0-windows'">
     <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\scripts\increment_version.ps1&quot; -csprojPath &quot;$(MSBuildProjectFile)&quot;" />
   </Target>
 
-  <!-- Logic to stop app before build and restart after build -->
-  <Target Name="StopAppBeforeBuild" BeforeTargets="BeforeBuild">
+  <Target Name="StopAppBeforeBuild" BeforeTargets="BeforeBuild" Condition="'$([MSBuild]::IsOSPlatform(Windows))' == 'true' And '$(TargetFramework)' == 'net8.0-windows'">
     <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\scripts\pre_build.ps1&quot; -processName &quot;$(AssemblyName)&quot;" />
   </Target>
 
-  <Target Name="RestartAppAfterBuild" AfterTargets="AfterBuild" Condition="'$(PauseAfterBuild)' != 'true'">
+  <Target Name="RestartAppAfterBuild" AfterTargets="AfterBuild" Condition="'$(PauseAfterBuild)' != 'true' And '$([MSBuild]::IsOSPlatform(Windows))' == 'true' And '$(TargetFramework)' == 'net8.0-windows'">
     <Exec Command="powershell -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\scripts\post_build.ps1&quot; -exePath &quot;$(TargetPath)&quot;" />
   </Target>
 
-  <!-- Auto publish when building Release -->
-  <Target Name="AutoPublishOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And '$(IsAutoPublishing)' != 'true'">
+  <Target Name="AutoPublishOnRelease" AfterTargets="Build" Condition="'$(Configuration)' == 'Release' And '$(IsAutoPublishing)' != 'true' And '$([MSBuild]::IsOSPlatform(Windows))' == 'true' And '$(TargetFramework)' == 'net8.0-windows'">
     <Message Importance="High" Text="Detect Release build. Automatically publishing to ./publish..." />
-    <Exec Command="dotnet publish &quot;$(MSBuildProjectFile)&quot; -c $(Configuration) -o ./publish --no-build /p:IsAutoPublishing=true" />
+    <Exec Command="dotnet publish &quot;$(MSBuildProjectFile)&quot; -c $(Configuration) -o ./publish --no-build -f net8.0-windows /p:IsAutoPublishing=true" />
   </Target>
 
 </Project>

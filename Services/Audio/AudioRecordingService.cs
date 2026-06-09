@@ -1,7 +1,5 @@
 using NAudio.Wave;
-using System;
 using System.IO;
-using System.Threading.Tasks;
 
 namespace BF_STT.Services.Audio
 {
@@ -19,7 +17,7 @@ namespace BF_STT.Services.Audio
 
     public class AudioRecordingService : IDisposable
     {
-        private WaveInEvent? _waveIn;
+        private IAudioCapture? _capture;
         private MemoryStream? _audioMemory;
         private BinaryWriter? _memWriter;
         private FileStream? _audioFile;
@@ -34,41 +32,34 @@ namespace BF_STT.Services.Audio
 
         public bool SaveToFile { get; set; }
 
-        // Audio processing pipeline (HPF, AGC, soft clip, NS, resampling)
         private readonly AudioPipeline _pipeline = new AudioPipeline();
 
-        // Silent / speech detection state
         private bool _hasAudio;
         private bool _hasSpeechContent;
         private float _maxPeakLevel;
         private const float SilenceThreshold = 0.01f;
 
-        // VAD (Voice Activity Detection) state
         private bool _isSpeaking;
         private int _silenceFrameCount;
         private int _speechFrameCount;
 
-        // VAD constants
         private const float VadSpeechThreshold = 0.02f;
         private const int VadSilenceFramesToPause = 10;
         private const int VadSpeechFramesToStart = 2;
 
-        // Batch silence trimming
         public bool EnableSilenceTrimming { get; set; }
         private bool _batchWritePaused;
         private int _batchSilenceFrameCount;
-        private const int BatchSilenceFrameLimit = 30; // 1.5 s / 50 ms = 30 frames
+        private const int BatchSilenceFrameLimit = 30;
 
-        // Pre-speech ring buffer (~200 ms = 4 × 50 ms frames)
         private const int RingBufferCapacity = 4;
-        private const int CrossfadeSamples = 80; // ~5 ms at 16 kHz
+        private const int CrossfadeSamples = 80;
         private readonly PreSpeechRingBuffer _preSpeechBuffer =
             new PreSpeechRingBuffer(RingBufferCapacity, CrossfadeSamples);
 
-        public event EventHandler<StoppedEventArgs>? RecordingStopped;
+        public event EventHandler<Exception?>? RecordingStopped;
         public event EventHandler<float>? AudioLevelUpdated;
         public event EventHandler<bool>? IsSpeakingChanged;
-        /// <summary>Fired with processed PCM audio data ready to send to the streaming API.</summary>
         public event EventHandler<AudioDataEventArgs>? AudioDataAvailable;
 
         public bool IsRecording => _isRecording;
@@ -84,58 +75,57 @@ namespace BF_STT.Services.Audio
 
         public int DeviceNumber { get; set; } = 0;
 
-        /// <summary>
-        /// Starts recording. Writes audio to an in-memory WAV buffer
-        /// AND fires <see cref="AudioDataAvailable"/> events (for streaming/buffering).
-        /// </summary>
+        private static IAudioCapture CreateCapture()
+        {
+#if WINDOWS
+            return new WaveInCapture();
+#else
+            if (OperatingSystem.IsWindows())
+            {
+                // Forwarded reference still requires platform guard; on cross-target
+                // builds the WaveInCapture is omitted from compilation. Fall back to
+                // OpenAL even on Windows when WaveInCapture isn't compiled in.
+                return new OpenAlCapture();
+            }
+            return new OpenAlCapture();
+#endif
+        }
+
         public void StartRecording()
         {
             if (_isRecording) return;
 
-            if (WaveIn.DeviceCount == 0)
-                throw new InvalidOperationException("No microphone detected.");
-
-            // Clean up any previous recording
             Dispose();
 
-            // Reset detection state
             _hasAudio = false;
             _maxPeakLevel = 0;
             _hasSpeechContent = false;
 
-            // Reset VAD
             _isSpeaking = false;
             _silenceFrameCount = 0;
             _speechFrameCount = 0;
 
-            // Reset batch silence trimming
             _batchWritePaused = false;
             _batchSilenceFrameCount = 0;
             _preSpeechBuffer.Reset();
 
-            // Initialise audio processing pipeline
             _pipeline.Initialize(EnableNoiseSuppression);
 
             int sampleRate = EnableNoiseSuppression ? 48000 : 16000;
 
-            _waveIn = new WaveInEvent
-            {
-                DeviceNumber = DeviceNumber,
-                WaveFormat = new WaveFormat(sampleRate, 16, 1),
-                BufferMilliseconds = 50,
-                NumberOfBuffers = 3
-            };
+            _capture = CreateCapture();
+            _capture.DeviceNumber = DeviceNumber;
+            _capture.WaveFormat = new WaveFormat(sampleRate, 16, 1);
+            _capture.BufferMilliseconds = 50;
 
-            _waveFormat = new WaveFormat(16000, 16, 1); // output is always 16 kHz
+            _waveFormat = new WaveFormat(16000, 16, 1);
 
-            // In-memory WAV buffer
             _audioMemory = new MemoryStream();
             _memWriter = new BinaryWriter(_audioMemory);
             var (mRiff, mData) = WriteWavHeader(_memWriter, _waveFormat);
             _memRiffPos = mRiff;
             _memDataPos = mData;
 
-            // Optional file buffer for Test Mode
             if (SaveToFile)
             {
                 try
@@ -155,19 +145,17 @@ namespace BF_STT.Services.Audio
                 }
             }
 
-            _waveIn.DataAvailable += OnWaveInDataAvailable;
-            _waveIn.RecordingStopped += OnRecordingStopped;
-            _waveIn.StartRecording();
+            _capture.DataAvailable += OnCaptureDataAvailable;
+            _capture.CaptureStopped += OnCaptureStopped;
+            _capture.StartCapture();
             _isRecording = true;
         }
-
-        // ── WAV header helpers ───────────────────────────────────────────────────
 
         private (long riffPos, long dataPos) WriteWavHeader(BinaryWriter writer, WaveFormat format)
         {
             writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
             long riffPos = writer.BaseStream.Position;
-            writer.Write(0); // placeholder
+            writer.Write(0);
             writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
 
             writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
@@ -181,7 +169,7 @@ namespace BF_STT.Services.Audio
 
             writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
             long dataPos = writer.BaseStream.Position;
-            writer.Write(0); // placeholder
+            writer.Write(0);
             return (riffPos, dataPos);
         }
 
@@ -198,14 +186,10 @@ namespace BF_STT.Services.Audio
             writer.BaseStream.Position = writer.BaseStream.Length;
         }
 
-        // ── Core audio callback ──────────────────────────────────────────────────
-
-        private void OnWaveInDataAvailable(object? sender, WaveInEventArgs e)
+        private void OnCaptureDataAvailable(object? sender, AudioFrameEventArgs e)
         {
-            // 1. Run HPF → AGC → soft clip → optional NS + resample
             var (finalBuffer, finalBytesRecorded) = _pipeline.Process(e.Buffer, e.BytesRecorded);
 
-            // 2. Compute peak and RMS for VAD / level meter
             float maxSample = 0;
             double sumSquares = 0;
             int finalSampleCount = finalBytesRecorded / 2;
@@ -218,11 +202,9 @@ namespace BF_STT.Services.Audio
             }
             float currentFrameRms = (float)Math.Sqrt(sumSquares / finalSampleCount);
 
-            // Track peak for silence detection
             if (maxSample > _maxPeakLevel) _maxPeakLevel = maxSample;
             if (_maxPeakLevel > SilenceThreshold) _hasAudio = true;
 
-            // 3. VAD logic
             if (currentFrameRms > VadSpeechThreshold)
             {
                 _speechFrameCount++;
@@ -233,8 +215,6 @@ namespace BF_STT.Services.Audio
                     _isSpeaking = true;
                     _hasSpeechContent = true;
                     IsSpeakingChanged?.Invoke(this, true);
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[AudioRecording] VAD: Speech Started (RMS: {currentFrameRms:F4}, Peak: {maxSample:F4})");
                 }
             }
             else
@@ -246,13 +226,11 @@ namespace BF_STT.Services.Audio
                 {
                     _isSpeaking = false;
                     IsSpeakingChanged?.Invoke(this, false);
-                    System.Diagnostics.Debug.WriteLine("[AudioRecording] VAD: Silence Detected (Paused)");
                 }
             }
 
             AudioLevelUpdated?.Invoke(this, maxSample);
 
-            // 4. Write to output streams (with optional silence trimming)
             void WriteToOutputs(byte[] buf, int offset, int count)
             {
                 _memWriter?.Write(buf, offset, count);
@@ -298,19 +276,12 @@ namespace BF_STT.Services.Audio
                 System.Diagnostics.Debug.WriteLine($"Error writing to output streams: {ex.Message}");
             }
 
-            // 5. Fire event for streaming
             AudioDataAvailable?.Invoke(this, new AudioDataEventArgs(finalBuffer, finalBytesRecorded));
         }
-
-        // ── Stop / finalise ──────────────────────────────────────────────────────
 
         private bool _discardRecording;
         private TaskCompletionSource<byte[]?>? _stopRecordingTcs;
 
-        /// <summary>
-        /// Stops recording and returns the complete WAV audio data as a byte array.
-        /// Returns null if <paramref name="discard"/> is true.
-        /// </summary>
         public Task<byte[]?> StopRecordingAsync(bool discard = false)
         {
             if (!_isRecording) return Task.FromResult<byte[]?>(null);
@@ -320,7 +291,7 @@ namespace BF_STT.Services.Audio
 
             try
             {
-                _waveIn?.StopRecording();
+                _capture?.StopCapture();
             }
             catch (Exception)
             {
@@ -331,7 +302,7 @@ namespace BF_STT.Services.Audio
             return _stopRecordingTcs.Task;
         }
 
-        private void OnRecordingStopped(object? sender, StoppedEventArgs e)
+        private void OnCaptureStopped(object? sender, Exception? exception)
         {
             byte[]? audioData = null;
 
@@ -348,8 +319,6 @@ namespace BF_STT.Services.Audio
                 {
                     FinalizeWavHeader(_fileWriter, _fileRiffPos, _fileDataPos);
                     _fileWriter.Flush();
-                    System.Diagnostics.Debug.WriteLine(
-                        $"[AudioRecording] Test Mode: Saved recording to {_tempFilePath}");
                 }
             }
             catch (Exception ex)
@@ -369,32 +338,26 @@ namespace BF_STT.Services.Audio
                 _audioFile = null;
             }
 
-            _waveIn?.Dispose();
-            _waveIn = null;
+            _capture?.Dispose();
+            _capture = null;
             _isRecording = false;
 
-            if (e.Exception != null)
-                _stopRecordingTcs?.TrySetException(e.Exception);
+            if (exception != null)
+                _stopRecordingTcs?.TrySetException(exception);
             else
                 _stopRecordingTcs?.TrySetResult(_discardRecording ? null : audioData);
 
-            RecordingStopped?.Invoke(this, e);
+            RecordingStopped?.Invoke(this, exception);
         }
 
-        /// <summary>
-        /// Returns true if the last recording contained meaningful audio above the silence threshold.
-        /// Must be called after <see cref="StopRecordingAsync"/> completes.
-        /// </summary>
         public bool HasMeaningfulAudio() =>
             _hasSpeechContent || (_hasAudio && _speechFrameCount > 0);
-
-        // ── IDisposable ──────────────────────────────────────────────────────────
 
         public void Dispose()
         {
             if (_isRecording)
             {
-                try { _waveIn?.StopRecording(); } catch { }
+                try { _capture?.StopCapture(); } catch { }
             }
 
             try { _memWriter?.Dispose(); } catch { }
@@ -407,8 +370,8 @@ namespace BF_STT.Services.Audio
             try { _audioFile?.Dispose(); } catch { }
             _audioFile = null;
 
-            _waveIn?.Dispose();
-            _waveIn = null;
+            try { _capture?.Dispose(); } catch { }
+            _capture = null;
             _pipeline.Dispose();
         }
     }

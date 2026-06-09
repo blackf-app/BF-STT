@@ -9,8 +9,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using System.Windows.Input;
-using System.Windows.Threading;
+using Avalonia.Threading;
 
 namespace BF_STT.Services.Workflow
 {
@@ -160,7 +159,7 @@ namespace BF_STT.Services.Workflow
             // Wire audio level updates
             AudioService.AudioLevelUpdated += (s, level) =>
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                 {
                     AudioLevelChanged?.Invoke(level);
                 });
@@ -463,7 +462,7 @@ namespace BF_STT.Services.Workflow
             }
             finally
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                 {
                     // Only transition to Idle if still in Processing state.
                     // A new recording may have already started while batch was running.
@@ -483,7 +482,7 @@ namespace BF_STT.Services.Workflow
             }
             finally
             {
-                System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
                 {
                     // Only transition to Idle if still in Processing state.
                     // A new recording may have already started while batch was running.

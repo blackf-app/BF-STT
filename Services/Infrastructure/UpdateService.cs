@@ -1,14 +1,10 @@
-using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using System.Windows;
 
 namespace BF_STT.Services.Infrastructure
 {
@@ -29,7 +25,6 @@ namespace BF_STT.Services.Infrastructure
             try
             {
                 using var request = new HttpRequestMessage(HttpMethod.Get, GitHubApiUrl);
-                // GitHub API requires User-Agent
                 request.Headers.UserAgent.Add(new ProductInfoHeaderValue("BF-STT", "1.0"));
 
                 var response = await _httpClient.SendAsync(request);
@@ -42,14 +37,20 @@ namespace BF_STT.Services.Infrastructure
                 if (release == null || string.IsNullOrEmpty(release.TagName))
                     return null;
 
-                // Normalize version strings (remove 'v' prefix if present)
                 var latestVersionStr = release.TagName.TrimStart('v');
                 var currentVersionStr = Assembly.GetExecutingAssembly().GetName().Version?.ToString(3) ?? "0.0.0";
 
                 if (IsNewerVersion(latestVersionStr, currentVersionStr))
                 {
-                    // Find the asset that is an .exe file
-                    var asset = release.Assets.FirstOrDefault(a => a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+                    // Pick the asset that matches the running platform.
+                    // Windows installer = .exe, macOS distribution = .dmg or .zip
+                    string[] preferredExtensions = OperatingSystem.IsWindows()
+                        ? new[] { ".exe" }
+                        : new[] { ".dmg", ".zip" };
+
+                    var asset = release.Assets.FirstOrDefault(a =>
+                        preferredExtensions.Any(ext => a.Name.EndsWith(ext, StringComparison.OrdinalIgnoreCase)));
+
                     if (asset != null)
                     {
                         return new ReleaseInfo
@@ -69,7 +70,7 @@ namespace BF_STT.Services.Infrastructure
             return null;
         }
 
-        private bool IsNewerVersion(string latest, string current)
+        private static bool IsNewerVersion(string latest, string current)
         {
             if (Version.TryParse(latest, out var latestV) && Version.TryParse(current, out var currentV))
             {
@@ -80,21 +81,29 @@ namespace BF_STT.Services.Infrastructure
 
         public async Task DownloadAndInstallUpdateAsync(string downloadUrl)
         {
+            if (OperatingSystem.IsWindows())
+            {
+                await DownloadAndInstallWindowsAsync(downloadUrl);
+            }
+            else if (OperatingSystem.IsMacOS())
+            {
+                await DownloadAndOpenMacAsync(downloadUrl);
+            }
+        }
+
+        private async Task DownloadAndInstallWindowsAsync(string downloadUrl)
+        {
             try
             {
                 var tempFilePath = Path.Combine(Path.GetTempPath(), "BF-STT-Update.exe");
-                
-                // 1. Download the new version
+
                 using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
                 {
                     response.EnsureSuccessStatusCode();
-                    using (var fs = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.None))
-                    {
-                        await response.Content.CopyToAsync(fs);
-                    }
+                    using var fs = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await response.Content.CopyToAsync(fs);
                 }
 
-                // 2. Prepare the updater script
                 var currentExePath = Process.GetCurrentProcess().MainModule?.FileName;
                 if (string.IsNullOrEmpty(currentExePath))
                 {
@@ -102,25 +111,17 @@ namespace BF_STT.Services.Infrastructure
                 }
 
                 var updaterScriptPath = Path.Combine(Path.GetTempPath(), "BF_STT_Updater.ps1");
-                
-                // The powershell script will:
-                // - Wait for the main app to close
-                // - Copy the new exe over the old one
-                // - Start the new exe
-                // - Delete itself
                 var scriptContent = $@"
 $currentExe = '{currentExePath}'
 $tempExe = '{tempFilePath}'
 $processName = [System.IO.Path]::GetFileNameWithoutExtension($currentExe)
 
-# 1. Wait for the main process to exit
 Write-Output 'Waiting for $processName to exit...'
 while (Get-Process -Name $processName -ErrorAction SilentlyContinue) {{
     Stop-Process -Name $processName -Force -ErrorAction SilentlyContinue
     Start-Sleep -Milliseconds 500
 }}
 
-# 2. Replace the executable
 Write-Output 'Replacing executable...'
 try {{
     Move-Item -Path $tempExe -Destination $currentExe -Force
@@ -129,16 +130,13 @@ try {{
     exit
 }}
 
-# 3. Restart the application
 Write-Output 'Restarting application...'
 Start-Process -FilePath $currentExe
 
-# 4. Cleanup script
 Remove-Item -Path $MyInvocation.MyCommand.Path -Force
 ";
                 await File.WriteAllTextAsync(updaterScriptPath, scriptContent);
 
-                // 3. Launch the updater script
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "powershell.exe",
@@ -148,12 +146,48 @@ Remove-Item -Path $MyInvocation.MyCommand.Path -Force
                 };
                 Process.Start(startInfo);
 
-                // 4. Shutdown the current application
-                System.Windows.Application.Current.Shutdown();
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (Avalonia.Application.Current?.ApplicationLifetime
+                        is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                    {
+                        desktop.Shutdown();
+                    }
+                });
             }
             catch (Exception ex)
             {
-                System.Windows.MessageBox.Show($"Lỗi trong quá trình cập nhật: {ex.Message}", "Lỗi Cập Nhật", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                Serilog.Log.Warning(ex, "Update install failed");
+            }
+        }
+
+        private async Task DownloadAndOpenMacAsync(string downloadUrl)
+        {
+            try
+            {
+                var ext = Path.GetExtension(new Uri(downloadUrl).AbsolutePath);
+                if (string.IsNullOrEmpty(ext)) ext = ".dmg";
+
+                var tempFilePath = Path.Combine(Path.GetTempPath(), $"BF-STT-Update{ext}");
+
+                using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
+                {
+                    response.EnsureSuccessStatusCode();
+                    using var fs = new FileStream(tempFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
+                    await response.Content.CopyToAsync(fs);
+                }
+
+                // Open the downloaded file (DMG mounts; ZIP opens in Finder) so the user can install manually.
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "open",
+                    Arguments = $"\"{tempFilePath}\"",
+                    UseShellExecute = false
+                });
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Warning(ex, "Mac update download failed");
             }
         }
     }

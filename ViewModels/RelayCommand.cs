@@ -2,8 +2,20 @@ using System.Windows.Input;
 
 namespace BF_STT.ViewModels
 {
+    /// <summary>
+    /// Avalonia-friendly RelayCommand. Avalonia has no `CommandManager.RequerySuggested`,
+    /// so callers raise the static <see cref="RaiseCanExecuteChanged"/> when they want
+    /// every live command to re-query its CanExecute.
+    /// </summary>
     public class RelayCommand : ICommand
     {
+        private static event EventHandler? RequerySuggested;
+
+        public static void RaiseCanExecuteChanged()
+        {
+            RequerySuggested?.Invoke(null, EventArgs.Empty);
+        }
+
         private readonly Action<object?> _execute;
         private readonly Predicate<object?>? _canExecute;
 
@@ -15,18 +27,12 @@ namespace BF_STT.ViewModels
 
         public event EventHandler? CanExecuteChanged
         {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
+            add { RequerySuggested += value; }
+            remove { RequerySuggested -= value; }
         }
 
-        public bool CanExecute(object? parameter)
-        {
-            return _canExecute == null || _canExecute(parameter);
-        }
+        public bool CanExecute(object? parameter) => _canExecute == null || _canExecute(parameter);
 
-        public void Execute(object? parameter)
-        {
-            _execute(parameter);
-        }
+        public void Execute(object? parameter) => _execute(parameter);
     }
 }

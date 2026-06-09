@@ -65,6 +65,22 @@ namespace BF_STT.Services.Infrastructure
             services.AddSingleton<AudioRecordingService>();
 
             // ── Platform ──
+            services.AddSingleton<IInputSimulator>(_ =>
+            {
+                if (OperatingSystem.IsWindows())
+                {
+#pragma warning disable CA1416 // Validate platform compatibility
+                    return new Win32InputSimulator();
+#pragma warning restore CA1416
+                }
+                if (OperatingSystem.IsMacOS())
+                {
+#pragma warning disable CA1416
+                    return new MacInputSimulator();
+#pragma warning restore CA1416
+                }
+                throw new PlatformNotSupportedException("BF-STT only supports Windows and macOS.");
+            });
             services.AddSingleton<InputInjector>();
 
             // ── STT Provider Registry ──

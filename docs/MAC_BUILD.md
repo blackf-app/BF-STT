@@ -58,6 +58,10 @@ Sau đó copy binaries vào `.app/Contents/MacOS/` và viết `Info.plist` thủ
 
 ## Vấn đề đã biết trên macOS
 
+- **Noise Suppression (RNNoise)** tự động bị tắt trên macOS — package RNNoise
+  không có native library cho Mac. App vẫn hoạt động bình thường, chỉ là tuỳ
+  chọn này không có hiệu lực.
+
 - **App chạy lần đầu sẽ bị Gatekeeper chặn** (vì chưa code-sign). Bypass:
   - Cách 1: `xattr -d com.apple.quarantine /path/to/BF-STT.app`
   - Cách 2: Right-click → Open → chọn Open trong hộp thoại cảnh báo.

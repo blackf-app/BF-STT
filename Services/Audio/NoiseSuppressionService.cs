@@ -10,6 +10,15 @@ namespace BF_STT.Services.Audio
 
         public NoiseSuppressionService()
         {
+            // RNNoise ships native libraries for Windows and Linux only.
+            // On macOS we silently disable noise suppression instead of crashing
+            // with DllNotFoundException at the first Denoise() call.
+            if (OperatingSystem.IsMacOS())
+            {
+                Serilog.Log.Information("[NoiseSuppression] RNNoise has no macOS native library; noise suppression disabled.");
+                return;
+            }
+
             try
             {
                 _denoiser = new Denoiser();
@@ -37,7 +46,17 @@ namespace BF_STT.Services.Audio
 
             // Denoise
             // The library says it handles varying sizes, so we pass it directly.
-            _denoiser.Denoise(floatBuffer);
+            try
+            {
+                _denoiser.Denoise(floatBuffer);
+            }
+            catch (DllNotFoundException ex)
+            {
+                // Native rnnoise lib missing on this platform — disable permanently.
+                Serilog.Log.Warning(ex, "[NoiseSuppression] Native rnnoise library unavailable; disabling.");
+                _denoiser = null;
+                return;
+            }
 
             // Convert back to short
             for (int i = 0; i < count; i++)

@@ -351,7 +351,6 @@ namespace BF_STT.ViewModels
                 return;
 
             var mainWindow = desktop.MainWindow;
-            mainWindow.Hide();
             var settingsWindow = new SettingsWindow(_settingsService, _updateService);
             await settingsWindow.ShowDialog(mainWindow);
 
@@ -367,7 +366,6 @@ namespace BF_STT.ViewModels
 
                 StatusText = "Settings updated.";
             }
-            mainWindow.Show();
         }
 
         #endregion

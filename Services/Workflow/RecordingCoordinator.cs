@@ -8,6 +8,7 @@ using BF_STT.Services.Infrastructure;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Threading;
 
@@ -54,6 +55,7 @@ namespace BF_STT.Services.Workflow
         private DispatcherTimer _recordingTimer;
         private DispatcherTimer _hybridTimer;
         private TimeSpan _recordingDuration;
+        private long _lastAudioLevelTick = 0;
 
 
         internal const int HybridThresholdMs = 300;
@@ -156,10 +158,14 @@ namespace BF_STT.Services.Workflow
 
             _currentState = IdleState.Instance;
 
-            // Wire audio level updates
+            // Wire audio level updates — throttled to ~10fps to avoid flooding Avalonia's
+            // native render layer (updateLayer) on macOS with rapid ScaleTransform changes.
             AudioService.AudioLevelUpdated += (s, level) =>
             {
-                Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
+                long now = Environment.TickCount64;
+                if (now - Interlocked.Read(ref _lastAudioLevelTick) < 100) return;
+                Interlocked.Exchange(ref _lastAudioLevelTick, now);
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     AudioLevelChanged?.Invoke(level);
                 });

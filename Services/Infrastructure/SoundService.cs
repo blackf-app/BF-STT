@@ -1,4 +1,5 @@
 using OpenTK.Audio.OpenAL;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 
@@ -6,8 +7,8 @@ namespace BF_STT.Services.Infrastructure
 {
     /// <summary>
     /// Cross-platform sound service.
-    /// Generates simple sine-wave WAV blobs at startup and plays them via OpenAL,
-    /// which is available on both Windows and macOS without extra system deps.
+    /// On macOS: plays WAV files via afplay to avoid OpenAL context conflicts with capture.
+    /// On Windows: plays via OpenAL.
     /// </summary>
     public class SoundService
     {
@@ -27,59 +28,96 @@ namespace BF_STT.Services.Infrastructure
         {
             Task.Run(() =>
             {
-                ALDevice device = default;
-                ALContext context = default;
-                int buffer = 0;
-                int source = 0;
+                // On macOS, use afplay instead of OpenAL to avoid concurrent-context
+                // crashes: Apple's OpenAL is not thread-safe when a playback context is
+                // created/destroyed while a capture device is active on another thread.
+                if (OperatingSystem.IsMacOS())
+                {
+                    PlaySoundMacOS(wavBytes);
+                    return;
+                }
+
+                PlaySoundOpenAL(wavBytes);
+            });
+        }
+
+        private static void PlaySoundMacOS(byte[] wavBytes)
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), $"bfstt_{Path.GetRandomFileName()}.wav");
+            try
+            {
+                File.WriteAllBytes(tempFile, wavBytes);
+                using var process = Process.Start(new ProcessStartInfo("afplay", $"\"{tempFile}\"")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                });
+                process?.WaitForExit(2000);
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Debug(ex, "afplay sound failed");
+            }
+            finally
+            {
+                try { File.Delete(tempFile); } catch { }
+            }
+        }
+
+        private static void PlaySoundOpenAL(byte[] wavBytes)
+        {
+            ALDevice device = default;
+            ALContext context = default;
+            int buffer = 0;
+            int source = 0;
+            try
+            {
+                device = ALC.OpenDevice(null);
+                if (device.Handle == IntPtr.Zero) return;
+                context = ALC.CreateContext(device, (int[]?)null);
+                ALC.MakeContextCurrent(context);
+
+                // Strip 44-byte WAV header from our generator output and load as PCM.
+                int headerSize = 44;
+                int pcmLen = wavBytes.Length - headerSize;
+                if (pcmLen <= 0) return;
+
+                var pcm = new byte[pcmLen];
+                Array.Copy(wavBytes, headerSize, pcm, 0, pcmLen);
+
+                buffer = AL.GenBuffer();
+                AL.BufferData(buffer, ALFormat.Mono16, pcm, 44100);
+
+                source = AL.GenSource();
+                AL.Source(source, ALSourcei.Buffer, buffer);
+                AL.SourcePlay(source);
+
+                AL.GetSource(source, ALGetSourcei.SourceState, out int state);
+                while ((ALSourceState)state == ALSourceState.Playing)
+                {
+                    Thread.Sleep(20);
+                    AL.GetSource(source, ALGetSourcei.SourceState, out state);
+                }
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Debug(ex, "OpenAL playback failed");
+            }
+            finally
+            {
+                try { if (source != 0) AL.DeleteSource(source); } catch { }
+                try { if (buffer != 0) AL.DeleteBuffer(buffer); } catch { }
                 try
                 {
-                    device = ALC.OpenDevice(null);
-                    if (device.Handle == IntPtr.Zero) return;
-                    context = ALC.CreateContext(device, (int[]?)null);
-                    ALC.MakeContextCurrent(context);
-
-                    // Strip 44-byte WAV header from our generator output and load as PCM.
-                    int headerSize = 44;
-                    int pcmLen = wavBytes.Length - headerSize;
-                    if (pcmLen <= 0) return;
-
-                    var pcm = new byte[pcmLen];
-                    Array.Copy(wavBytes, headerSize, pcm, 0, pcmLen);
-
-                    buffer = AL.GenBuffer();
-                    AL.BufferData(buffer, ALFormat.Mono16, pcm, 44100);
-
-                    source = AL.GenSource();
-                    AL.Source(source, ALSourcei.Buffer, buffer);
-                    AL.SourcePlay(source);
-
-                    AL.GetSource(source, ALGetSourcei.SourceState, out int state);
-                    while ((ALSourceState)state == ALSourceState.Playing)
+                    if (context.Handle != IntPtr.Zero)
                     {
-                        Thread.Sleep(20);
-                        AL.GetSource(source, ALGetSourcei.SourceState, out state);
+                        ALC.MakeContextCurrent(ALContext.Null);
+                        ALC.DestroyContext(context);
                     }
                 }
-                catch (Exception ex)
-                {
-                    Serilog.Log.Debug(ex, "OpenAL playback failed");
-                }
-                finally
-                {
-                    try { if (source != 0) AL.DeleteSource(source); } catch { }
-                    try { if (buffer != 0) AL.DeleteBuffer(buffer); } catch { }
-                    try
-                    {
-                        if (context.Handle != IntPtr.Zero)
-                        {
-                            ALC.MakeContextCurrent(ALContext.Null);
-                            ALC.DestroyContext(context);
-                        }
-                    }
-                    catch { }
-                    try { if (device.Handle != IntPtr.Zero) ALC.CloseDevice(device); } catch { }
-                }
-            });
+                catch { }
+                try { if (device.Handle != IntPtr.Zero) ALC.CloseDevice(device); } catch { }
+            }
         }
 
         private static byte[] GenerateSineWave(int frequency, int durationMs)

@@ -75,11 +75,9 @@ namespace BF_STT.Services.Audio
                 int bytesPerFrame = samplesPerFrame * WaveFormat.Channels * (WaveFormat.BitsPerSample / 8);
                 var buffer = new byte[bytesPerFrame];
                 var sampleCountBuffer = new int[1];
-                var deviceAsAlDevice = new ALDevice(_device.Handle);
-
                 while (_running)
                 {
-                    ALC.GetInteger(deviceAsAlDevice, AlcGetInteger.CaptureSamples, 1, sampleCountBuffer);
+                    ALC.GetInteger(_device, AlcGetInteger.CaptureSamples, 1, sampleCountBuffer);
                     int available = sampleCountBuffer[0];
 
                     if (available >= samplesPerFrame)

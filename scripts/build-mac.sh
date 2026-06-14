@@ -31,7 +31,7 @@ dotnet publish "${PROJECT_DIR}/BF-STT.csproj" \
     -f net8.0 \
     -r "${RID}" \
     -c "${CONFIG}" \
-    --self-contained false \
+    --self-contained true \
     -p:PublishSingleFile=false \
     -p:IsAutoPublishing=true \
     -o "${MACOS_DIR}"

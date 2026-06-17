@@ -36,14 +36,18 @@ namespace BF_STT.Services.Platform
 
         public void SimulatePaste()
         {
-            // Cmd+V: send V down with Command flag, then V up with Command flag.
+            // V key-down: Command held while V is pressed.
             var down = CGEventCreateKeyboardEvent(IntPtr.Zero, kVK_ANSI_V, true);
             CGEventSetFlags(down, kCGEventFlagMaskCommand);
             CGEventPost(kCGHIDEventTap, down);
             CFRelease(down);
 
+            // V key-up: Command flag cleared — signals Command is fully released.
+            // Leaving kCGEventFlagMaskCommand on the key-up causes the system to
+            // report Command as still held after the paste, which makes a subsequent
+            // SimulateEnter() look like Cmd+Return to receiving apps.
             var up = CGEventCreateKeyboardEvent(IntPtr.Zero, kVK_ANSI_V, false);
-            CGEventSetFlags(up, kCGEventFlagMaskCommand);
+            CGEventSetFlags(up, 0);
             CGEventPost(kCGHIDEventTap, up);
             CFRelease(up);
         }

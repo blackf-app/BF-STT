@@ -62,6 +62,37 @@ Cơ chế nhận diện hành vi nhấn phím cực kỳ linh hoạt:
 
 ---
 
+### 🍎 Luồng Publish cho macOS
+
+Trên macOS, ứng dụng được đóng gói dạng **self-contained single-file** (kèm sẵn .NET runtime, không cần cài runtime riêng). App `BF-STT.app` ngoài Desktop chỉ là một **launcher AppleScript** chạy file đã publish tại `./publish/BF-STT` — vì vậy mỗi khi sửa code bạn **phải publish lại** thì bản chạy mới được cập nhật.
+
+#### 1. Yêu cầu
+- macOS (Apple Silicon `arm64` hoặc Intel `x64`).
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). Nếu `dotnet` chưa có trong `PATH`, dùng đường dẫn đầy đủ `~/.dotnet/dotnet`.
+- Cấp quyền **Accessibility** cho app trong *System Settings → Privacy & Security → Accessibility* (cần cho hotkey toàn cục và inject text).
+
+#### 2. Các bước publish
+
+```bash
+# 1. Dừng app nếu đang chạy
+pkill -f "BF-STT/publish/BF-STT"
+
+# 2. Publish bản self-contained cho macOS (Apple Silicon)
+~/.dotnet/dotnet publish BF-STT.csproj -c Release -f net8.0 -r osx-arm64 --self-contained true -o ./publish
+
+#    (Máy Intel thì đổi -r osx-arm64 thành -r osx-x64)
+
+# 3. Mở lại app từ Desktop, hoặc chạy trực tiếp
+./publish/BF-STT
+```
+
+#### 3. Ghi chú quan trọng
+- **Chỉ build target `net8.0`** (cross-platform). Tránh build cả solution / project `BF-STT.Tests` trên macOS vì chúng target `net8.0-windows` và sẽ báo lỗi `NETSDK1100`.
+- Sau khi publish, kiểm tra binary đã đúng kiến trúc: `file ./publish/BF-STT` → phải thấy `Mach-O 64-bit executable arm64` (hoặc `x86_64`).
+- Launcher Desktop chạy lệnh `cd <project> && ./publish/BF-STT`, nên đường dẫn project không được đổi tên/di chuyển nếu vẫn dùng launcher cũ.
+
+---
+
 ### 📂 Cấu trúc dự án
 
 - `Services/STT/Providers/`: Chứa logic của 8 nhà cung cấp (Deepgram, Speechmatics, Soniox, OpenAI, ElevenLabs, Google, AssemblyAI, Azure).

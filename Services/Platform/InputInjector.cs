@@ -68,11 +68,13 @@ namespace BF_STT.Services.Platform
                 await ClipboardHelper.SetTextAsync(text);
                 _input.SimulatePaste();
 
-                await Task.Delay(30);
+                // 150ms: give the target app enough time to process Cmd+V and read
+                // the clipboard before RestoreAsync replaces it. 30ms was too short
+                // on busy systems, causing the app to paste the old clipboard content.
+                await Task.Delay(150);
 
                 if (autoSend)
                 {
-                    await Task.Delay(50);
                     _input.SimulateEnter();
                     await Task.Delay(30);
                 }

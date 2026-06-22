@@ -10,10 +10,10 @@
     <Authors>Black Face</Authors>
     <Company>BF Company</Company>
     <Copyright>Copyright (c) 2026 BF Company</Copyright>
-    <Version>1.0.268</Version>
-    <AssemblyVersion>1.0.268</AssemblyVersion>
-    <FileVersion>1.0.268</FileVersion>
-    <InformationalVersion>1.0.268</InformationalVersion>
+    <Version>1.0.269</Version>
+    <AssemblyVersion>1.0.269</AssemblyVersion>
+    <FileVersion>1.0.269</FileVersion>
+    <InformationalVersion>1.0.269</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
@@ -65,6 +65,8 @@
     <PackageReference Include="NAudio.WinMM" Version="2.2.1" />
     <PackageReference Include="NAudio.Wasapi" Version="2.2.1" />
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <!-- Provides System.Media.SoundPlayer for the Windows beep cues (SoundService) -->
+    <PackageReference Include="System.Windows.Extensions" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

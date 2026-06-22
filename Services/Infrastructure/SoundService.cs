@@ -37,9 +37,37 @@ namespace BF_STT.Services.Infrastructure
                     return;
                 }
 
+#if WINDOWS
+                if (OperatingSystem.IsWindows())
+                {
+                    PlaySoundWindows(wavBytes);
+                    return;
+                }
+#endif
+
                 PlaySoundOpenAL(wavBytes);
             });
         }
+
+#if WINDOWS
+        // Windows ships no system OpenAL runtime and OpenTK.Audio.OpenAL bundles no
+        // native soft_oal.dll, so OpenAL silently no-ops here. Use System.Media.SoundPlayer
+        // (Windows Desktop) to play the generated WAV — this is the pre-Avalonia behavior.
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        private static void PlaySoundWindows(byte[] wavBytes)
+        {
+            try
+            {
+                using var ms = new MemoryStream(wavBytes);
+                using var player = new System.Media.SoundPlayer(ms);
+                player.PlaySync();
+            }
+            catch (Exception ex)
+            {
+                Serilog.Log.Debug(ex, "SoundPlayer playback failed");
+            }
+        }
+#endif
 
         private static void PlaySoundMacOS(byte[] wavBytes)
         {

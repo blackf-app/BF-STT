@@ -42,7 +42,11 @@ $tagName = "v$newVersion"
 
 # 4. Fast Build
 Write-Host "--> Building/Publishing $tagName..." -ForegroundColor Cyan
-dotnet publish -c Release -o $publishDir /p:IsAutoPublishing=true /p:PauseAfterBuild=true -nologo -clp:NoSummary -v:q
+# Publish the project (NOT the solution) for the Windows TFM explicitly. Without
+# -f, a multi-targeting project + the .sln in this dir makes `dotnet publish` fail
+# (NETSDK1129) yet the script would carry on and ship a broken build-output exe.
+dotnet publish $csprojPath -c Release -f net8.0-windows -o $publishDir /p:IsAutoPublishing=true /p:PauseAfterBuild=true -nologo -clp:NoSummary -v:q
+if ($LASTEXITCODE -ne 0) { Write-Error "Publish failed (exit code $LASTEXITCODE). Aborting release."; exit 1 }
 
 # 5. Smart Release Notes Generation
 Write-Host "--> Generating Friendly Release Notes..." -ForegroundColor Cyan

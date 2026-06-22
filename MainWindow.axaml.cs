@@ -44,24 +44,30 @@ namespace BF_STT
 
             // WorkingArea and Position are in physical pixels, but SizeChanged sizes are
             // in logical DIPs. On displays with scaling != 100% (common on Windows) the two
-            // must be reconciled via RenderScaling, otherwise the window drifts/jumps on
-            // every resize (e.g. when the history panel or recording UI changes height).
+            // must be reconciled via RenderScaling, otherwise the window drifts on resize.
             double scale = RenderScaling;
             double newWidthPx = e.NewSize.Width * scale;
             double newHeightPx = e.NewSize.Height * scale;
+            double prevWidthPx = e.PreviousSize.Width * scale;
             double prevHeightPx = e.PreviousSize.Height * scale;
 
             double left;
             double top;
 
-            if (e.PreviousSize.Height == 0)
+            if (e.PreviousSize.Width == 0 || e.PreviousSize.Height == 0)
             {
+                // First layout: pin to bottom-center of the working area.
                 left = bounds.X + (bounds.Width - newWidthPx) / 2;
                 top = bounds.Y + bounds.Height - newHeightPx;
             }
             else
             {
-                left = Position.X;
+                // The window auto-sizes (SizeToContent) — width grows when the recording
+                // visualizer/status appears, height grows when history opens. Keep the
+                // window's horizontal CENTER and BOTTOM edge fixed so it expands/contracts
+                // symmetrically instead of jumping sideways, while preserving any position
+                // the user dragged it to.
+                left = Position.X - (newWidthPx - prevWidthPx) / 2;
                 top = Position.Y - (newHeightPx - prevHeightPx);
             }
 

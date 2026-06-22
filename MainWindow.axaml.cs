@@ -38,38 +38,31 @@ namespace BF_STT
 
         private void MainWindow_SizeChanged(object? sender, SizeChangedEventArgs e)
         {
-            if (Screens.Primary == null) return;
             var screen = Screens.Primary;
-            var bounds = screen.WorkingArea;
+            if (screen == null) return;
 
-            // WorkingArea and Position are in physical pixels, but SizeChanged sizes are
-            // in logical DIPs. On displays with scaling != 100% (common on Windows) the two
-            // must be reconciled via RenderScaling, otherwise the window drifts on resize.
+            // Use the FULL screen bounds (which INCLUDE the taskbar area), not WorkingArea,
+            // so the window overlays the taskbar at the very bottom instead of resting above it.
+            var full = screen.Bounds;
+
+            // Bounds/Position are physical pixels, but SizeChanged sizes are logical DIPs.
+            // Reconcile via RenderScaling so positioning is correct at any display scaling.
             double scale = RenderScaling;
             double newWidthPx = e.NewSize.Width * scale;
             double newHeightPx = e.NewSize.Height * scale;
             double prevWidthPx = e.PreviousSize.Width * scale;
-            double prevHeightPx = e.PreviousSize.Height * scale;
 
-            double left;
-            double top;
+            // Horizontal: center on first layout; afterwards keep the window's center fixed so
+            // it grows/shrinks symmetrically (no sideways jump) and a horizontal drag survives.
+            double left = (e.PreviousSize.Width == 0)
+                ? full.X + (full.Width - newWidthPx) / 2
+                : Position.X - (newWidthPx - prevWidthPx) / 2;
 
-            if (e.PreviousSize.Width == 0 || e.PreviousSize.Height == 0)
-            {
-                // First layout: pin to bottom-center of the working area.
-                left = bounds.X + (bounds.Width - newWidthPx) / 2;
-                top = bounds.Y + bounds.Height - newHeightPx;
-            }
-            else
-            {
-                // The window auto-sizes (SizeToContent) — width grows when the recording
-                // visualizer/status appears, height grows when history opens. Keep the
-                // window's horizontal CENTER and BOTTOM edge fixed so it expands/contracts
-                // symmetrically instead of jumping sideways, while preserving any position
-                // the user dragged it to.
-                left = Position.X - (newWidthPx - prevWidthPx) / 2;
-                top = Position.Y - (newHeightPx - prevHeightPx);
-            }
+            // Vertical: ALWAYS pin the bottom edge to the bottom of the screen. The window
+            // auto-sizes (SizeToContent), so it grows upward when the recording visualizer or
+            // history panel appears while its bottom stays put, overlapping the taskbar — no
+            // jump up above the taskbar, no jump to mid-screen.
+            double top = full.Y + full.Height - newHeightPx;
 
             Position = new PixelPoint((int)left, (int)top);
         }
@@ -84,10 +77,10 @@ namespace BF_STT
 
             if (Screens.Primary != null)
             {
-                var bounds = Screens.Primary.WorkingArea;
+                var full = Screens.Primary.Bounds;
                 double scale = RenderScaling;
-                double left = bounds.X + (bounds.Width - Bounds.Width * scale) / 2;
-                double top = bounds.Y + bounds.Height - Bounds.Height * scale;
+                double left = full.X + (full.Width - Bounds.Width * scale) / 2;
+                double top = full.Y + full.Height - Bounds.Height * scale;
                 Position = new PixelPoint((int)left, (int)top);
             }
         }

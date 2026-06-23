@@ -70,3 +70,6 @@ obj/
 appsettings.json
 appsettings.Development.json
 /publish
+/publish-release
+/publish_test
+

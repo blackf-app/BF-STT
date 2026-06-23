@@ -87,6 +87,7 @@ namespace BF_STT
 
         private void ForceTopmost()
         {
+            this.Topmost = false;
             this.Topmost = true;
         }
 

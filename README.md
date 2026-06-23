@@ -1,6 +1,6 @@
 # BF-STT (Bright-Fast Speech To Text)
 
-**BF-STT** là một ứng dụng trợ lý giọng nói tối ưu cho Windows (WPF), cho phép bạn chuyển đổi lời nói thành văn bản và nhập liệu trực tiếp vào bất kỳ phần mềm nào (Word, Browser, Game, Discord...) với độ trễ cực thấp. Ứng dụng tích hợp sức mạnh từ những "ông lớn" trong ngành Speech-to-Text như **Deepgram**, **Speechmatics**, **Soniox**, **OpenAI Whisper**, **ElevenLabs**, **Google Cloud**, **AssemblyAI**, và **Microsoft Azure**.
+**BF-STT** là một ứng dụng trợ lý giọng nói tối ưu cho Windows và macOS (Avalonia UI), cho phép bạn chuyển đổi lời nói thành văn bản và nhập liệu trực tiếp vào bất kỳ phần mềm nào (Word, Browser, Game, Discord...) với độ trễ cực thấp. Ứng dụng tích hợp sức mạnh từ những "ông lớn" trong ngành Speech-to-Text như **Deepgram**, **Speechmatics**, **Soniox**, **OpenAI Whisper**, **ElevenLabs**, **Google Cloud**, **AssemblyAI**, và **Microsoft Azure**.
 
 ---
 
@@ -34,7 +34,7 @@ Cơ chế nhận diện hành vi nhấn phím cực kỳ linh hoạt:
 
 ### 🛠 Công nghệ & Kiến trúc
 
-- **Framework:** .NET 8 (C#) với WPF hiện đại, hỗ trợ hiệu ứng hiển thị mượt mà.
+- **Framework:** .NET 8 (C#) với Avalonia UI hiện đại, hỗ trợ đa nền tảng (Windows, macOS) và hiệu ứng hiển thị mượt mà.
 - **Quản lý trạng thái:** Sử dụng **State Pattern** (Idle, Pending, Batch, Streaming, Processing, Failed) để đảm bảo luồng xử lý ổn định.
 - **Audio Engine:** NAudio xử lý luồng âm thanh PCM. Tự động xử lý **WdlResampling** (chất lượng cao), lọc High-Pass (HPF), và Auto Gain Control (AGC).
 - **Bảo mật:** Lưu trữ cấu hình an toàn trong Registry và file cấu hình cục bộ.
@@ -115,9 +115,8 @@ pkill -f "BF-STT/publish/BF-STT"
 
 - **Tác giả:** Black Face
 - **Hỗ trợ phát triển bởi:** Antigravity AI
-- **Cập nhật mới nhất:** 02/03/2026 (18:50)
+- **Cập nhật mới nhất:** 23/06/2026
 - **Phiên bản:** v1.2.2 (WdlResampling & High-Quality Audio Update)
 
 ---
 *Copyright © 2026 Black Face. All rights reserved.*
-

@@ -7,6 +7,7 @@
   ```bash
   brew install --cask dotnet-sdk
   ```
+  Nếu `dotnet` không nằm trong `PATH`, script build sẽ tự fallback sang `~/.dotnet/dotnet`.
 
 ## Build nhanh
 
@@ -21,6 +22,8 @@ Từ thư mục dự án:
 ```
 
 Output: `./publish/mac/BF-STT.app`
+
+Bản macOS là menu bar app: không hiện Dock icon, dùng biểu tượng microphone template trên thanh menu bar.
 
 Chạy:
 
@@ -62,7 +65,7 @@ Sau đó copy binaries vào `.app/Contents/MacOS/` và viết `Info.plist` thủ
   - Cách 1: `xattr -d com.apple.quarantine /path/to/BF-STT.app`
   - Cách 2: Right-click → Open → chọn Open trong hộp thoại cảnh báo.
 
-- **Tray icon (Notify Icon)** chưa được port. App vẫn chạy nhưng không có biểu tượng menubar. Bạn có thể tự đóng/mở qua Cmd+Tab.
+- **Menu bar icon** đã được bật cho bản macOS bằng asset template riêng (`Assets/MenuBarIconTemplate.png`). App chạy nền trên thanh menu bar; dùng menu **Show BF-STT**, **Settings**, hoặc **Quit BF-STT** để mở cửa sổ, cấu hình, và thoát app.
 
 - **Auto-update** chỉ tải file `.dmg` về và mở Finder, không tự động thay thế app như Windows.
 

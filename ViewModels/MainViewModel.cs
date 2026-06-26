@@ -66,6 +66,12 @@ namespace BF_STT.ViewModels
                 _coordinator.CleanupLastFile();
                 if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                 {
+                    if (OperatingSystem.IsMacOS() && desktop.MainWindow is { } mainWindow)
+                    {
+                        mainWindow.Hide();
+                        return;
+                    }
+
                     desktop.Shutdown();
                 }
             });
@@ -356,16 +362,21 @@ namespace BF_STT.ViewModels
 
             if (settingsWindow.Result == true)
             {
-                RefreshAvailableApis();
-
-                OnPropertyChanged(nameof(BatchModeApi));
-                OnPropertyChanged(nameof(StreamingModeApi));
-                OnPropertyChanged(nameof(IsTestMode));
-
-                _coordinator.UpdateSettingsFromRegistry();
-
-                StatusText = "Settings updated.";
+                ApplySettingsChanges();
             }
+        }
+
+        public void ApplySettingsChanges()
+        {
+            RefreshAvailableApis();
+
+            OnPropertyChanged(nameof(BatchModeApi));
+            OnPropertyChanged(nameof(StreamingModeApi));
+            OnPropertyChanged(nameof(IsTestMode));
+
+            _coordinator.UpdateSettingsFromRegistry();
+
+            StatusText = "Settings updated.";
         }
 
         #endregion

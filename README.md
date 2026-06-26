@@ -1,6 +1,6 @@
 # BF-STT (Bright-Fast Speech To Text)
 
-**BF-STT** là một ứng dụng trợ lý giọng nói tối ưu cho Windows và macOS (Avalonia UI), cho phép bạn chuyển đổi lời nói thành văn bản và nhập liệu trực tiếp vào bất kỳ phần mềm nào (Word, Browser, Game, Discord...) với độ trễ cực thấp. Ứng dụng tích hợp sức mạnh từ những "ông lớn" trong ngành Speech-to-Text như **Deepgram**, **Speechmatics**, **Soniox**, **OpenAI Whisper**, **ElevenLabs**, **Google Cloud**, **AssemblyAI**, và **Microsoft Azure**.
+**BF-STT** là một ứng dụng trợ lý giọng nói tối ưu cho Windows và macOS (Avalonia UI), cho phép bạn chuyển đổi lời nói thành văn bản và nhập liệu trực tiếp vào bất kỳ phần mềm nào (Word, Browser, Game, Discord...) với độ trễ cực thấp. Ứng dụng tích hợp các dịch vụ Speech-to-Text như **Deepgram**, **Speechmatics**, **Soniox**, **OpenAI Whisper**, **ElevenLabs**, **Google Cloud**, **AssemblyAI**, và **Microsoft Azure**.
 
 ---
 
@@ -29,6 +29,7 @@ Cơ chế nhận diện hành vi nhấn phím cực kỳ linh hoạt:
 - **Lọc API thông minh:** Dropdown chọn API chỉ hiển thị những dịch vụ bạn đã cấu hình API Key, giúp giao diện luôn gọn gàng.
 - **Quản lý Lịch sử (History):** Lưu lại các đoạn hội thoại gần nhất, cho phép copy lại hoặc gửi lại vào cửa sổ đang active.
 - **Auto-Typing & Clipboard Protection:** Nhập liệu siêu tốc và tự động khôi phục dữ liệu Clipboard sau khi gõ xong.
+- **macOS menu bar:** Bản macOS chạy nền trên thanh menu bar, không chiếm Dock; có menu mở cửa sổ, Settings, ghi âm, gửi lại audio, và thoát app.
 
 ---
 
@@ -36,7 +37,7 @@ Cơ chế nhận diện hành vi nhấn phím cực kỳ linh hoạt:
 
 - **Framework:** .NET 8 (C#) với Avalonia UI hiện đại, hỗ trợ đa nền tảng (Windows, macOS) và hiệu ứng hiển thị mượt mà.
 - **Quản lý trạng thái:** Sử dụng **State Pattern** (Idle, Pending, Batch, Streaming, Processing, Failed) để đảm bảo luồng xử lý ổn định.
-- **Audio Engine:** NAudio xử lý luồng âm thanh PCM. Tự động xử lý **WdlResampling** (chất lượng cao), lọc High-Pass (HPF), và Auto Gain Control (AGC).
+- **Audio Engine:** NAudio/OpenAL xử lý luồng âm thanh PCM. Tự động xử lý **WdlResampling** (chất lượng cao), lọc High-Pass (HPF), và Auto Gain Control (AGC).
 - **Bảo mật:** Lưu trữ cấu hình an toàn trong Registry và file cấu hình cục bộ.
 - **Single Instance:** Ngăn chặn việc chạy nhiều bản ghi đè lên nhau.
 
@@ -45,8 +46,9 @@ Cơ chế nhận diện hành vi nhấn phím cực kỳ linh hoạt:
 ### 📦 Hướng dẫn cài đặt & Sử dụng
 
 #### 1. Yêu cầu hệ thống
-- Windows 10/11 (x64).
-- [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
+- Windows 10/11 (x64) hoặc macOS 11.0+ (Apple Silicon/Intel).
+- Windows: [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0).
+- Build từ source: [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 
 #### 2. Cấu hình nhanh
 1. Mở **Settings** (biểu tượng bánh răng).
@@ -62,34 +64,31 @@ Cơ chế nhận diện hành vi nhấn phím cực kỳ linh hoạt:
 
 ---
 
-### 🍎 Luồng Publish cho macOS
+### 🍎 Build và chạy trên macOS
 
-Trên macOS, ứng dụng được đóng gói dạng **self-contained single-file** (kèm sẵn .NET runtime, không cần cài runtime riêng). App `BF-STT.app` ngoài Desktop chỉ là một **launcher AppleScript** chạy file đã publish tại `./publish/BF-STT` — vì vậy mỗi khi sửa code bạn **phải publish lại** thì bản chạy mới được cập nhật.
+Trên macOS, ứng dụng được đóng gói thành `BF-STT.app` tại `publish/mac/BF-STT.app`. App chạy nền trên **menu bar** (`LSUIElement=true`), không hiện Dock icon; dùng menu **Show BF-STT**, **Settings**, hoặc **Quit BF-STT** để mở giao diện, cấu hình, và thoát app.
 
 #### 1. Yêu cầu
 - macOS (Apple Silicon `arm64` hoặc Intel `x64`).
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). Nếu `dotnet` chưa có trong `PATH`, dùng đường dẫn đầy đủ `~/.dotnet/dotnet`.
-- Cấp quyền **Accessibility** cho app trong *System Settings → Privacy & Security → Accessibility* (cần cho hotkey toàn cục và inject text).
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0). Script build tự dùng `dotnet` trong `PATH`, hoặc fallback sang `~/.dotnet/dotnet`.
+- Cấp quyền **Microphone** và **Accessibility** cho app trong *System Settings → Privacy & Security*.
 
-#### 2. Các bước publish
+#### 2. Build nhanh
 
 ```bash
-# 1. Dừng app nếu đang chạy
-pkill -f "BF-STT/publish/BF-STT"
+# Apple Silicon
+./scripts/build-mac.sh arm64 Release
 
-# 2. Publish bản self-contained cho macOS (Apple Silicon)
-~/.dotnet/dotnet publish BF-STT.csproj -c Release -f net8.0 -r osx-arm64 --self-contained true -o ./publish
+# Intel
+./scripts/build-mac.sh x64 Release
 
-#    (Máy Intel thì đổi -r osx-arm64 thành -r osx-x64)
-
-# 3. Mở lại app từ Desktop, hoặc chạy trực tiếp
-./publish/BF-STT
+open ./publish/mac/BF-STT.app
 ```
 
 #### 3. Ghi chú quan trọng
 - **Chỉ build target `net8.0`** (cross-platform). Tránh build cả solution / project `BF-STT.Tests` trên macOS vì chúng target `net8.0-windows` và sẽ báo lỗi `NETSDK1100`.
-- Sau khi publish, kiểm tra binary đã đúng kiến trúc: `file ./publish/BF-STT` → phải thấy `Mach-O 64-bit executable arm64` (hoặc `x86_64`).
-- Launcher Desktop chạy lệnh `cd <project> && ./publish/BF-STT`, nên đường dẫn project không được đổi tên/di chuyển nếu vẫn dùng launcher cũ.
+- Sau khi build, kiểm tra binary đã đúng kiến trúc: `file ./publish/mac/BF-STT.app/Contents/MacOS/BF-STT` → phải thấy `Mach-O 64-bit executable arm64` (hoặc `x86_64`).
+- Nếu app chưa code-sign, macOS có thể chặn lần chạy đầu. Dùng Right-click → Open, hoặc gỡ quarantine cho bundle đang test.
 
 ---
 
@@ -99,7 +98,7 @@ pkill -f "BF-STT/publish/BF-STT"
 - `Services/Workflow/`: State Machine điều phối toàn bộ vòng đời ghi âm.
 - `Services/Audio/`: Xử lý âm thanh, VAD và RNNoise.
 - `Services/Infrastructure/`: Quản lý Settings, History, Sound và DI Container.
-- `ViewModels/` & `Views/`: Triển khai giao diện người dùng theo mô hình MVVM.
+- `ViewModels/` & các file `*.axaml`: Triển khai giao diện người dùng theo mô hình MVVM.
 
 ---
 
@@ -107,7 +106,7 @@ pkill -f "BF-STT/publish/BF-STT"
 
 1.  **Tạo Service:** Kế thừa `BaseBatchSttService` trong thư mục `Providers`.
 2.  **Đăng ký Service:** Thêm vào `ServiceRegistration.cs` (phân loại Batch/Streaming).
-3.  **Cập nhật UI/Settings:** Thêm API Key vào `AppSettings` và `SettingsWindow.xaml`.
+3.  **Cập nhật UI/Settings:** Thêm API Key vào `AppSettings` và `SettingsWindow.axaml`.
 
 ---
 
@@ -115,8 +114,8 @@ pkill -f "BF-STT/publish/BF-STT"
 
 - **Tác giả:** Black Face
 - **Hỗ trợ phát triển bởi:** Antigravity AI
-- **Cập nhật mới nhất:** 23/06/2026
-- **Phiên bản:** v1.2.2 (WdlResampling & High-Quality Audio Update)
+- **Cập nhật mới nhất:** 27/06/2026
+- **Phiên bản:** v1.0.267
 
 ---
 *Copyright © 2026 Black Face. All rights reserved.*

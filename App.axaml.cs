@@ -8,7 +8,6 @@ using BF_STT.Services.STT;
 using BF_STT.ViewModels;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
-using System.Net.Http;
 
 namespace BF_STT
 {
@@ -16,6 +15,7 @@ namespace BF_STT
     {
         private IServiceProvider? _serviceProvider;
         private HotkeyService? _hotkeyService;
+        private MenuBarAppService? _menuBarAppService;
         public static IServiceProvider? Services { get; private set; }
 
         public override void Initialize()
@@ -54,18 +54,9 @@ namespace BF_STT
 
                 settingsService.SaveSettings(settings);
 
-                var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
-                var mainWindow = new MainWindow { DataContext = mainViewModel };
-                desktop.MainWindow = mainWindow;
-
                 bool hasAnyKey = allProviders.Any(p => !string.IsNullOrWhiteSpace(p.GetApiKey(settings)));
-                if (!hasAnyKey)
-                {
-                    var updateService = _serviceProvider.GetRequiredService<UpdateService>();
-                    var settingsWindow = new SettingsWindow(settingsService, updateService);
-                    // Show settings window modally before the main window.
-                    settingsWindow.Show();
-                }
+                var updateService = _serviceProvider.GetRequiredService<UpdateService>();
+                var mainViewModel = _serviceProvider.GetRequiredService<MainViewModel>();
 
                 _hotkeyService = new HotkeyService(
                     settingsService,
@@ -75,16 +66,40 @@ namespace BF_STT
                     onStopAndSendKeyUp: () => mainViewModel.OnStopAndSendKeyUp()
                 );
 
-                mainWindow.Show();
+                if (OperatingSystem.IsMacOS())
+                {
+                    _menuBarAppService = new MenuBarAppService(
+                        desktop,
+                        mainViewModel,
+                        settingsService,
+                        updateService);
 
-                var httpClient = _serviceProvider.GetRequiredService<HttpClient>();
+                    _menuBarAppService.Initialize(
+                        showMainWindowOnLaunch: false,
+                        showSettingsOnLaunch: !hasAnyKey);
+                }
+                else
+                {
+                    var mainWindow = new MainWindow { DataContext = mainViewModel };
+                    desktop.MainWindow = mainWindow;
+
+                    if (!hasAnyKey)
+                    {
+                        var settingsWindow = new SettingsWindow(settingsService, updateService);
+                        // Show settings window modally before the main window.
+                        settingsWindow.Show();
+                    }
+
+                    mainWindow.Show();
+                    desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
+                }
+
                 if (settings.AutoCheckUpdate)
                 {
                     _ = Task.Run(async () =>
                     {
                         try
                         {
-                            var updateService = new UpdateService(httpClient);
                             var release = await updateService.CheckForUpdateAsync();
                             if (release != null)
                             {
@@ -98,9 +113,9 @@ namespace BF_STT
                     });
                 }
 
-                desktop.ShutdownMode = ShutdownMode.OnMainWindowClose;
                 desktop.Exit += (_, _) =>
                 {
+                    _menuBarAppService?.Dispose();
                     _hotkeyService?.Dispose();
                     if (_serviceProvider is IDisposable disposable)
                     {

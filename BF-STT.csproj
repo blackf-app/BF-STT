@@ -33,11 +33,13 @@
 
   <ItemGroup>
     <Content Include="bf_stt_icon_1770838132412.ico" />
+    <Content Include="Assets/MenuBarIconTemplate.png" />
   </ItemGroup>
 
   <ItemGroup>
     <EmbeddedResource Include="appsettings.json" />
     <AvaloniaResource Include="bf_stt_icon_1770838132412.ico" />
+    <AvaloniaResource Include="Assets/MenuBarIconTemplate.png" />
   </ItemGroup>
 
   <!-- Cross-platform dependencies -->

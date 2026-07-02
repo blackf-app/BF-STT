@@ -71,7 +71,12 @@ namespace BF_STT
         {
             ForceTopmost();
 
-            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
+            // 1000ms was too slow: Explorer re-asserts the taskbar's own topmost z-order far
+            // more often than that (e.g. every taskbar hover/auto-hide slide-in), so our window
+            // lost the topmost race and sat fully hidden behind it until the next tick. Poll
+            // tightly enough to close that window; SetWindowPos is cheap so this has no
+            // noticeable cost.
+            var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
             timer.Tick += (s, args) => ForceTopmost();
             timer.Start();
 

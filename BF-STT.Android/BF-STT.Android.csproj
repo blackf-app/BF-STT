@@ -10,8 +10,8 @@
     <AssemblyName>BF-STT.Android</AssemblyName>
 
     <ApplicationId>vn.easygoing.bfstt</ApplicationId>
-    <ApplicationVersion>2</ApplicationVersion>
-    <ApplicationDisplayVersion>1.1</ApplicationDisplayVersion>
+    <ApplicationVersion>3</ApplicationVersion>
+    <ApplicationDisplayVersion>1.2</ApplicationDisplayVersion>
     <ApplicationTitle>BF-STT</ApplicationTitle>
 
     <AndroidManifest>Properties\AndroidManifest.xml</AndroidManifest>

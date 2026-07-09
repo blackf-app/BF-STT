@@ -20,7 +20,14 @@ namespace BFSTT.Droid
     ///   - long press  -> open settings (MainActivity)
     ///   - drag        -> move the bubble around
     /// </summary>
-    [Service(Exported = false, ForegroundServiceType = ForegroundService.TypeMicrophone)]
+    [Service(
+        Name = "vn.easygoing.bfstt.BubbleService",
+        Exported = false,
+        // The bubble is a long-lived overlay (specialUse) that only elevates to the
+        // microphone type while actually recording. specialUse can be (re)started from
+        // the background (boot / after being killed); a microphone-typed service cannot,
+        // which is why the persistent type must NOT be microphone.
+        ForegroundServiceType = ForegroundService.TypeSpecialUse | ForegroundService.TypeMicrophone)]
     public class BubbleService : Service
     {
         private const int NotifId = 1001;
@@ -57,8 +64,13 @@ namespace BFSTT.Droid
             base.OnCreate();
             _main = new Handler(Looper.MainLooper!);
 
+            // May be started from boot / an alarm restart with no Activity having run first,
+            // so make sure the settings store is ready before we read it.
+            AppSettings.Init(this);
+            AppSettings.BubbleEnabled = true;
+
             CreateChannel();
-            StartAsForeground();
+            UpdateForeground(recording: false);
 
             _wm = GetSystemService(WindowService)!.JavaCast<IWindowManager>()!;
             _slop = ViewConfiguration.Get(this)!.ScaledTouchSlop;
@@ -68,6 +80,30 @@ namespace BFSTT.Droid
 
         public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
             => StartCommandResult.Sticky;
+
+        public override void OnTaskRemoved(Intent? rootIntent)
+        {
+            // Swiping the app card out of Recents (aggressive on MIUI/HyperOS) can kill the
+            // whole process along with this service. If the user still wants the bubble,
+            // schedule a near-immediate restart that survives process death via AlarmManager.
+            if (AppSettings.BubbleEnabled)
+            {
+                try
+                {
+                    var restart = new Intent(this, typeof(BubbleService));
+                    var pi = PendingIntent.GetForegroundService(
+                        this, 1, restart,
+                        PendingIntentFlags.OneShot | PendingIntentFlags.Immutable)!;
+                    var am = GetSystemService(AlarmService)!.JavaCast<AlarmManager>()!;
+                    am.SetAndAllowWhileIdle(
+                        AlarmType.ElapsedRealtimeWakeup,
+                        SystemClock.ElapsedRealtime() + 1000,
+                        pi);
+                }
+                catch { /* ignore */ }
+            }
+            base.OnTaskRemoved(rootIntent);
+        }
 
         public override void OnDestroy()
         {
@@ -192,12 +228,16 @@ namespace BFSTT.Droid
         {
             try
             {
+                // Add the microphone FGS type first so the OS doesn't mute background
+                // capture, then start recording.
+                UpdateForeground(recording: true);
                 _recorder.Start();
                 SetState(UiState.Recording);
                 Vibrate(30);
             }
             catch (System.Exception ex)
             {
+                UpdateForeground(recording: false);
                 ShowToast("Khong the thu am: " + ex.Message);
                 SetState(UiState.Idle);
             }
@@ -212,10 +252,15 @@ namespace BFSTT.Droid
             }
             catch (System.Exception ex)
             {
+                UpdateForeground(recording: false);
                 ShowToast("Loi dung thu: " + ex.Message);
                 SetState(UiState.Idle);
                 return;
             }
+
+            // Audio is captured; the mic is no longer needed during the HTTP upload, so
+            // drop the microphone FGS type (and its privacy indicator) right away.
+            UpdateForeground(recording: false);
 
             SetState(UiState.Processing);
             Vibrate(20);
@@ -350,19 +395,56 @@ namespace BFSTT.Droid
             }
         }
 
-        private void StartAsForeground()
+        private Notification BuildNotification()
         {
-            var notif = new Notification.Builder(this, ChannelId)
+            var tap = new Intent(this, typeof(MainActivity));
+            tap.AddFlags(ActivityFlags.NewTask);
+            var pi = PendingIntent.GetActivity(
+                this, 0, tap,
+                PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
+
+            return new Notification.Builder(this, ChannelId)
                 .SetContentTitle("BF-STT dang chay")
                 .SetContentText("Cham icon de thu am - Giu de mo cai dat")
                 .SetSmallIcon(Resource.Drawable.ic_mic)
+                .SetContentIntent(pi)
                 .SetOngoing(true)
                 .Build();
+        }
 
-            if (Build.VERSION.SdkInt >= BuildVersionCodes.Q)
-                StartForeground(NotifId, notif, ForegroundService.TypeMicrophone);
-            else
-                StartForeground(NotifId, notif);
+        /// <summary>
+        /// (Re)promotes the service to the foreground with the right FGS type. When not
+        /// recording it runs as <c>specialUse</c> (background-restartable); while recording
+        /// it also carries the <c>microphone</c> type. specialUse only exists on API 34+, so
+        /// older devices fall back to the microphone type (or no type before API 29).
+        /// </summary>
+        private void UpdateForeground(bool recording)
+        {
+            var notif = BuildNotification();
+            try
+            {
+                if (Build.VERSION.SdkInt >= BuildVersionCodes.UpsideDownCake) // API 34+
+                {
+                    var type = ForegroundService.TypeSpecialUse;
+                    if (recording) type |= ForegroundService.TypeMicrophone;
+                    StartForeground(NotifId, notif, type);
+                }
+                else if (Build.VERSION.SdkInt >= BuildVersionCodes.Q) // API 29–33: no specialUse
+                {
+                    StartForeground(NotifId, notif, ForegroundService.TypeMicrophone);
+                }
+                else // API 26–28
+                {
+                    StartForeground(NotifId, notif);
+                }
+            }
+            catch (System.Exception)
+            {
+                // Elevating to the microphone type can be refused if the system decides the
+                // app isn't in a while-in-use state. Fall back to a plain foreground
+                // notification so the bubble/service stays alive regardless.
+                try { StartForeground(NotifId, notif); } catch { /* ignore */ }
+            }
         }
 
         private sealed class BubbleGestureListener : GestureDetector.SimpleOnGestureListener

@@ -35,6 +35,16 @@ namespace BFSTT.Droid
             set => SetBool("auto_paste", value);
         }
 
+        /// <summary>
+        /// Whether the user has turned the floating bubble on. Persisted so the service
+        /// can be auto-restarted on boot / after being killed without re-opening the app.
+        /// </summary>
+        public static bool BubbleEnabled
+        {
+            get => GetBool("bubble_enabled", false);
+            set => SetBool("bubble_enabled", value);
+        }
+
         public static string ApiKeyFor(string provider) => Get($"key_{provider}", "");
 
         public static void SetApiKey(string provider, string key) => Set($"key_{provider}", key ?? "");

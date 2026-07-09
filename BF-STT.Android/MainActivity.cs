@@ -106,6 +106,22 @@ namespace BFSTT.Droid
             a11yBtn.Click += (s, e) => StartActivity(new Intent(Settings.ActionAccessibilitySettings));
             root.AddView(a11yBtn);
 
+            var disableBtn = new Button(this) { Text = "Tat icon noi" };
+            disableBtn.Click += (s, e) => DisableBubble();
+            root.AddView(disableBtn);
+
+            root.AddView(Divider());
+            root.AddView(Label("De icon noi KHONG bi he thong tat (nhat la Xiaomi/HyperOS, Oppo, Vivo, Huawei), " +
+                               "hay bat ca hai quyen sau roi khoa app trong Recents:"));
+
+            var batteryBtn = new Button(this) { Text = "1) Tat toi uu pin cho app" };
+            batteryBtn.Click += (s, e) => RequestIgnoreBattery();
+            root.AddView(batteryBtn);
+
+            var autostartBtn = new Button(this) { Text = "2) Mo Tu khoi dong (Autostart)" };
+            autostartBtn.Click += (s, e) => OpenAutostartSettings();
+            root.AddView(autostartBtn);
+
             root.AddView(Divider());
             root.AddView(Label("Thu nghiem ngay trong app:"));
 
@@ -165,6 +181,8 @@ namespace BFSTT.Droid
                 return;
             }
 
+            AppSettings.BubbleEnabled = true;
+
             var svc = new Intent(this, typeof(BubbleService));
             if (Build.VERSION.SdkInt >= BuildVersionCodes.O)
                 StartForegroundService(svc);
@@ -172,6 +190,74 @@ namespace BFSTT.Droid
                 StartService(svc);
 
             Toast.MakeText(this, "Icon noi da bat. Ban co the thu nho app.", ToastLength.Short)!.Show();
+        }
+
+        private void DisableBubble()
+        {
+            AppSettings.BubbleEnabled = false;
+            StopService(new Intent(this, typeof(BubbleService)));
+            Toast.MakeText(this, "Da tat icon noi.", ToastLength.Short)!.Show();
+        }
+
+        // ---------- keep-alive: OEM battery / autostart whitelisting ----------
+
+        private void RequestIgnoreBattery()
+        {
+            try
+            {
+                if (Build.VERSION.SdkInt >= BuildVersionCodes.M)
+                {
+                    var intent = new Intent(
+                        Settings.ActionRequestIgnoreBatteryOptimizations,
+                        Android.Net.Uri.Parse("package:" + PackageName));
+                    StartActivity(intent);
+                }
+            }
+            catch
+            {
+                try { StartActivity(new Intent(Settings.ActionIgnoreBatteryOptimizationSettings)); }
+                catch { Toast.MakeText(this, "Khong mo duoc cai dat pin.", ToastLength.Short)!.Show(); }
+            }
+        }
+
+        private void OpenAutostartSettings()
+        {
+            // Known OEM "autostart / background start" screens. Try each, then fall back
+            // to this app's system details page.
+            var candidates = new[]
+            {
+                new ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity"),
+                new ComponentName("com.letv.android.letvsafe", "com.letv.android.letvsafe.AutobootManageActivity"),
+                new ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity"),
+                new ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity"),
+                new ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"),
+                new ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity"),
+            };
+
+            foreach (var c in candidates)
+            {
+                try
+                {
+                    var intent = new Intent();
+                    intent.SetComponent(c);
+                    intent.AddFlags(ActivityFlags.NewTask);
+                    StartActivity(intent);
+                    return;
+                }
+                catch { /* try next OEM */ }
+            }
+
+            try
+            {
+                var intent = new Intent(
+                    Settings.ActionApplicationDetailsSettings,
+                    Android.Net.Uri.Parse("package:" + PackageName));
+                StartActivity(intent);
+            }
+            catch
+            {
+                Toast.MakeText(this, "Khong tim thay man hinh Autostart. Hay bat thu cong trong Cai dat.", ToastLength.Long)!.Show();
+            }
         }
 
         // ---------- in-app test recording ----------

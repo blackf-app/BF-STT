@@ -5,6 +5,12 @@
   <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
   <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+  <!-- Persistent overlay bubble runs as a specialUse FGS when not recording. -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+  <!-- Re-launch the bubble after reboot. -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+  <!-- Let the user exempt the app from battery optimization so it isn't killed. -->
+  <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
   <uses-permission android:name="android.permission.VIBRATE" />
   <uses-feature android:name="android.hardware.microphone" android:required="false" />
@@ -15,5 +21,17 @@
       android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="true"
       android:supportsRtl="true">
+    <!-- Declared in full here (not just via the [Service] attribute) because we need a
+         <property> child for the specialUse FGS subtype (required on Android 14+). When a
+         hand-written <service> matches the [Service] class by name, this XML is
+         authoritative, so foregroundServiceType/exported must be repeated here. -->
+    <service
+        android:name="vn.easygoing.bfstt.BubbleService"
+        android:exported="false"
+        android:foregroundServiceType="specialUse|microphone">
+      <property
+          android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+          android:value="Floating always-on speech-to-text dictation overlay" />
+    </service>
   </application>
 </manifest>

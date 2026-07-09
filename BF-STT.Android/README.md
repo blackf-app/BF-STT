@@ -41,11 +41,34 @@ Linked directly via `<Compile Include="..\Services\STT\...">` in `BF-STT.Android
 | `Audio/WavWriter.cs` | wraps PCM into a WAV buffer the STT providers accept |
 | `Stt/TranscriptionEngine.cs` | picks the provider from settings, calls the reused service, applies the hallucination filter |
 | `PasteAccessibilityService.cs` | optional: finds the focused editable field and inserts text (PASTE → SET_TEXT fallback) |
-| `AppSettings.cs` | `SharedPreferences`-backed settings (per-provider API keys) |
+| `AppSettings.cs` | `SharedPreferences`-backed settings (per-provider API keys, `BubbleEnabled` flag) |
+| `BootReceiver.cs` | re-launches the bubble service after reboot (if the user had it enabled) |
 | `BfSttApp.cs` | `Application` subclass; initialises settings before any component |
 
 Text delivery: always copied to the **clipboard**; if the accessibility service is enabled,
 it is also **inserted** straight into the currently focused text field of whatever app is open.
+
+## Keeping the bubble alive (always-on)
+
+The bubble is meant to stay up like a system helper. To make that reliable:
+
+- The foreground service runs as a **`specialUse`** FGS while idle and only elevates to the
+  **`microphone`** type while actually recording (dropping it again afterwards). `specialUse`
+  is used because a `microphone`-typed service cannot be (re)started from the background,
+  which would break the recovery paths below. *(specialUse requires API 34+; older devices
+  fall back to the microphone type.)*
+- **Survives swipe-from-Recents / process kill:** `BubbleService.OnTaskRemoved` schedules a
+  ~1 s `AlarmManager` restart (a `startForegroundService` `PendingIntent` that outlives the
+  process). Combined with `START_STICKY`.
+- **Survives reboot:** `BootReceiver` re-starts the service on `BOOT_COMPLETED` /
+  `QUICKBOOT_POWERON` when `BubbleEnabled` is set and the overlay permission is still granted.
+
+> ⚠️ **OEM battery killers (Xiaomi/HyperOS, Oppo, Vivo, Huawei…).** No app-side code can
+> fully override an OEM that force-kills background processes. The user must grant, once:
+> **Autostart** and **"No battery restrictions"**, and it helps to **lock the app in Recents**.
+> The settings screen has buttons for both (`Tắt tối ưu pin`, `Mở Tự khởi động`). A normal
+> sideloaded APK cannot become a true persistent system process (`android:persistent` is
+> system-app-only) — this is as close as it gets without rooting the device.
 
 ---
 
@@ -82,7 +105,7 @@ The script sets the toolchain env vars, auto-creates a self-signed release keyst
 (`bfstt-release.keystore`, gitignored) and runs `dotnet publish`.
 
 **Output APK:** `bin/Release/net8.0-android/vn.easygoing.bfstt-Signed.apk`
-(a copy is also placed at `../dist/BF-STT-android-1.0-release.apk`, ~11 MB).
+(a copy is also placed at `../dist/BF-STT-android-<version>-release.apk`, ~11 MB).
 
 - Package: `vn.easygoing.bfstt` · minSdk **26** (Android 8) · targetSdk **34**
 - ABIs: `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` (universal)

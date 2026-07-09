@@ -73,3 +73,8 @@ appsettings.Development.json
 /publish-release
 /publish_test
 
+
+# Android release signing keystore
+BF-STT.Android/bfstt-release.keystore
+.DS_Store
+/dist

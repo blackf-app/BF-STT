@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>BFSTT.Droid</RootNamespace>
+    <AssemblyName>BF-STT.Android</AssemblyName>
+
+    <ApplicationId>vn.easygoing.bfstt</ApplicationId>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationTitle>BF-STT</ApplicationTitle>
+
+    <AndroidManifest>Properties\AndroidManifest.xml</AndroidManifest>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- CRITICAL for sideloading: embed managed assemblies inside the APK so it is
+         self-contained. Without this, Debug builds use Fast Deployment (assemblies pushed
+         separately by adb) and a directly-installed APK aborts with
+         "No assemblies found in .../files/.override ... Exiting...". -->
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <!-- The reused STT services deserialize JSON via reflection (System.Text.Json).
+         Release trimming can otherwise disable reflection-based serialization and break
+         transcript parsing at runtime; keep it explicitly enabled. -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
+    <!-- Marshal methods (native JNI callbacks via [UnmanagedCallersOnly]) trip a Mono
+         startup assertion "!only_unmanaged_callers_only" on this workload (34.0.43),
+         causing SIGABRT before MainActivity loads. Disable them. -->
+    <AndroidEnableMarshalMethods>false</AndroidEnableMarshalMethods>
+    <!-- Keep the MVP simple & build-friendly -->
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <AndroidUseAapt2>true</AndroidUseAapt2>
+  </PropertyGroup>
+
+  <!-- Reuse the portable, HTTP-only STT core from the desktop project verbatim -->
+  <ItemGroup>
+    <Compile Include="..\Services\STT\Abstractions\IBatchSttService.cs" Link="Core\IBatchSttService.cs" />
+    <Compile Include="..\Services\STT\Abstractions\BaseBatchSttService.cs" Link="Core\BaseBatchSttService.cs" />
+    <Compile Include="..\Services\STT\Filters\HallucinationFilter.cs" Link="Core\HallucinationFilter.cs" />
+    <Compile Include="..\Services\STT\Providers\Deepgram\DeepgramService.cs" Link="Core\DeepgramService.cs" />
+    <Compile Include="..\Services\STT\Providers\Deepgram\DeepgramResponse.cs" Link="Core\DeepgramResponse.cs" />
+    <Compile Include="..\Services\STT\Providers\OpenAI\OpenAIBatchService.cs" Link="Core\OpenAIBatchService.cs" />
+    <Compile Include="..\Services\STT\Providers\ElevenLabs\ElevenLabsBatchService.cs" Link="Core\ElevenLabsBatchService.cs" />
+    <Compile Include="..\Services\STT\Providers\ElevenLabs\ElevenLabsResponse.cs" Link="Core\ElevenLabsResponse.cs" />
+  </ItemGroup>
+
+</Project>

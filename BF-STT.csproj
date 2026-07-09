@@ -90,6 +90,10 @@
     <AvaloniaResource Remove="BF-STT.Contracts\**" />
     <Compile Remove="publish\**" />
     <None Remove="publish\**" />
+    <Compile Remove="BF-STT.Android\**" />
+    <EmbeddedResource Remove="BF-STT.Android\**" />
+    <None Remove="BF-STT.Android\**" />
+    <AvaloniaResource Remove="BF-STT.Android\**" />
   </ItemGroup>
 
   <!-- Auto-increment + pre/post build only on Windows -->

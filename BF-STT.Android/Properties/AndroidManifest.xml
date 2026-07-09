@@ -11,7 +11,8 @@
 
   <application
       android:label="BF-STT"
-      android:icon="@drawable/ic_mic"
+      android:icon="@mipmap/ic_launcher"
+      android:roundIcon="@mipmap/ic_launcher_round"
       android:allowBackup="true"
       android:supportsRtl="true">
   </application>

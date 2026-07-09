@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Brand accent (matches the desktop UI recording accent #CC3300) -->
+  <color name="ic_launcher_background">#CC3300</color>
+</resources>

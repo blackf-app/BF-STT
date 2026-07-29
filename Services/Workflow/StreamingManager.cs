@@ -3,6 +3,7 @@ using BF_STT.Services.Audio;
 using BF_STT.Services.Infrastructure;
 using BF_STT.Services.Platform;
 using BF_STT.Services.STT;
+using BF_STT.Services.STT.Filters;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Concurrent;
@@ -190,9 +191,19 @@ namespace BF_STT.Services.Workflow
 
                     if (!isTestMode && e.IsFinal && !string.IsNullOrEmpty(e.Text))
                     {
-                        _historyService.AddEntry(e.Text, streamingApi);
-                        // TargetWindowHandle is managed by the coordinator
-                        await _inputInjector.InjectStreamingTextAsync(e.Text, true);
+                        // Never type non-speech annotations ("[âm nhạc]", "(laughter)")
+                        // into the user's target window.
+                        var text = HallucinationFilter.Sanitize(e.Text);
+                        if (string.IsNullOrWhiteSpace(text))
+                        {
+                            _logger.LogDebug("Discarded non-speech streaming chunk: {Text}", e.Text);
+                        }
+                        else
+                        {
+                            _historyService.AddEntry(text, streamingApi);
+                            // TargetWindowHandle is managed by the coordinator
+                            await _inputInjector.InjectStreamingTextAsync(text, true);
+                        }
                     }
                 }
                 catch (Exception ex)

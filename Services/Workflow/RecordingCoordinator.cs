@@ -376,6 +376,11 @@ namespace BF_STT.Services.Workflow
                     }
                     else
                     {
+                        var (speechFrames, totalFrames, maxRms, maxPeak) = AudioService.RawLevelStats();
+                        _logger.LogInformation(
+                            "Recording skipped as silent: {SpeechFrames}/{TotalFrames} speech frames, " +
+                            "raw maxRms {MaxRms:F4}, raw maxPeak {MaxPeak:F4}",
+                            speechFrames, totalFrames, maxRms, maxPeak);
                         FireStatusChanged("Silent — skipped.");
                         TransitionTo(IdleState.Instance);
                     }

@@ -39,6 +39,34 @@ namespace BF_STT.Services.Audio
         private float _maxPeakLevel;
         private const float SilenceThreshold = 0.01f;
 
+        // ── Pre-AGC (raw) speech evidence ────────────────────────────────────────
+        // Everything below this line is measured on the signal BEFORE Auto Gain
+        // Control. AGC normalises every frame towards TargetLevel with up to 30x
+        // gain, so post-AGC room tone is indistinguishable from real speech — a
+        // silent recording used to sail past every level check and get sent to the
+        // API, where providers answer with audio-event tags ("[âm nhạc]", "[jingle]").
+        private int _rawSpeechFrameCount;
+        private int _rawFrameCount;
+        private float _maxRawPeak;
+        private float _maxRawRms;
+
+        /// <summary>
+        /// Frame RMS (pre-AGC) above which a frame counts as speech — the binding
+        /// condition. ≈ -49 dBFS, roughly 2-3x above quiet-room tone, and low enough
+        /// that a badly-gained microphone still gets through.
+        /// </summary>
+        private const float RawSpeechRmsThreshold = 0.0035f;
+
+        /// <summary>
+        /// Frame peak (pre-AGC) required alongside the RMS threshold. Deliberately set
+        /// below the crest factor of speech at the RMS threshold, so it only rejects
+        /// steady hum with no transients rather than raising the effective RMS bar.
+        /// </summary>
+        private const float RawSpeechPeakThreshold = 0.012f;
+
+        /// <summary>Frames of raw speech required before a recording is worth sending (50ms each).</summary>
+        private const int RawSpeechFramesRequired = 3;
+
         private bool _isSpeaking;
         private int _silenceFrameCount;
         private int _speechFrameCount;
@@ -100,6 +128,11 @@ namespace BF_STT.Services.Audio
             _hasAudio = false;
             _maxPeakLevel = 0;
             _hasSpeechContent = false;
+
+            _rawSpeechFrameCount = 0;
+            _rawFrameCount = 0;
+            _maxRawPeak = 0;
+            _maxRawRms = 0;
 
             _isSpeaking = false;
             _silenceFrameCount = 0;
@@ -189,6 +222,15 @@ namespace BF_STT.Services.Audio
         private void OnCaptureDataAvailable(object? sender, AudioFrameEventArgs e)
         {
             var (finalBuffer, finalBytesRecorded) = _pipeline.Process(e.Buffer, e.BytesRecorded);
+
+            // Raw (pre-AGC) evidence — the only level that survives Auto Gain Control.
+            float rawRms = _pipeline.LastRawRms;
+            float rawPeak = _pipeline.LastRawPeak;
+            _rawFrameCount++;
+            if (rawPeak > _maxRawPeak) _maxRawPeak = rawPeak;
+            if (rawRms > _maxRawRms) _maxRawRms = rawRms;
+            if (rawRms > RawSpeechRmsThreshold && rawPeak > RawSpeechPeakThreshold)
+                _rawSpeechFrameCount++;
 
             float maxSample = 0;
             double sumSquares = 0;
@@ -306,6 +348,11 @@ namespace BF_STT.Services.Audio
         {
             byte[]? audioData = null;
 
+            System.Diagnostics.Debug.WriteLine(
+                $"[AudioRecording] raw speech frames {_rawSpeechFrameCount}/{_rawFrameCount}, " +
+                $"raw maxRms {_maxRawRms:F4}, raw maxPeak {_maxRawPeak:F4} | " +
+                $"post-AGC hasAudio {_hasAudio}, hasSpeech {_hasSpeechContent}");
+
             try
             {
                 if (_memWriter != null && _audioMemory != null && !_discardRecording)
@@ -350,8 +397,17 @@ namespace BF_STT.Services.Audio
             RecordingStopped?.Invoke(this, exception);
         }
 
-        public bool HasMeaningfulAudio() =>
-            _hasSpeechContent || (_hasAudio && _speechFrameCount > 0);
+        /// <summary>
+        /// True when the microphone actually picked up speech during this recording.
+        /// Judged on the pre-AGC signal only — the post-AGC VAD flags (_hasSpeechContent,
+        /// _hasAudio) are kept for the UI meter but are useless as a gate because AGC
+        /// amplifies room tone up to 30x towards the same target level as real speech.
+        /// </summary>
+        public bool HasMeaningfulAudio() => _rawSpeechFrameCount >= RawSpeechFramesRequired;
+
+        /// <summary>Diagnostics for the last/current recording, in the pre-AGC domain.</summary>
+        public (int SpeechFrames, int TotalFrames, float MaxRms, float MaxPeak) RawLevelStats() =>
+            (_rawSpeechFrameCount, _rawFrameCount, _maxRawRms, _maxRawPeak);
 
         public void Dispose()
         {

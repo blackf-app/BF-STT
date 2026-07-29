@@ -48,8 +48,10 @@ namespace BF_STT.Services.STT.Providers.ElevenLabs
             if (IsConnected) return;
 
             // Build WebSocket URL with query parameters
+            // tag_audio_events=false: suppress "[âm nhạc]" / "[jingle]" style non-speech
+            // annotations, which are the only thing silence ever transcribes to.
             var url = $"{_streamingUrl}?model_id={_model}&language_code={language}" +
-                      "&encoding=pcm_s16le&sample_rate=16000";
+                      "&encoding=pcm_s16le&sample_rate=16000&tag_audio_events=false";
 
             try
             {

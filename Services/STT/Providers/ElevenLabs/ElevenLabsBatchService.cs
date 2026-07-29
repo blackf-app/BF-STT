@@ -28,6 +28,11 @@ namespace BF_STT.Services.STT.Providers.ElevenLabs
 
                 content.Add(new StringContent(Model), "model_id");
 
+                // Scribe tags non-speech audio events by default and emits them as
+                // "[âm nhạc]" / "[jingle]" / "[intro music]" — which is all a silent
+                // recording ever comes back as. We only ever want spoken words.
+                content.Add(new StringContent("false"), "tag_audio_events");
+
                 if (!string.IsNullOrWhiteSpace(language))
                 {
                     content.Add(new StringContent(language), "language_code");

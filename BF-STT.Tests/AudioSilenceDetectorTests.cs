@@ -76,6 +76,35 @@ namespace BF_STT.Tests
             Assert.True(AudioSilenceDetector.ContainsSpeech(loud));
         }
 
+        // ─── Stationary noise (AGC-flattened room tone) ──────────────────────
+
+        [Fact]
+        public void ContainsSpeech_LongStationaryNoise_ReturnsFalse()
+        {
+            // Auto Gain Control amplifies a silent room up to 30x, so the recorded
+            // WAV is loud but perfectly uniform — no syllabic gaps anywhere.
+            var noise = WavBuilder.BuildStationaryNoiseWav(durationMs: 2000);
+            Assert.False(AudioSilenceDetector.ContainsSpeech(noise));
+        }
+
+        [Fact]
+        public void ContainsSpeech_ModulatedSignal_ReturnsTrue()
+        {
+            // Same overall level as the stationary case, but with loud/quiet
+            // alternation like real speech.
+            var speech = WavBuilder.BuildModulatedSpeechWav(durationMs: 2000);
+            Assert.True(AudioSilenceDetector.ContainsSpeech(speech));
+        }
+
+        [Fact]
+        public void ContainsSpeech_ShortUniformSignal_ReturnsTrue()
+        {
+            // Under ~1s there aren't enough frames to judge structure, so the
+            // stationarity check must stay out of the way.
+            var shortUniform = WavBuilder.BuildStationaryNoiseWav(durationMs: 500);
+            Assert.True(AudioSilenceDetector.ContainsSpeech(shortUniform));
+        }
+
         // ─── Edge: exactly 44 bytes (valid header, no data) ──────────────────
 
         [Fact]

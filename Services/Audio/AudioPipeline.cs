@@ -22,6 +22,16 @@ namespace BF_STT.Services.Audio
 
         public bool EnableNoiseSuppression { get; private set; }
 
+        /// <summary>
+        /// RMS of the most recent frame measured AFTER the high-pass filter but BEFORE AGC.
+        /// Silence decisions must use this: the post-AGC signal is normalised towards
+        /// <see cref="TargetLevel"/>, so room tone and true speech look identical there.
+        /// </summary>
+        public float LastRawRms { get; private set; }
+
+        /// <summary>Absolute peak of the most recent frame, measured before AGC.</summary>
+        public float LastRawPeak { get; private set; }
+
         public float TargetLevel
         {
             get => _agc.TargetLevel;
@@ -36,6 +46,8 @@ namespace BF_STT.Services.Audio
             EnableNoiseSuppression = enableNoiseSuppression;
             _prevSample = 0;
             _prevHpfOutput = 0;
+            LastRawRms = 0;
+            LastRawPeak = 0;
 
             if (enableNoiseSuppression)
             {
@@ -80,6 +92,18 @@ namespace BF_STT.Services.Audio
                 _prevHpfOutput = hpfOut;
                 floatBuffer[i] = hpfOut;
             }
+
+            // Snapshot the true input level before AGC destroys it.
+            double rawSumSquares = 0;
+            float rawPeak = 0;
+            for (int i = 0; i < sampleCount; i++)
+            {
+                float abs = Math.Abs(floatBuffer[i]);
+                if (abs > rawPeak) rawPeak = abs;
+                rawSumSquares += floatBuffer[i] * floatBuffer[i];
+            }
+            LastRawRms = sampleCount > 0 ? (float)Math.Sqrt(rawSumSquares / sampleCount) : 0f;
+            LastRawPeak = rawPeak;
 
             // Auto Gain Control
             _agc.Process(floatBuffer);

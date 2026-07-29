@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace BF_STT.Services.Audio
@@ -20,6 +21,23 @@ namespace BF_STT.Services.Audio
 
         // Frame size in samples (50ms at 16kHz = 800 samples)
         private const int FrameSizeSamples = 800;
+
+        // ── Stationary-noise rejection ───────────────────────────────────────────
+        // The WAV reaching this detector has already been through Auto Gain Control,
+        // which drives every frame towards the same target level. Room tone therefore
+        // clears the energy threshold above just like speech does. What AGC cannot
+        // fake is *structure*: real speech has syllabic gaps, so a good share of its
+        // frames stay quiet and the loud/quiet spread is wide. Flattened noise has
+        // almost every frame "loud" and a very narrow spread.
+
+        /// <summary>Below this many frames (~1s) the recording is too short to judge structure.</summary>
+        private const int MinFramesForStationarityCheck = 20;
+
+        /// <summary>Speech-frame ratio above which the recording looks suspiciously uniform.</summary>
+        private const float StationarySpeechRatio = 0.95f;
+
+        /// <summary>Loud/quiet frame RMS ratio below which the recording is stationary noise (~6 dB).</summary>
+        private const float MinDynamicRangeRatio = 2.0f;
 
         /// <summary>
         /// Analyzes a WAV PCM file and returns true if it contains meaningful speech.
@@ -127,6 +145,7 @@ namespace BF_STT.Services.Audio
 
             int totalFrames = 0;
             int speechFrames = 0;
+            var frameRms = new List<float>();
 
             double frameEnergy = 0;
             int frameSampleCount = 0;
@@ -182,6 +201,7 @@ namespace BF_STT.Services.Audio
                 {
                     float rms = (float)Math.Sqrt(frameEnergy / frameSampleCount);
                     totalFrames++;
+                    frameRms.Add(rms);
 
                     if (rms > SpeechEnergyThreshold)
                     {
@@ -198,6 +218,7 @@ namespace BF_STT.Services.Audio
             {
                 float rms = (float)Math.Sqrt(frameEnergy / frameSampleCount);
                 totalFrames++;
+                frameRms.Add(rms);
                 if (rms > SpeechEnergyThreshold)
                 {
                     speechFrames++;
@@ -210,7 +231,42 @@ namespace BF_STT.Services.Audio
             System.Diagnostics.Debug.WriteLine(
                 $"[AudioSilenceDetector] Frames: {totalFrames}, Speech: {speechFrames}, Ratio: {speechRatio:P1}");
 
-            return speechRatio >= MinSpeechRatio;
+            if (speechRatio < MinSpeechRatio) return false;
+
+            if (IsStationaryNoise(frameRms, speechRatio)) return false;
+
+            return true;
+        }
+
+        /// <summary>
+        /// Rejects AGC-flattened room tone: a long recording where practically every
+        /// frame is "loud" and the loud/quiet spread is too narrow to contain the
+        /// syllabic gaps of real speech.
+        /// </summary>
+        private static bool IsStationaryNoise(List<float> frameRms, float speechRatio)
+        {
+            if (frameRms.Count < MinFramesForStationarityCheck) return false;
+            if (speechRatio < StationarySpeechRatio) return false;
+
+            var sorted = new List<float>(frameRms);
+            sorted.Sort();
+
+            float loud = Percentile(sorted, 0.90f);
+            float quiet = Percentile(sorted, 0.20f);
+
+            if (quiet <= 1e-6f) return false; // genuine silent stretches present → not flattened
+
+            float range = loud / quiet;
+            System.Diagnostics.Debug.WriteLine(
+                $"[AudioSilenceDetector] p90 {loud:F4} / p20 {quiet:F4} = {range:F2}x dynamic range");
+
+            return range < MinDynamicRangeRatio;
+        }
+
+        private static float Percentile(List<float> sortedValues, float fraction)
+        {
+            int index = (int)(fraction * (sortedValues.Count - 1));
+            return sortedValues[Math.Clamp(index, 0, sortedValues.Count - 1)];
         }
     }
 }

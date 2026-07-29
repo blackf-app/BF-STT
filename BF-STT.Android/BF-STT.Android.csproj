@@ -40,6 +40,7 @@
     <Compile Include="..\Services\STT\Abstractions\IBatchSttService.cs" Link="Core\IBatchSttService.cs" />
     <Compile Include="..\Services\STT\Abstractions\BaseBatchSttService.cs" Link="Core\BaseBatchSttService.cs" />
     <Compile Include="..\Services\STT\Filters\HallucinationFilter.cs" Link="Core\HallucinationFilter.cs" />
+    <Compile Include="..\Services\Audio\AudioSilenceDetector.cs" Link="Core\AudioSilenceDetector.cs" />
     <Compile Include="..\Services\STT\Providers\Deepgram\DeepgramService.cs" Link="Core\DeepgramService.cs" />
     <Compile Include="..\Services\STT\Providers\Deepgram\DeepgramResponse.cs" Link="Core\DeepgramResponse.cs" />
     <Compile Include="..\Services\STT\Providers\OpenAI\OpenAIBatchService.cs" Link="Core\OpenAIBatchService.cs" />

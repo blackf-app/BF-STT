@@ -24,6 +24,43 @@ namespace BF_STT.Tests.Helpers
             return BuildWav(samples);
         }
 
+        /// <summary>
+        /// WAV whose every frame has the same RMS — what AGC turns room tone into.
+        /// Loud enough to clear the energy threshold, but with no syllabic structure.
+        /// </summary>
+        public static byte[] BuildStationaryNoiseWav(
+            int durationMs = 2000, float amplitude = 0.2f, int sampleRate = 16000)
+        {
+            int sampleCount = sampleRate * durationMs / 1000;
+            short level = (short)(amplitude * short.MaxValue);
+            var samples = new short[sampleCount];
+            for (int i = 0; i < sampleCount; i++)
+                samples[i] = (i % 2 == 0) ? level : (short)-level;
+            return BuildWav(samples, sampleRate);
+        }
+
+        /// <summary>
+        /// WAV alternating loud and quiet stretches, mimicking the syllabic gaps of
+        /// real speech. Same overall level as <see cref="BuildStationaryNoiseWav"/>.
+        /// </summary>
+        public static byte[] BuildModulatedSpeechWav(
+            int durationMs = 2000, int segmentMs = 250, int sampleRate = 16000)
+        {
+            int sampleCount = sampleRate * durationMs / 1000;
+            int segmentSamples = sampleRate * segmentMs / 1000;
+            short loud = (short)(0.3f * short.MaxValue);
+            short quiet = (short)(0.002f * short.MaxValue);
+
+            var samples = new short[sampleCount];
+            for (int i = 0; i < sampleCount; i++)
+            {
+                bool inLoudSegment = (i / segmentSamples) % 2 == 0;
+                short level = inLoudSegment ? loud : quiet;
+                samples[i] = (i % 2 == 0) ? level : (short)-level;
+            }
+            return BuildWav(samples, sampleRate);
+        }
+
         /// <summary>Raw bytes that are not a valid WAV file (no RIFF header).</summary>
         public static byte[] BuildInvalidWav()
         {

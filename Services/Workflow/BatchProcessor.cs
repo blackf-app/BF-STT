@@ -75,12 +75,14 @@ namespace BF_STT.Services.Workflow
                 {
                     if (HallucinationFilter.IsHallucination(transcript))
                     {
+                        Debug.WriteLine($"[BatchProcessor] Discarded non-speech transcript: \"{transcript}\"");
                         StatusChanged?.Invoke($"Hallucination — skipped. ({sw.ElapsedMilliseconds}ms)");
                         TranscriptChanged?.Invoke(string.Empty);
                         return;
                     }
 
-                    var finalTranscript = FormatTranscript(transcript);
+                    // Drop any leftover audio-event tags mixed in with real speech.
+                    var finalTranscript = FormatTranscript(HallucinationFilter.Sanitize(transcript));
                     TranscriptChanged?.Invoke(finalTranscript);
                     StatusChanged?.Invoke($"Done. ({sw.ElapsedMilliseconds}ms)");
 
@@ -131,7 +133,9 @@ namespace BF_STT.Services.Workflow
                     var result = await provider.BatchService.TranscribeAsync(audioData, language);
                     sw.Stop();
                     var label = HallucinationFilter.IsHallucination(result) ? "[Hallucination]" : "";
-                    var formatted = label == "" ? FormatTranscript(result) : $"{label} {result}";
+                    var formatted = label == ""
+                        ? FormatTranscript(HallucinationFilter.Sanitize(result))
+                        : $"{label} {result}";
                     await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
                     {
                         ProviderTranscriptChanged?.Invoke(provider.Name, $"[{sw.ElapsedMilliseconds}ms]\n{formatted}");

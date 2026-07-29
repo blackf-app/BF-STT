@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Threading.Tasks;
 
+using BF_STT.Services.Audio;
 using BF_STT.Services.STT.Abstractions;
 using BF_STT.Services.STT.Filters;
 using BF_STT.Services.STT.Providers.Deepgram;
@@ -19,6 +20,15 @@ namespace BFSTT.Droid.Stt
 
         public static async Task<string> TranscribeAsync(byte[] wav, string provider, string apiKey, string language)
         {
+            // Never spend an API call on a recording with no speech — providers answer
+            // silence with non-speech annotations ("[âm nhạc]", "[jingle]") rather than
+            // an empty string. Android records raw PCM with no AGC, so frame energy is
+            // a faithful measure here.
+            if (!AudioSilenceDetector.ContainsSpeech(wav))
+            {
+                return string.Empty;
+            }
+
             IBatchSttService service = provider switch
             {
                 "OpenAI" => new OpenAIBatchService(Http, apiKey, "https://api.openai.com/v1/audio/transcriptions"),
@@ -33,7 +43,8 @@ namespace BFSTT.Droid.Stt
                 return string.Empty;
             }
 
-            return (text ?? string.Empty).Trim();
+            // Strip any audio-event tags mixed in with real speech.
+            return HallucinationFilter.Sanitize(text);
         }
     }
 }

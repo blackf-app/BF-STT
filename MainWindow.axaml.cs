@@ -98,10 +98,7 @@ namespace BF_STT
 
         private void OnGridPointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            {
-                BeginMoveDrag(e);
-            }
+            WindowDragHelper.BeginDragIfChrome(this, e);
         }
     }
 }

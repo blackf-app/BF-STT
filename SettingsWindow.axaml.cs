@@ -162,10 +162,7 @@ namespace BF_STT
 
         private void Window_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
-            if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
-            {
-                BeginMoveDrag(e);
-            }
+            WindowDragHelper.BeginDragIfChrome(this, e);
         }
 
         private async void SaveButton_Click(object? sender, RoutedEventArgs e)

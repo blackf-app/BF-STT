@@ -2,10 +2,13 @@
 #
 # Build the BF-STT Android APK (signed, self-contained, installable).
 #
-# Prereqs on this machine (already provisioned):
-#   - .NET 8 SDK           : ~/.dotnet  (+ android workload, API 34)
-#   - Microsoft OpenJDK 17 : ~/android-jdk/jdk-17.0.19+10
-#   - Android SDK          : ~/Library/Android/sdk (platform android-34, build-tools 34.0.0)
+# Prereqs:
+#   - .NET 8 SDK (+ android workload)
+#   - A JDK 17 and an Android SDK. ANDROID_HOME/JAVA_HOME are used if already exported
+#     by the caller (e.g. scripts/release-all.sh); otherwise this script auto-detects
+#     them via .agents/scripts/find-android-sdk.sh, which falls back to the Android SDK
+#     bundled with an installed Unity Editor (Android Build Support module) if no
+#     standalone Android Studio SDK is provisioned.
 #
 # Notes:
 #   * EmbedAssembliesIntoApk=true (set in the .csproj) makes the APK SELF-CONTAINED, so a
@@ -18,12 +21,16 @@ set -euo pipefail
 
 export DOTNET_ROOT="$HOME/.dotnet"
 export PATH="$HOME/.dotnet:$PATH"
-export JAVA_HOME="$HOME/android-jdk/jdk-17.0.19+10/Contents/Home"
-export ANDROID_HOME="$HOME/Library/Android/sdk"
-export ANDROID_SDK_ROOT="$ANDROID_HOME"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PROJ="$HERE/BF-STT.Android.csproj"
+
+if [ -z "${ANDROID_HOME:-}" ] || [ -z "${JAVA_HOME:-}" ]; then
+  eval "$("$HERE/../.agents/scripts/find-android-sdk.sh")"
+fi
+export ANDROID_SDK_ROOT="$ANDROID_HOME"
+echo ">> Using ANDROID_HOME=$ANDROID_HOME"
+echo ">> Using JAVA_HOME=$JAVA_HOME"
 CONFIG="${1:-Release}"          # Release (default) or Debug
 KS="$HERE/bfstt-release.keystore"
 

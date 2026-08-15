@@ -34,6 +34,17 @@ if [[ -z "${DOTNET_BIN}" ]]; then
     fi
 fi
 
+# APP_VERSION can be passed in by callers (e.g. scripts/release-all.sh) that already
+# know the version being released. Otherwise, read it from BF-STT.csproj so the bundle
+# never drifts from the actual build (do not hardcode a version string here).
+if [[ -z "${APP_VERSION:-}" ]]; then
+    APP_VERSION="$(grep -m1 -o '<Version>[^<]*</Version>' "${PROJECT_DIR}/BF-STT.csproj" | sed 's/<[^>]*>//g')"
+fi
+if [[ -z "${APP_VERSION}" ]]; then
+    echo "Could not determine app version from BF-STT.csproj. Set APP_VERSION=x.y.z." >&2
+    exit 1
+fi
+
 echo ">>> Cleaning previous bundle..."
 rm -rf "${APP_BUNDLE}"
 mkdir -p "${MACOS_DIR}" "${RESOURCES_DIR}"
@@ -49,7 +60,7 @@ echo ">>> Publishing dotnet (rid=${RID}, config=${CONFIG})..."
     -o "${MACOS_DIR}"
 
 echo ">>> Generating Info.plist..."
-cat > "${CONTENTS_DIR}/Info.plist" <<'PLIST'
+cat > "${CONTENTS_DIR}/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyLists-1.0.dtd">
 <plist version="1.0">
@@ -61,9 +72,9 @@ cat > "${CONTENTS_DIR}/Info.plist" <<'PLIST'
     <key>CFBundleIdentifier</key>
     <string>com.bf.stt</string>
     <key>CFBundleVersion</key>
-    <string>1.0.267</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.267</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleExecutable</key>

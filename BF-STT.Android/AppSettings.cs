@@ -23,10 +23,19 @@ namespace BFSTT.Droid
             set => Set("provider", value);
         }
 
+        /// <summary>Speech-recognition language code passed to the STT provider
+        /// ("vi", "en", …), or "auto" for automatic detection.</summary>
         public static string Language
         {
             get => Get("language", "vi");
             set => Set("language", value);
+        }
+
+        /// <summary>App interface (display) language code — one of L.Langs.</summary>
+        public static string UiLang
+        {
+            get => Get("ui_lang", "vi");
+            set => Set("ui_lang", value);
         }
 
         public static bool AutoPaste

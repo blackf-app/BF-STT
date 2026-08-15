@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="app_name">BF-STT</string>
-  <string name="accessibility_desc">Cho phep BF-STT dan van ban da nhan dang vao o nhap lieu dang duoc focus tren man hinh.</string>
+  <string name="accessibility_desc">Cho phép BF-STT dán văn bản đã nhận dạng vào ô nhập liệu đang được chọn trên màn hình.</string>
 </resources>

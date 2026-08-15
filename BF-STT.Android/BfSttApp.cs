@@ -17,6 +17,7 @@ namespace BFSTT.Droid
         {
             base.OnCreate();
             AppSettings.Init(this);
+            L.Lang = AppSettings.UiLang;
         }
     }
 }

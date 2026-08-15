@@ -27,6 +27,14 @@ PROJ="$HERE/BF-STT.Android.csproj"
 CONFIG="${1:-Release}"          # Release (default) or Debug
 KS="$HERE/bfstt-release.keystore"
 
+# Every Android build bumps the version (x.x.x display + versionCode). Pass --no-bump
+# (or set BF_NO_BUMP=1) to skip, e.g. when re-running a failed build.
+NO_BUMP="${BF_NO_BUMP:-0}"
+for a in "$@"; do [ "$a" = "--no-bump" ] && NO_BUMP=1; done
+if [ "$NO_BUMP" != "1" ]; then
+  "$HERE/../.agents/scripts/bump-android-version.sh" "$PROJ"
+fi
+
 # Create the dev keystore on first run.
 if [ ! -f "$KS" ]; then
   echo ">> Creating self-signed release keystore"
@@ -56,3 +64,17 @@ fi
 
 echo ">> APK(s):"
 find "$HERE/bin/$CONFIG/net8.0-android" -name "*-Signed.apk" -maxdepth 1
+
+# Copy the signed Release APK into the repo-level dist/ folder (versioned name).
+# Debug builds are for testing only and are not published to dist/.
+if [ "$CONFIG" = "Release" ]; then
+  DIST="$HERE/../dist"
+  mkdir -p "$DIST"
+  SIGNED_APK="$(find "$HERE/bin/$CONFIG/net8.0-android" -maxdepth 1 -name "*-Signed.apk" | head -n1)"
+  if [ -n "$SIGNED_APK" ]; then
+    VER="$(sed -n 's:.*<ApplicationDisplayVersion>\([^<]*\)</ApplicationDisplayVersion>.*:\1:p' "$PROJ" | head -n1)"
+    DEST="$DIST/BF-STT-Android-v${VER:-unknown}.apk"
+    cp -f "$SIGNED_APK" "$DEST"
+    echo ">> Copied to dist: $DEST"
+  fi
+fi

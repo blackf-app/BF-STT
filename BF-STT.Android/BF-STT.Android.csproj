@@ -9,13 +9,20 @@
     <RootNamespace>BFSTT.Droid</RootNamespace>
     <AssemblyName>BF-STT.Android</AssemblyName>
 
-    <ApplicationId>vn.easygoing.bfstt</ApplicationId>
-    <ApplicationVersion>3</ApplicationVersion>
-    <ApplicationDisplayVersion>1.2</ApplicationDisplayVersion>
+    <ApplicationId>com.blackface.bfstt</ApplicationId>
+    <ApplicationVersion>10</ApplicationVersion>
+    <ApplicationDisplayVersion>1.2.7</ApplicationDisplayVersion>
     <ApplicationTitle>BF-STT</ApplicationTitle>
 
     <AndroidManifest>Properties\AndroidManifest.xml</AndroidManifest>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- SIZE: ship only the 64-bit ARM runtime. A universal APK bundles the .NET/Mono
+         native runtime for all four ABIs (arm64-v8a, armeabi-v7a, x86, x86_64), which is
+         the bulk of the download; x86/x86_64 are only for emulators/Chromebooks and
+         armeabi-v7a only for old 32-bit phones. arm64-v8a covers essentially every Android
+         phone from the last several years (Google Play requires 64-bit). To also support
+         old 32-bit devices, add android-arm:  android-arm64;android-arm -->
+    <RuntimeIdentifiers>android-arm64</RuntimeIdentifiers>
     <!-- CRITICAL for sideloading: embed managed assemblies inside the APK so it is
          self-contained. Without this, Debug builds use Fast Deployment (assemblies pushed
          separately by adb) and a directly-installed APK aborts with

@@ -36,7 +36,16 @@ namespace BFSTT.Droid.Stt
                 _ => new DeepgramService(Http, apiKey, "https://api.deepgram.com/v1/listen", "nova-3"),
             };
 
-            string text = await service.TranscribeAsync(wav, language);
+            // "auto" (or empty) = automatic language detection. Deepgram needs an explicit
+            // multilingual code (nova-3 "multi"); OpenAI/ElevenLabs auto-detect when the
+            // language field is simply omitted (empty string).
+            bool auto = string.IsNullOrWhiteSpace(language)
+                        || string.Equals(language, "auto", System.StringComparison.OrdinalIgnoreCase);
+            string effective = !auto
+                ? language
+                : (provider is "OpenAI" or "ElevenLabs" ? "" : "multi");
+
+            string text = await service.TranscribeAsync(wav, effective);
 
             if (HallucinationFilter.IsHallucination(text))
             {

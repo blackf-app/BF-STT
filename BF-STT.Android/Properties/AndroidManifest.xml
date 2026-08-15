@@ -26,7 +26,7 @@
          hand-written <service> matches the [Service] class by name, this XML is
          authoritative, so foregroundServiceType/exported must be repeated here. -->
     <service
-        android:name="vn.easygoing.bfstt.BubbleService"
+        android:name="com.blackface.bfstt.BubbleService"
         android:exported="false"
         android:foregroundServiceType="specialUse|microphone">
       <property

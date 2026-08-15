@@ -35,7 +35,8 @@ Linked directly via `<Compile Include="..\Services\STT\...">` in `BF-STT.Android
 
 | File | Role |
 |---|---|
-| `MainActivity.cs` | config screen (provider, API key, language) + in-app record test; also the "settings" opened on long-press |
+| `MainActivity.cs` | config screen (provider, API key, language swap, auto-paste) + in-app record test; also the "settings" opened on long-press |
+| `GuideActivity.cs` | in-app usage guide ("Hướng dẫn sử dụng"): detects the device's Android version and shows tailored steps, plus per-version instructions (8→15+) and OEM quirks. Opened from the "Hướng dẫn" button in the header |
 | `BubbleService.cs` | foreground service drawing the floating bubble; tap/hold/drag gestures; recording → transcribe → deliver |
 | `Audio/AndroidAudioRecorder.cs` | mono 16 kHz 16-bit PCM capture via `AudioRecord` |
 | `Audio/WavWriter.cs` | wraps PCM into a WAV buffer the STT providers accept |
@@ -104,11 +105,18 @@ cd BF-STT.Android
 The script sets the toolchain env vars, auto-creates a self-signed release keystore
 (`bfstt-release.keystore`, gitignored) and runs `dotnet publish`.
 
-**Output APK:** `bin/Release/net8.0-android/vn.easygoing.bfstt-Signed.apk`
-(a copy is also placed at `../dist/BF-STT-android-<version>-release.apk`, ~11 MB).
+> **Every build auto-bumps the version** (`.agents/scripts/bump-android-version.sh`, called
+> from `build-apk.sh`): the display version stays in `x.x.x` form and the patch component +
+> the Android `versionCode` both increment. Pass `--no-bump` (or `BF_NO_BUMP=1`) to skip, e.g.
+> when re-running a failed build.
 
-- Package: `vn.easygoing.bfstt` · minSdk **26** (Android 8) · targetSdk **34**
-- ABIs: `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64` (universal)
+**Output APK:** `bin/Release/net8.0-android/com.blackface.bfstt-Signed.apk`
+(the signed **Release** APK is also copied to `../dist/BF-STT-Android-v<version>.apk`, ~3.3 MB).
+
+- Package: `com.blackface.bfstt` · minSdk **26** (Android 8) · targetSdk **34**
+- ABIs: `arm64-v8a` only (`<RuntimeIdentifiers>android-arm64</RuntimeIdentifiers>`) — covers
+  virtually all modern phones and keeps the APK small. Add `android-arm` to also support old
+  32-bit devices (bigger APK); note arm64-only will **not** install on x86/x86_64 emulators.
 - Signed with a release cert (v2+v3 schemes); self-contained (all managed assemblies embedded)
 
 ### Build configuration that matters (set in `BF-STT.Android.csproj`)
@@ -125,18 +133,34 @@ The script sets the toolchain env vars, auto-creates a self-signed release keyst
 
 ```bash
 export ANDROID_HOME="$HOME/Library/Android/sdk"
-"$ANDROID_HOME/platform-tools/adb" install -r dist/BF-STT-android-1.0-release.apk
+"$ANDROID_HOME/platform-tools/adb" install -r dist/BF-STT-Android-v1.2.4.apk   # use the latest version
 ```
 …or copy the `.apk` to the phone and open it (enable "install unknown apps").
 
 > Rebuilds are signed with the **same** keystore, so `install -r` updates in place.
-> If you ever switch keystores, the signature changes → `adb uninstall vn.easygoing.bfstt` first.
+> If you ever switch keystores, the signature changes → `adb uninstall com.blackface.bfstt` first.
+
+### In-app usage guide
+The app ships a full **"Hướng dẫn sử dụng"** screen (open it from the **Hướng dẫn** button in the
+header). It auto-detects the device's Android version and shows the exact steps that version
+needs, and documents every version and OEM quirk (see the per-version notes below).
 
 ### First-run setup
 1. Grant **Microphone** and **Notifications** when prompted.
-2. Enter your **provider + API key** (Deepgram / OpenAI / ElevenLabs), set language (`vi`), **Save**.
+2. Enter your **provider + API key** (Deepgram / OpenAI / ElevenLabs), choose language
+   (Tiếng Việt / English), **Lưu cài đặt**.
 3. Tap **"Bật icon nổi"** → grant **"Display over other apps"**. The floating mic appears.
-4. Use **"Thu âm"** on the main screen to test the pipeline without the overlay.
+4. Use **"Thu âm thử"** on the main screen to test the pipeline without the overlay.
+
+### Usage per Android version
+| Version | What the user must do |
+|---|---|
+| **8–9 (API 26–28)** | Microphone + "Display over other apps". Enable **BF-STT Paste** directly in Settings → Accessibility. |
+| **10–12 (API 29–31)** | Also enable **battery = unrestricted** + **Autostart** so the bubble isn't killed. A mic indicator shows while recording. |
+| **13 (API 33)** | Grant **Notifications** on first launch. **Restricted settings:** Settings → Apps → BF-STT → ⋮ → **Allow restricted settings** *before* the Accessibility toggle can be turned on. |
+| **14 (API 34)** | Bubble runs as a `specialUse`+`microphone` FGS. Still needs the "Allow restricted settings" step for Accessibility. |
+| **15+ (API 35+)** | Same as 14; if the bubble stops after a while, re-check battery + Autostart. |
+| **Xiaomi/HyperOS, Oppo, Vivo, Huawei** | Mandatory **Autostart ON** + **lock app in Recents** + battery unrestricted, and "Allow restricted settings" for Accessibility. |
 
 ### Enabling auto-paste into other apps (accessibility)
 Without this, transcripts still land on the clipboard (long-press a field → Paste). To make

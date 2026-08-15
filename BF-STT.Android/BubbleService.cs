@@ -21,7 +21,7 @@ namespace BFSTT.Droid
     ///   - drag        -> move the bubble around
     /// </summary>
     [Service(
-        Name = "vn.easygoing.bfstt.BubbleService",
+        Name = "com.blackface.bfstt.BubbleService",
         Exported = false,
         // The bubble is a long-lived overlay (specialUse) that only elevates to the
         // microphone type while actually recording. specialUse can be (re)started from
@@ -67,6 +67,7 @@ namespace BFSTT.Droid
             // May be started from boot / an alarm restart with no Activity having run first,
             // so make sure the settings store is ready before we read it.
             AppSettings.Init(this);
+            L.Lang = AppSettings.UiLang;
             AppSettings.BubbleEnabled = true;
 
             CreateChannel();
@@ -238,7 +239,7 @@ namespace BFSTT.Droid
             catch (System.Exception ex)
             {
                 UpdateForeground(recording: false);
-                ShowToast("Khong the thu am: " + ex.Message);
+                ShowToast(L.F("bubble_cant_record", ex.Message));
                 SetState(UiState.Idle);
             }
         }
@@ -253,7 +254,7 @@ namespace BFSTT.Droid
             catch (System.Exception ex)
             {
                 UpdateForeground(recording: false);
-                ShowToast("Loi dung thu: " + ex.Message);
+                ShowToast(L.F("status_stop_error", ex.Message));
                 SetState(UiState.Idle);
                 return;
             }
@@ -276,7 +277,7 @@ namespace BFSTT.Droid
                     {
                         Post(() =>
                         {
-                            ShowToast("Chua co API key. Giu icon de mo cai dat.");
+                            ShowToast(L.T("bubble_no_key"));
                             SetState(UiState.Idle);
                         });
                         return;
@@ -287,7 +288,7 @@ namespace BFSTT.Droid
                     Post(() =>
                     {
                         if (string.IsNullOrWhiteSpace(text))
-                            ShowToast("Khong nhan duoc van ban.");
+                            ShowToast(L.T("status_no_text"));
                         else
                             DeliverText(text);
                         SetState(UiState.Idle);
@@ -297,7 +298,7 @@ namespace BFSTT.Droid
                 {
                     Post(() =>
                     {
-                        ShowToast("STT loi: " + ex.Message);
+                        ShowToast(L.F("status_stt_error", ex.Message));
                         SetState(UiState.Idle);
                     });
                 }
@@ -321,11 +322,11 @@ namespace BFSTT.Droid
 
             string msg;
             if (pasted)
-                msg = "Da dan: " + Ellipsis(text);
+                msg = L.F("bubble_pasted", Ellipsis(text));
             else if (AppSettings.AutoPaste && !PasteAccessibilityService.IsReady)
-                msg = "Da copy (bat Tro nang de tu dan): " + Ellipsis(text);
+                msg = L.F("bubble_copied_a11y", Ellipsis(text));
             else
-                msg = "Da copy: " + Ellipsis(text);
+                msg = L.F("bubble_copied", Ellipsis(text));
 
             ShowToast(msg);
         }
@@ -388,7 +389,7 @@ namespace BFSTT.Droid
             {
                 var ch = new NotificationChannel(ChannelId, "BF-STT", NotificationImportance.Low)
                 {
-                    Description = "Floating speech-to-text bubble"
+                    Description = L.T("notif_channel_desc")
                 };
                 var nm = GetSystemService(NotificationService)!.JavaCast<NotificationManager>()!;
                 nm.CreateNotificationChannel(ch);
@@ -404,8 +405,8 @@ namespace BFSTT.Droid
                 PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
 
             return new Notification.Builder(this, ChannelId)
-                .SetContentTitle("BF-STT dang chay")
-                .SetContentText("Cham icon de thu am - Giu de mo cai dat")
+                .SetContentTitle(L.T("notif_title"))
+                .SetContentText(L.T("notif_text"))
                 .SetSmallIcon(Resource.Drawable.ic_mic)
                 .SetContentIntent(pi)
                 .SetOngoing(true)

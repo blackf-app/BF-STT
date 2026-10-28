@@ -18,6 +18,8 @@ namespace BF_STT.Services.Infrastructure
         public int StopAndSendHotkeyVirtualKeyCode { get; set; } = 0x73; // VK_F4
         public int MicrophoneDeviceNumber { get; set; } = 0;
         public int MaxHistoryItems { get; set; } = 100;
+        /// <summary>Recordings longer than this are cancelled and never sent. 0 = no limit.</summary>
+        public int MaxRecordingMinutes { get; set; } = 10;
 
         // Legacy for migration
         public string? SelectedApi { get; set; } 

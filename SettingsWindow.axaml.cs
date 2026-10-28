@@ -48,6 +48,7 @@ namespace BF_STT
             TestModeCheckBox.IsChecked = _tempSettings.TestMode;
             NoiseSuppressionCheckBox.IsChecked = _tempSettings.EnableNoiseSuppression;
             MaxHistoryLimitTextBox.Text = _tempSettings.MaxHistoryItems.ToString();
+            MaxRecordingMinutesTextBox.Text = _tempSettings.MaxRecordingMinutes.ToString();
 
             // Language selection
             for (int i = 0; i < LanguageComboBox.Items.Count; i++)
@@ -157,6 +158,7 @@ namespace BF_STT
             StopAndSendHotkeyVirtualKeyCode = src.StopAndSendHotkeyVirtualKeyCode,
             MicrophoneDeviceNumber = src.MicrophoneDeviceNumber,
             MaxHistoryItems = src.MaxHistoryItems,
+            MaxRecordingMinutes = src.MaxRecordingMinutes,
             EnableNoiseSuppression = src.EnableNoiseSuppression
         };
 
@@ -213,6 +215,11 @@ namespace BF_STT
             if (int.TryParse(MaxHistoryLimitTextBox.Text, out int maxHistory))
             {
                 _tempSettings.MaxHistoryItems = Math.Clamp(maxHistory, 1, 1000);
+            }
+
+            if (int.TryParse(MaxRecordingMinutesTextBox.Text, out int maxRecordingMinutes))
+            {
+                _tempSettings.MaxRecordingMinutes = Math.Clamp(maxRecordingMinutes, 0, 600);
             }
 
             _settingsService.SaveSettings(_tempSettings);

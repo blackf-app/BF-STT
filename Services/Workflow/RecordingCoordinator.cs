@@ -430,7 +430,7 @@ namespace BF_STT.Services.Workflow
         }
 
         /// <summary>Cancels the current recording session and returns to Idle.</summary>
-        internal async Task CancelRecordingAsync()
+        internal async Task CancelRecordingAsync(string cancelledStatus = "Cancelled.")
         {
             try
             {
@@ -444,7 +444,7 @@ namespace BF_STT.Services.Workflow
                 }
 
                 SoundService.PlayStopSound();
-                FireStatusChanged("Cancelled.");
+                FireStatusChanged(cancelledStatus);
                 ResetState();
             }
             catch (Exception ex)
@@ -582,9 +582,24 @@ namespace BF_STT.Services.Workflow
 
         #region Utilities
 
+        /// <summary>True when a recording has run past the configured limit (0 = no limit).</summary>
+        public static bool ExceedsMaxRecordingDuration(TimeSpan elapsed, int maxMinutes)
+            => maxMinutes > 0 && elapsed >= TimeSpan.FromMinutes(maxMinutes);
+
         private void RecordingTimer_Tick(object? sender, EventArgs e)
         {
             _recordingDuration = _recordingDuration.Add(TimeSpan.FromSeconds(1));
+
+            // A forgotten recording is discarded rather than sent: it is almost never wanted
+            // and a long upload costs provider credits.
+            int maxMinutes = SettingsService.CurrentSettings.MaxRecordingMinutes;
+            if (IsRecording && ExceedsMaxRecordingDuration(_recordingDuration, maxMinutes))
+            {
+                _logger.LogInformation("Recording cancelled after reaching the {MaxMinutes} min limit; audio discarded", maxMinutes);
+                CancelRecordingAsync($"Cancelled: over {maxMinutes} min limit.").SafeFireAndForget(_logger);
+                return;
+            }
+
             string mode = State switch
             {
                 RecordingStateEnum.Streaming => "Streaming",

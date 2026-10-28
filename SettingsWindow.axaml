@@ -100,7 +100,7 @@
                                 </StackPanel>
                             </Grid>
 
-                            <Grid Margin="0,0,0,12" ColumnDefinitions="*,10,*">
+                            <Grid Margin="0,0,0,12" ColumnDefinitions="*,10,*,10,*">
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="Language" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
                                     <ComboBox x:Name="LanguageComboBox" Height="30" HorizontalAlignment="Stretch">
@@ -116,6 +116,11 @@
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Text="History Limit" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
                                     <TextBox x:Name="MaxHistoryLimitTextBox" Height="30" Padding="5,2"/>
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Text="Max Rec (min)" Foreground="#AAAAAA" FontSize="12" Margin="0,0,0,6" FontWeight="SemiBold"/>
+                                    <TextBox x:Name="MaxRecordingMinutesTextBox" Height="30" Padding="5,2"
+                                             ToolTip.Tip="Ghi âm quá số phút này sẽ tự huỷ và không gửi lên server. 0 = không giới hạn."/>
                                 </StackPanel>
                             </Grid>
 

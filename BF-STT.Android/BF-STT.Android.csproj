@@ -10,8 +10,8 @@
     <AssemblyName>BF-STT.Android</AssemblyName>
 
     <ApplicationId>com.blackface.bfstt</ApplicationId>
-    <ApplicationVersion>10</ApplicationVersion>
-    <ApplicationDisplayVersion>1.2.7</ApplicationDisplayVersion>
+    <ApplicationVersion>11</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0.283</ApplicationDisplayVersion>
     <ApplicationTitle>BF-STT</ApplicationTitle>
 
     <AndroidManifest>Properties\AndroidManifest.xml</AndroidManifest>

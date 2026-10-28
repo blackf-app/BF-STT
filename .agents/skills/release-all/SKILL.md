@@ -34,7 +34,7 @@ tag/push, and a GitHub Release; nothing outside the project.
 
 | Host OS | Windows .exe | macOS .app (zipped) | Android .apk |
 |---|---|---|---|
-| macOS   | ✅ cross-published (`dotnet publish -f net8.0-windows -r win-x64`) | ✅ native build via `scripts/build-mac.sh` | ✅ |
+| macOS   | ✅ cross-published single-file (`dotnet publish -f net8.0-windows -r win-x64`) | ✅ native build via `scripts/build-mac.sh` | ✅ |
 | Windows | ✅ native build | ❌ skipped — can't build a macOS bundle from Windows | ✅ |
 
 Asset naming in the GitHub Release: `BF-STT-Windows-vX.X.X.exe`,

@@ -96,8 +96,10 @@ mkdir -p "${ASSETS_DIR}"
 echo "--> Building Windows (net8.0-windows, win-x64)..."
 WIN_OUT="${PROJECT_DIR}/publish/win"
 rm -rf "${WIN_OUT}"
+# Keep the csproj defaults (framework-dependent single file): the release asset is the
+# lone BF-STT.exe that the in-app updater swaps in, so it must carry the app dlls.
 "${DOTNET_BIN}" publish "${CSPROJ}" -f net8.0-windows -r win-x64 -c Release \
-    --self-contained true -p:PublishSingleFile=false -p:IsAutoPublishing=true \
+    -p:IsAutoPublishing=true -p:EnableWindowsTargeting=true \
     -o "${WIN_OUT}" -nologo -clp:NoSummary -v:q
 cp "${WIN_OUT}/BF-STT.exe" "${ASSETS_DIR}/BF-STT-Windows-v${NEW_VERSION}.exe"
 

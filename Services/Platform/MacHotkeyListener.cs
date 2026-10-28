@@ -95,6 +95,19 @@ namespace BF_STT.Services.Platform
 
         private IntPtr HandleEvent(IntPtr proxy, uint type, IntPtr eventRef, IntPtr userInfo)
         {
+            // kCGEventTapDisabledByTimeout = 0xFFFFFFFE, kCGEventTapDisabledByUserInput = 0xFFFFFFFF.
+            // macOS turns the tap off when a callback is too slow (e.g. the process was stalled
+            // across sleep) and never turns it back on, which leaves the hotkey dead until restart.
+            if (type == 0xFFFFFFFE || type == 0xFFFFFFFF)
+            {
+                Serilog.Log.Warning("MacHotkeyListener: event tap disabled by the system (type {Type:X}), re-enabling.", type);
+                // A key-up may have been lost while the tap was off.
+                _isHotkeyTracking = false;
+                _isStopAndSendHotkeyTracking = false;
+                CGEventTapEnable(_eventTap, true);
+                return eventRef;
+            }
+
             // kCGEventKeyDown = 10, kCGEventKeyUp = 11
             if (type != 10 && type != 11) return eventRef;
 

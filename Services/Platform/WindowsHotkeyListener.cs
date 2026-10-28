@@ -25,6 +25,12 @@ namespace BF_STT.Services.Platform
         private bool _isHotkeyTracking = false;
         private bool _isStopAndSendHotkeyTracking = false;
 
+        // Windows silently removes a low-level hook whose callback exceeds LowLevelHooksTimeout
+        // (e.g. the UI thread was busy or the machine resumed from sleep) and gives no way to
+        // detect it, so the hook is re-installed periodically.
+        private static readonly TimeSpan RehookInterval = TimeSpan.FromSeconds(30);
+        private readonly Avalonia.Threading.DispatcherTimer _rehookTimer;
+
         public WindowsHotkeyListener(SettingsService settingsService,
             Action onKeyDown, Action onKeyUp,
             Action onStopAndSendKeyDown, Action onStopAndSendKeyUp)
@@ -36,6 +42,31 @@ namespace BF_STT.Services.Platform
             _onStopAndSendKeyUp = onStopAndSendKeyUp;
             _proc = HookCallback;
             _hookId = SetHook(_proc);
+
+            // Runs on the UI thread, which installed the hook and pumps its messages.
+            _rehookTimer = new Avalonia.Threading.DispatcherTimer { Interval = RehookInterval };
+            _rehookTimer.Tick += (_, _) => Rehook();
+            _rehookTimer.Start();
+        }
+
+        private void Rehook()
+        {
+            // Install the new hook before removing the old one so no key event slips through.
+            // The newest hook runs first and swallows the hotkey, so the old one never double-fires.
+            var newHookId = SetHook(_proc);
+            if (newHookId == IntPtr.Zero)
+            {
+                Serilog.Log.Warning("WindowsHotkeyListener: re-installing keyboard hook failed (error {Error}).",
+                    Marshal.GetLastWin32Error());
+                return;
+            }
+
+            var oldHookId = _hookId;
+            _hookId = newHookId;
+            if (oldHookId != IntPtr.Zero)
+            {
+                UnhookWindowsHookEx(oldHookId);
+            }
         }
 
         private IntPtr SetHook(LowLevelKeyboardProc proc)
@@ -104,6 +135,7 @@ namespace BF_STT.Services.Platform
 
         public void Dispose()
         {
+            _rehookTimer.Stop();
             if (_hookId != IntPtr.Zero)
             {
                 UnhookWindowsHookEx(_hookId);
